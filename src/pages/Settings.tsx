@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DEFAULT_INVOICE_MAIL, MAIL_PLACEHOLDERS } from '../lib/invoiceMail';
 import { DatabaseBackup, Download, FolderOpen, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
 import { setSetting } from '../services/base';
@@ -56,6 +57,7 @@ export default function Settings() {
             <Field label="Médiateur de la consommation" hint="Nom + site, ex. « CNPM Médiation — www.cnpm-mediation-consommation.eu »" className="col-span-2"><Input value={v('mediator')} onChange={(e) => setDraft({ ...draft, mediator: e.target.value })} /></Field>
             <Field label="IBAN (facultatif, pour les virements)" className="col-span-2"><Input value={v('iban')} onChange={(e) => setDraft({ ...draft, iban: e.target.value })} /></Field>
             <Field label="Mention libre (facultatif)" hint="Ex. délais de livraison, droit à l’image…"><Input value={v('invoice_terms')} onChange={(e) => setDraft({ ...draft, invoice_terms: e.target.value })} /></Field>
+            <Field label="Texte de l’e-mail d’envoi de facture" hint={`Objet : « Facture – séance – MF/1.2 ». Variables : ${MAIL_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={9} value={v('invoice_mail_body') || DEFAULT_INVOICE_MAIL} onChange={(e) => setDraft({ ...draft, invoice_mail_body: e.target.value })} /></Field>
           </div>
         </Card>
         <div className="space-y-5">

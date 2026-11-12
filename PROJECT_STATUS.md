@@ -19,6 +19,8 @@
 - Sauvegardes : API backup SQLite en ligne + integrity_check, auto (démarrage + 12 h, rotation), manuelle, export, restauration avec copie de sécurité préalable, vérification d'intégrité ; exports CSV.
 - Mode présentation client : arbre séparé, persistant au redémarrage, sortie par PIN.
 
+- Envoi de facture par e-mail : commande Rust `compose_mail` (PDF dans <données>/factures + AppleScript Mail : destinataire, objet, texte, pièce jointe, message visible, non envoyé) ; repli Finder + mailto ; texte modifiable (`settings.invoice_mail_body`). Testé : unitaires + aperçu navigateur (repli). **Non vérifié sur Mac réel** (autorisation Automatisation à accepter au 1er usage).
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

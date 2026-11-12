@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Ban, Copy, CreditCard, FileDown, History, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Ban, Copy, CreditCard, FileDown, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Textarea, useAsync, useConfirm } from '../components/ui';
 import { OrderBadge, PayBadge } from '../components/badges';
 import { confirmAndDeleteOrder } from '../components/deleteOrder';
 import { addPayment, cancelOrder, deletePayment, duplicateOrder, getOrderDetail, PAYMENT_METHODS, setPaymentPlan, type PaymentMethod } from '../services/orders';
 import { invoicePdfOf, orderInvoicePdf, orderRecapPdf } from '../services/documents';
-import { activeInvoice, invoicesOfOrder } from '../services/invoices';
+import { activeInvoice, invoicesOfOrder, type InvoiceRow } from '../services/invoices';
+import { emailInvoice } from '../services/mail';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -44,11 +45,27 @@ export default function OrderDetail() {
     }, (r) => (r.created ? `Facture ${r.row.number} émise` : `Facture ${r.row.number} enregistrée (duplicata)`));
   };
 
+  const sendMail = async (row?: InvoiceRow) => {
+    if (!row) {
+      const existing = await activeInvoice(id);
+      if (!existing && !(await confirm({ title: 'Émettre la facture ?', text: 'Elle reçoit le prochain numéro de facture et son contenu est figé (obligation légale), puis un e-mail prêt à envoyer s’ouvre dans Mail.', confirm: 'Émettre et préparer l’e-mail' }))) return;
+    }
+    await act(async () => {
+      const r = row ?? (await orderInvoicePdf(id)).row;
+      inv.reload();
+      const how = await emailInvoice(r, { to: o.family_email, firstName: o.contact_first_name, fileName: `${r.kind}-${r.number}-${slug(o.family_name)}.pdf` });
+      return { how, number: r.number };
+    }, (x) => x.how === 'mail'
+      ? `E-mail prêt dans Mail (${x.number})${o.family_email ? '' : ' — aucune adresse e-mail pour ce client'}`
+      : `PDF ${x.number} enregistré — joignez-le au message ouvert`);
+  };
+
   return (
     <>
       <PageHeader back={() => nav(-1)} title={<>Commande <span className="font-mono text-[28px]">{o.number}</span></>}
         subtitle={<div className="flex items-center gap-3"><OrderBadge s={o.status} />{o.status === 'validee' && <PayBadge total={o.total_cents} paid={o.paid_cents} />}<span>{[o.contact_first_name, o.family_name].filter(Boolean).join(' ')} · {o.session_name} · {fmtDate(o.validated_at ?? o.created_at)}</span></div>}
         actions={<>
+          {o.status === 'validee' && <Button icon={<Mail className="size-4" />} onClick={() => sendMail()}>Envoyer par e-mail</Button>}
           {o.status === 'validee' ? <Button variant="gold" icon={<FileDown className="size-4" />} onClick={invoice}>Facture PDF</Button> : <Button icon={<FileDown className="size-4" />} onClick={pdf}>Récapitulatif PDF</Button>}
           {o.status !== 'annulee' && <Button icon={<Pencil className="size-4" />} onClick={() => nav(`/vente/commande/${id}`)}>{o.status === 'validee' ? 'Corriger' : 'Reprendre'}</Button>}
           <Button icon={<Copy className="size-4" />} onClick={async () => { const nid = await act(() => duplicateOrder(id), 'Commande dupliquée en brouillon'); if (nid) nav(`/vente/commande/${nid}`); }}>Dupliquer</Button>
@@ -143,6 +160,7 @@ export default function OrderDetail() {
                     <Badge tone={r.kind === 'avoir' ? 'amber' : r.cancelled_by ? 'neutral' : 'green'}>{r.kind === 'avoir' ? 'Avoir' : r.cancelled_by ? 'Annulée par avoir' : 'Facture'}</Badge>
                     <span className="flex-1 text-mist-400">{fmtDate(r.issued_at)}</span>
                     <span className="tabular">{eur(r.total_cents)}</span>
+                    {!r.cancelled_by && <IconButton title="Envoyer par e-mail" onClick={() => sendMail(r)}><Mail className="size-4" /></IconButton>}
                     <IconButton title="Télécharger le PDF" onClick={() => act(() => saveFile(`${r.kind}-${r.number}.pdf`, invoicePdfOf(r), PDF_FILTER), 'PDF enregistré')}><FileDown className="size-4" /></IconButton>
                   </div>
                 ))}

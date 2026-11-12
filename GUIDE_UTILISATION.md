@@ -285,6 +285,8 @@ Fiche commande (validée) → **Facture PDF** :
 - si la commande est **corrigée, annulée ou supprimée** après facturation, un **avoir** (AV2026-0001…) annule automatiquement la facture ; l’impression suivante émet une nouvelle facture ;
 - toutes les factures et avoirs sont listés dans **Documents PDF → Registre des factures et avoirs** (PDF et export CSV).
 
+**Envoyer par e-mail** (fiche commande, ou icône ✉ dans « Factures & avoirs » et dans le registre) : la facture est enregistrée en PDF puis l’app **Mail** du Mac s’ouvre sur un nouveau message déjà rempli — adresse du client, objet « Facture – {séance} – MF/1.2 », texte de base et facture en pièce jointe. Relisez et cliquez sur **Envoyer** (rien ne part tout seul). Le texte se modifie dans **Paramètres → Facturation** (variables {prenom}, {numero}, {montant}, {reglement}…). La première fois, macOS demande l’autorisation de piloter Mail : répondez **OK** (sinon : Réglages Système → Confidentialité et sécurité → Automatisation). Si Mail ne peut pas être piloté, le PDF est montré dans le Finder et votre messagerie par défaut s’ouvre : glissez-y le PDF.
+
 Pour une commande non validée (brouillon), le bouton reste **Récapitulatif PDF** (document non officiel).
 
 ---

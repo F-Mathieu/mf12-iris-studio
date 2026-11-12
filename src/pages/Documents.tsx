@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, ClipboardList, Download, FileDown, FileText, Receipt, Table2 } from 'lucide-react';
+import { BookOpen, ClipboardList, Download, FileDown, FileText, Mail, Receipt, Table2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Empty, Field, IconButton, PageHeader, Select, Spinner, useAsync, cx } from '../components/ui';
 import { listSessions } from '../services/sessions';
 import { listOrders } from '../services/orders';
 import { invoicePdfOf, orderRecapPdf, productionPdf, sessionCatalogPdf } from '../services/documents';
 import { listInvoices } from '../services/invoices';
+import { emailInvoiceRow } from '../services/mail';
 import { toCsv } from '../lib/csv';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
@@ -88,6 +89,7 @@ function InvoiceRegister() {
             <span className="w-24 text-mist-400 tabular">{fmtDate(r.issued_at)}</span>
             <span className="flex-1">{r.client}</span>
             <span className="tabular">{eur(r.total_cents)}</span>
+            {!r.cancelled_by && <IconButton title="Envoyer par e-mail" onClick={() => act(() => emailInvoiceRow(r), (how) => (how === 'mail' ? `E-mail prêt dans Mail (${r.number})` : `PDF ${r.number} enregistré — joignez-le au message ouvert`))}><Mail className="size-4" /></IconButton>}
             <IconButton title="Télécharger le PDF" onClick={() => act(() => saveFile(`${r.kind}-${r.number}.pdf`, invoicePdfOf(r), PDF_FILTER), 'PDF enregistré')}><FileDown className="size-4" /></IconButton>
           </div>
         ))}

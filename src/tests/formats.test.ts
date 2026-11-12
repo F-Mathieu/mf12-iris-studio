@@ -37,3 +37,29 @@ describe('formats guide', () => {
     expect(arrangementFor(4, 40, 40, 'horizontal').rows).toEqual([2, 2]);
   });
 });
+
+import { invoiceMailBody, invoiceMailSubject, mailtoUrl } from '../lib/invoiceMail';
+describe('e-mail de facture', () => {
+  const d = {
+    kind: 'facture', number: 'F2026-0007', date: '2026-11-12', saleDate: '2026-11-10',
+    seller: { tradeName: 'MF/1.2', legalName: 'Jean Test', status: 'EI', address: 'x', siret: '1', registration: 'r' },
+    client: { name: 'Léa Martin', email: 'lea@example.com' }, order: { number: 'C-1', session: 'Gala TEMPSDANSES' },
+    lines: [], discounts: [], subtotal: 12000, discount: 0, total: 12000, paid: 5000, balance: 7000, payments: [],
+  } as never;
+  it('objet = Facture – séance – MF/1.2', () => expect(invoiceMailSubject(d)).toBe('Facture – Gala TEMPSDANSES – MF/1.2'));
+  it('texte par défaut avec prénom, numéro, montant, solde, signature', () => {
+    const b = invoiceMailBody(d, 'Léa');
+    expect(b.startsWith('Bonjour Léa,')).toBe(true);
+    expect(b).toContain('F2026-0007');
+    expect(b).toContain('Gala TEMPSDANSES');
+    expect(b).toMatch(/120,00\s€/);
+    expect(b).toMatch(/Reste à régler : 70,00\s€/);
+    expect(b).toContain('Jean Test');
+    expect(b).not.toMatch(/\{\w+\}/);
+  });
+  it('texte personnalisé, sans prénom', () => {
+    expect(invoiceMailBody(d, null, '{bonjour} {numero} {inconnu}')).toBe('Bonjour, F2026-0007 {inconnu}');
+    expect(invoiceMailBody({ ...(d as object), balance: 0 } as never, '')).toContain('entièrement réglée');
+  });
+  it('mailto encodé', () => expect(mailtoUrl('a@b.fr', 'Facture – X', 'L1\nL2')).toBe('mailto:a%40b.fr?subject=Facture%20%E2%80%93%20X&body=L1%0AL2'));
+});
