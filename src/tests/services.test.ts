@@ -423,6 +423,21 @@ describe('orders', () => {
     expect((await listExamples(fusion.id)).map((e) => e.id)).toEqual(['eb', 'ec', 'ea']);
   });
 
+  it('production task shows the style example made for the same number of iris', async () => {
+    const { listTasks } = await import('../services/production');
+    const { batch } = await import('../services/base');
+    const x = await setupSale();
+    const now = new Date().toISOString();
+    await batch([
+      { sql: 'INSERT INTO media (id, thumb, full, created_at) VALUES (?,?,?,?),(?,?,?,?)', params: ['m2', 'thumb-2', 'f', now, 'm4', 'thumb-4', 'f', now] },
+      { sql: 'INSERT INTO composition_examples (id, style_id, media_id, iris_count, sort) VALUES (?,?,?,?,?),(?,?,?,?,?)', params: ['e2', x.fusion.id, 'm2', 2, 1, 'e4', x.fusion.id, 'm4', 4, 2] },
+    ]);
+    const ck = uid();
+    await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
+      compositions: [{ key: ck, styleId: x.fusion.id, styleName: 'Fusion', irisCount: 4, feeCents: 8000, participantIds: [], participantNames: '', instructions: '' }], items: [] }, 'validee');
+    expect((await listTasks({ sessionId: x.sid }))[0].example_thumb).toBe('thumb-4');
+  });
+
   it('drafts can be deleted (one or many), validated orders never', async () => {
     const { deleteDraft, deleteDrafts } = await import('../services/orders');
     const x = await setupSale();

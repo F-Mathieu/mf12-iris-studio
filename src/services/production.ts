@@ -28,9 +28,7 @@ export async function listTasks(f: { sessionId?: string; status?: string } = {})
   const tasks = await sel<Task>(
     `SELECT t.*, o.number order_number, o.session_id, s.name session_name, o.family_id, fa.name family_name, o.desired_delivery,
        c.style_id, c.style_name, c.iris_count, c.participant_ids, c.participant_names, c.instructions, c.orientation,
-       i.product_name item_product, i.variant_name item_variant, i.qty item_qty, i.category item_category,
-       (SELECT m.thumb FROM composition_examples e JOIN media m ON m.id=e.media_id WHERE e.style_id=c.style_id
-          ORDER BY (e.iris_count=c.iris_count) DESC, e.sort LIMIT 1) example_thumb
+       i.product_name item_product, i.variant_name item_variant, i.qty item_qty, i.category item_category, NULL example_thumb
      FROM production_tasks t JOIN orders o ON o.id=t.order_id JOIN sessions s ON s.id=o.session_id JOIN families fa ON fa.id=o.family_id
      LEFT JOIN order_compositions c ON c.id=t.composition_id LEFT JOIN order_items i ON i.id=t.order_item_id
      WHERE ${w.join(' AND ')} ORDER BY s.date DESC, fa.name COLLATE NOCASE, o.number`, p);
@@ -43,7 +41,15 @@ export async function listTasks(f: { sessionId?: string; status?: string } = {})
       `SELECT fr.participant_id, p.first_name, fr.reference, fr.file_path, p.family_id FROM file_references fr JOIN participants p ON p.id=fr.participant_id
        WHERE p.family_id IN (SELECT family_id FROM orders WHERE id IN (${ph})) ORDER BY fr.reference`, orderIds),
   ]);
+  // Example image of the style, preferring one made for the same number of iris (computed here: portable across SQLite versions).
+  const styleIds = [...new Set(tasks.map((t) => t.style_id).filter((x): x is string => !!x))];
+  const examples = styleIds.length
+    ? await sel<{ style_id: string; iris_count: number | null; thumb: string }>(
+      `SELECT e.style_id, e.iris_count, m.thumb FROM composition_examples e JOIN media m ON m.id=e.media_id WHERE e.style_id IN (${styleIds.map(() => '?').join(',')}) ORDER BY e.sort`, styleIds)
+    : [];
   for (const t of tasks) {
+    const ex = examples.filter((e) => e.style_id === t.style_id);
+    t.example_thumb = (ex.find((e) => e.iris_count === t.iris_count) ?? ex[0])?.thumb ?? null;
     t.items = t.composition_id ? items.filter((i) => i.composition_id === t.composition_id) : [];
     const pids: string[] = t.participant_ids ? JSON.parse(t.participant_ids) : [];
     t.refs = refs.filter((r) => pids.includes(r.participant_id)).map((r) => ({ participant: r.first_name, reference: r.reference, file_path: r.file_path }));
