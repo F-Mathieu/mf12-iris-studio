@@ -46,6 +46,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const [activeComp, setActiveComp] = useState<string | null>(null);
   const [tab, setTab] = useState<LeftTab>('creations');
   const [styleOpen, setStyleOpen] = useState<Style | null>(null);
+  const [editComp, setEditComp] = useState<CartComp | null>(null);
   const [light, setLight] = useState<{ items: LightItem[]; i: number } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [pinFor, setPinFor] = useState<'discount' | 'validate' | null>(null);
@@ -282,10 +283,11 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
           {cart.compositions.map((c) => {
             const its = cart.items.filter((i) => i.compositionKey === c.key);
             return (
-              <div key={c.key} onClick={() => setActiveComp(c.key)} className={cx('cursor-pointer rounded-xl border p-3 transition', activeComp === c.key ? 'border-gold-500/60 bg-gold-500/[0.06]' : 'border-ink-700 bg-ink-850 hover:border-ink-500')}>
+              <div key={c.key} onClick={() => setActiveComp(c.key)} onDoubleClick={() => { if (!locked && styles.some((st) => st.id === c.styleId)) setEditComp(c); }} title={locked ? undefined : 'Double-cliquez pour modifier cette création'} className={cx('cursor-pointer rounded-xl border p-3 transition', activeComp === c.key ? 'border-gold-500/60 bg-gold-500/[0.06]' : 'border-ink-700 bg-ink-850 hover:border-ink-500')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-semibold">{c.styleName} <span className="font-normal text-mist-400">· {c.irisCount} iris</span></div>
+                    <div className="font-semibold">{c.styleName} <span className="font-normal text-mist-400">· {c.irisCount} iris</span>
+                      {!locked && styles.some((st) => st.id === c.styleId) && <button className="ml-2 text-[11.5px] font-normal text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); setEditComp(c); }}>Modifier</button>}</div>
                     {c.participantNames && <div className="truncate text-[12px] text-mist-400">{c.participantNames}</div>}
                     {c.irisCount > 1 && (locked ? (c.orientation && <div className="text-[12px] text-mist-400">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>) : (
                       <select onClick={(e) => e.stopPropagation()} value={c.orientation ?? ''} onChange={(e) => { const v = (e.target.value || null) as Orientation | null; update((x) => ({ ...x, compositions: x.compositions.map((k) => (k.key === c.key ? { ...k, orientation: v } : k)) })); }}
@@ -363,6 +365,21 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
         </div>
       </aside>
 
+      {editComp && (() => {
+        const st = styles.find((x) => x.id === editComp.styleId)!;
+        return <StyleDialog style={st} examples={exOf(st.id)} participants={participants} price={(n) => stylePrice(st, n)} big={big} initial={editComp}
+          onClose={() => setEditComp(null)} onZoom={(items, i) => setLight({ items, i })}
+          onAdd={(c) => {
+            // Same creation (same key): products stay attached; their price follows the new number of iris when the grid has one.
+            update((x) => ({
+              ...x,
+              compositions: x.compositions.map((k) => (k.key === editComp.key ? { ...c, key: editComp.key } : k)),
+              items: x.items.map((i) => (i.compositionKey === editComp.key && i.variantId ? { ...i, unitPriceCents: findPrice(ctx.rows, 'variant', i.variantId, c.irisCount) ?? i.unitPriceCents } : i)),
+            }));
+            setActiveComp(editComp.key); setEditComp(null);
+            toast.success(`Création ${c.styleName} mise à jour — ${c.irisCount} iris`);
+          }} />;
+      })()}
       {styleOpen && <StyleDialog style={styleOpen} examples={exOf(styleOpen.id)} participants={participants} price={(n) => stylePrice(styleOpen, n)} big={big}
         onClose={() => setStyleOpen(null)} onZoom={(items, i) => setLight({ items, i })}
         onAdd={(c) => { addComposition(c); setStyleOpen(null); }} />}
@@ -408,14 +425,16 @@ function ItemLine({ i, locked, update }: { i: Cart['items'][number]; locked: boo
   );
 }
 
-function StyleDialog({ style, examples, participants, price, big, onClose, onAdd, onZoom }: {
+function StyleDialog({ style, examples, participants, price, big, onClose, onAdd, onZoom, initial }: {
   style: Style; examples: Example[]; participants: { id: string; first_name: string }[]; price: (n: number) => number | null; big: boolean;
   onClose: () => void; onAdd: (c: CartComp) => void; onZoom: (items: LightItem[], i: number) => void;
+  /** Editing an existing creation of the cart. */
+  initial?: CartComp;
 }) {
-  const [sel, setSel] = useState<string[]>(() => defaultIris(style, participants));
-  const [manualCount, setManualCount] = useState(style.min_iris);
-  const [instructions, setInstructions] = useState('');
-  const [orientation, setOrientation] = useState<Orientation>('horizontal');
+  const [sel, setSel] = useState<string[]>(() => initial ? initial.participantIds.filter((id) => participants.some((p) => p.id === id)) : defaultIris(style, participants));
+  const [manualCount, setManualCount] = useState(initial?.irisCount ?? style.min_iris);
+  const [instructions, setInstructions] = useState(initial?.instructions ?? '');
+  const [orientation, setOrientation] = useState<Orientation>(initial?.orientation ?? 'horizontal');
   const count = participants.length ? sel.length : manualCount;
   const valid = count >= style.min_iris && count <= style.max_iris;
   const p = valid ? price(count) : null;
@@ -428,11 +447,11 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
       footer={<>
         <div className="mr-auto text-[13px] text-mist-400">{valid ? '' : `Ce style accepte de ${style.min_iris} à ${style.max_iris} iris.`}</div>
         <span className="mr-3 text-[22px] font-semibold text-gold-400 tabular">{p != null ? (p === 0 ? 'Inclus' : eur(p)) : '—'}</span>
-        <Button variant="gold" size="lg" disabled={!valid || p == null} icon={<Plus className="size-4" />} onClick={() => onAdd({
+        <Button variant="gold" size="lg" disabled={!valid || p == null} icon={initial ? <Check className="size-4" /> : <Plus className="size-4" />} onClick={() => onAdd({
           key: uid(), styleId: style.id, styleName: style.name, irisCount: count, feeCents: p ?? 0,
           participantIds: sel, participantNames: participants.filter((x) => sel.includes(x.id)).map((x) => x.first_name).join(', '), instructions,
           orientation: count > 1 ? orientation : null,
-        })}>Ajouter cette création</Button>
+        })}>{initial ? 'Mettre à jour la création' : 'Ajouter cette création'}</Button>
       </>}>
       <div className="grid grid-cols-[1fr_320px] gap-6">
         <div>
