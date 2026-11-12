@@ -259,6 +259,9 @@ CREATE TABLE invoices (
 );
 CREATE INDEX idx_invoices_order ON invoices(order_id);
 `,
+  /* 6 — option rattachée à un article (ex. cadre sous un tirage) : id de la ligne parente. */ `
+ALTER TABLE order_items ADD COLUMN parent_item_id TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

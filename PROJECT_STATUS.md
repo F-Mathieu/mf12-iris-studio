@@ -21,6 +21,8 @@
 
 - Envoi de facture par e-mail : commande Rust `compose_mail` (PDF dans <données>/factures + AppleScript Mail : destinataire, objet, texte, pièce jointe, message visible, non envoyé) ; repli Finder + mailto ; texte modifiable (`settings.invoice_mail_body`). Testé : unitaires + aperçu navigateur (repli). **Non vérifié sur Mac réel** (autorisation Automatisation à accepter au 1er usage).
 
+- Tirages papier Onelab (petits/grands formats, DPII Lustre) + option « Cadre Flybox 5 + acrylique anti-reflet » rattachée à une ligne de tirage (`order_items.parent_item_id`, migration 6 ; `settings.print_frame`) : quantité suivie, retrait en cascade, duplication, liste « Impressions à commander ». Import CSV fournisseur : liaison auto Support = produit, Format = variante. Prix d’achat fournis par CSV local (jamais dans le dépôt). Testé : unitaires + aperçu navigateur.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

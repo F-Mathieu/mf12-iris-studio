@@ -74,14 +74,15 @@ export async function listPrintLines(sessionId?: string): Promise<PrintLine[]> {
   const rows = await sel<Omit<PrintLine, 'supplier_id' | 'supplier_name' | 'unit_cost'>>(
     `SELECT i.id order_item_id, o.id order_id, o.number order_number, o.session_id, s.name session_name, fa.name family_name,
        i.product_name, i.variant_name, i.variant_id, i.qty, c.style_name, i.composition_id,
-       so.id supplier_order_id, so.status supplier_order_status
+       so.id supplier_order_id, so.status supplier_order_status, i.category
      FROM order_items i JOIN orders o ON o.id=i.order_id JOIN sessions s ON s.id=o.session_id JOIN families fa ON fa.id=o.family_id
      LEFT JOIN order_compositions c ON c.id=i.composition_id
      LEFT JOIN supplier_order_items soi ON soi.order_item_id=i.id LEFT JOIN supplier_orders so ON so.id=soi.supplier_order_id AND so.status<>'annulee'
-     WHERE o.status='validee' AND i.category='impression' ${sessionId ? 'AND o.session_id=?' : ''}
+     WHERE o.status='validee' AND i.category IN ('impression','option') ${sessionId ? 'AND o.session_id=?' : ''}
      ORDER BY s.date DESC, i.product_name, i.variant_name`, sessionId ? [sessionId] : []);
   const costs = await variantCosts();
-  return rows.map((r) => {
+  // Options (e.g. frames) are listed only when a supplier provides them.
+  return rows.filter((r) => (r as { category?: string }).category === 'impression' || (r.variant_id && costs.has(r.variant_id))).map((r) => {
     const c = r.variant_id ? costs.get(r.variant_id) : undefined;
     return { ...r, supplier_id: c?.supplierId ?? '', supplier_name: c?.supplierName || 'Fournisseur non défini', unit_cost: c?.cost ?? null };
   });

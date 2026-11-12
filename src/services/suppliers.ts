@@ -116,7 +116,11 @@ export function parseSupplierCsv(text: string) {
 export async function importSupplierRows(supplierId: string, rows: ReturnType<typeof parseSupplierCsv>['rows']) {
   const existing = await listSupplierProducts(supplierId);
   const stmts: Stmt[] = [];
-  let created = 0, priced = 0, skipped = 0;
+  let created = 0, priced = 0, skipped = 0, linked = 0;
+  // Auto-link to the catalogue: « Support » = product name, « Format » = format (variant name).
+  const variants = await sel<{ id: string; product: string; name: string; preferred: string | null }>(
+    'SELECT v.id, p.name product, v.name, v.preferred_supplier_product_id preferred FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.archived=0 AND p.archived=0');
+  const norm = (x: string | null | undefined) => (x ?? '').trim().toLowerCase();
   for (const r of rows) {
     if (r.errors.length || r.price_cents == null) { skipped++; continue; }
     let sp = existing.find((e) => (r.sku && e.sku === r.sku) || (!r.sku && e.name === r.name && (e.format ?? '') === (r.format ?? '')));
@@ -125,12 +129,20 @@ export async function importSupplierRows(supplierId: string, rows: ReturnType<ty
       spId = uid(); created++;
       stmts.push(insertStmt('supplier_products', { id: spId, supplier_id: supplierId, name: r.name, sku: r.sku, support: r.support, format: r.format, finish: r.finish, created_at: nowIso() }));
     }
+    if (!sp?.variant_id && r.support && r.format) {
+      const v = variants.find((x) => norm(x.product) === norm(r.support) && norm(x.name) === norm(formatLabel(r.format)));
+      if (v) {
+        stmts.push({ sql: "UPDATE supplier_products SET variant_id=?, equivalence='equivalent' WHERE id=?", params: [v.id, spId] });
+        if (!v.preferred) { stmts.push({ sql: 'UPDATE product_variants SET preferred_supplier_product_id=? WHERE id=?', params: [spId, v.id] }); v.preferred = spId; }
+        linked++;
+      }
+    }
     if (!sp || sp.price_cents !== r.price_cents || sp.valid_from !== (r.valid_from ?? sp.valid_from)) { stmts.push(priceStmt(spId, { ...r, price_cents: r.price_cents })); priced++; }
     sp = undefined;
   }
-  stmts.push(auditStmt('supplier', supplierId, 'csv_import', { created, priced, skipped }));
+  stmts.push(auditStmt('supplier', supplierId, 'csv_import', { created, priced, skipped, linked }));
   await batch(stmts);
-  return { created, priced, skipped };
+  return { created, priced, skipped, linked };
 }
 
 export async function archiveSupplier(id: string, archived = true) {

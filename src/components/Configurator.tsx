@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { parsePrintFrame } from '../services/onelab';
 import { BadgePercent, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, Stepper, Textarea, useAsync, useConfirm, cx } from './ui';
@@ -91,6 +92,35 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const comp = cart.compositions.find((c) => c.key === activeComp) ?? null;
   const variantPrice = (v: Variant, iris = comp?.irisCount ?? 0) => findPrice(ctx.rows, 'variant', v.id, iris);
   const exOf = (styleId: string) => examples.filter((e) => e.style_id === styleId);
+  const frameCfg = parsePrintFrame(settings.print_frame);
+  const frameProduct = frameCfg ? products.find((p) => p.id === frameCfg.frame) ?? null : null;
+  /** Frame offered under a print line (same format), with its sale price; null if none applies. */
+  const frameOffer = (i: Cart['items'][number]) => {
+    if (!frameCfg || !frameProduct || i.parentKey || !i.productId || !frameCfg.prints.includes(i.productId)) return null;
+    const v = variants.find((x) => x.product_id === frameProduct.id && x.name === i.variantName);
+    if (!v) return null;
+    const iris = cart.compositions.find((c) => c.key === i.compositionKey)?.irisCount ?? 0;
+    return { v, price: findPrice(ctx.rows, 'variant', v.id, iris) };
+  };
+  const addFrame = (i: Cart['items'][number]) => {
+    const f = frameOffer(i);
+    if (!f || f.price == null || !frameProduct) return;
+    update((x) => ({ ...x, items: [...x.items, { key: uid(), variantId: f.v.id, productId: frameProduct.id, category: frameProduct.category, productName: frameProduct.name, variantName: f.v.name,
+      compositionKey: i.compositionKey ?? null, parentKey: i.key, qty: i.qty, unitPriceCents: f.price!, unitCostCents: costs.get(f.v.id)?.cost ?? 0 }] }));
+  };
+  const renderItems = (list: Cart['items']) => list.filter((i) => !i.parentKey || !list.some((p) => p.key === i.parentKey)).map((i) => {
+    const kids = list.filter((k) => k.parentKey === i.key);
+    const offer = !locked && !kids.length ? frameOffer(i) : null;
+    return (
+      <div key={i.key} className="space-y-1">
+        <ItemLine i={i} locked={locked} update={update} />
+        {kids.map((k) => <div key={k.key} className="ml-3 border-l border-gold-500/40 pl-2"><ItemLine i={k} locked={locked} update={update} child /></div>)}
+        {offer && (offer.price != null
+          ? <button className="ml-3 text-[12px] text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); addFrame(i); }}>+ Ajouter un cadre ({frameProduct!.name.replace(/^Cadre /, '')}) · {eur(offer.price)}</button>
+          : mode === 'admin' && <div className="ml-3 text-[11.5px] text-mist-500">Cadre {i.variantName} : prix de vente non défini dans la grille</div>)}
+      </div>
+    );
+  });
 
   const update = (fn: (c: Cart) => Cart) => setCart((c) => (c ? fn(c) : c));
   const addComposition = (c: CartComp, stay = false) => {
@@ -123,7 +153,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     if (price == null) { toast.error('Prix non défini pour ce produit dans la grille de la séance.'); return; }
     update((x) => {
       const ex = x.items.find((i) => i.variantId === v.id && i.compositionKey === compKey);
-      if (ex) return { ...x, items: x.items.map((i) => (i === ex ? { ...i, qty: i.qty + 1 } : i)) };
+      if (ex) return { ...x, items: x.items.map((i) => (i === ex || i.parentKey === ex.key ? { ...i, qty: i.qty + 1 } : i)) };
       return { ...x, items: [...x.items, { key: uid(), variantId: v.id, productId: p.id, category: p.category, productName: p.name, variantName: v.name, compositionKey: compKey, qty: 1, unitPriceCents: price, unitCostCents: costs.get(v.id)?.cost ?? 0 }] };
     });
   };
@@ -144,7 +174,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     }
   };
 
-  const productsOf = (cat: LeftTab) => products.filter((p) => p.category === cat && (!p.style_id || !comp || p.style_id === comp.styleId || cat !== 'numerique'));
+  const productsOf = (cat: LeftTab) => products.filter((p) => p.category === cat && p.id !== frameCfg?.frame && (!p.style_id || !comp || p.style_id === comp.styleId || cat !== 'numerique'));
   const big = mode === 'client';
 
   return (
@@ -303,14 +333,14 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                     {!locked && <IconButton title="Retirer" onClick={(e) => { e.stopPropagation(); removeComposition(c.key); }}><X className="size-3.5" /></IconButton>}
                   </div>
                 </div>
-                {its.length > 0 && <div className="mt-2 space-y-1.5 border-t border-ink-700/70 pt-2">{its.map((i) => <ItemLine key={i.key} i={i} locked={locked} update={update} />)}</div>}
+                {its.length > 0 && <div className="mt-2 space-y-1.5 border-t border-ink-700/70 pt-2">{renderItems(its)}</div>}
                 {activeComp === c.key && !its.length && !locked && <div className="mt-2 text-[12px] text-gold-300/80">Ajoutez un fichier numérique ou une impression →</div>}
               </div>
             );
           })}
           {cart.items.filter((i) => !i.compositionKey).length > 0 && (
             <div className="rounded-xl border border-ink-700 bg-ink-850 p-3"><div className="mb-1.5 text-[12px] font-medium text-mist-400">Autres articles</div>
-              <div className="space-y-1.5">{cart.items.filter((i) => !i.compositionKey).map((i) => <ItemLine key={i.key} i={i} locked={locked} update={update} />)}</div></div>
+              <div className="space-y-1.5">{renderItems(cart.items.filter((i) => !i.compositionKey))}</div></div>
           )}
         </div>
         <div className="border-t border-ink-700 px-5 py-4">
@@ -414,13 +444,15 @@ function defaultIris(style: Style, participants: { id: string }[]) {
   return participants.slice(0, style.max_iris).map((p) => p.id);
 }
 
-function ItemLine({ i, locked, update }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void }) {
+function ItemLine({ i, locked, update, child }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void; child?: boolean }) {
+  // A print's quantity is followed by its attached options (frame); removing it removes them.
+  const setQty = (q: number) => update((c) => ({ ...c, items: c.items.map((x) => (x.key === i.key || x.parentKey === i.key ? { ...x, qty: q } : x)) }));
   return (
     <div className="flex items-center gap-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
       <div className="min-w-0 flex-1"><div className="truncate">{i.productName}</div><div className="text-[11.5px] text-mist-400">{i.variantName} · {eur(i.unitPriceCents)}</div></div>
-      {locked ? <span className="tabular">× {i.qty}</span> : <Stepper value={i.qty} onChange={(q) => update((c) => ({ ...c, items: c.items.map((x) => (x.key === i.key ? { ...x, qty: q } : x)) }))} />}
+      {locked || child ? <span className="tabular">× {i.qty}</span> : <Stepper value={i.qty} onChange={setQty} />}
       <span className="w-[72px] text-right font-medium tabular">{eur(i.qty * i.unitPriceCents)}</span>
-      {!locked && <IconButton title="Retirer" className="size-7" onClick={() => update((c) => ({ ...c, items: c.items.filter((x) => x.key !== i.key) }))}><Minus className="size-3.5" /></IconButton>}
+      {!locked && <IconButton title="Retirer" className="size-7" onClick={() => update((c) => ({ ...c, items: c.items.filter((x) => x.key !== i.key && x.parentKey !== i.key) }))}><Minus className="size-3.5" /></IconButton>}
     </div>
   );
 }

@@ -33,7 +33,7 @@ describe('migrations & seed', () => {
     expect((await sel('SELECT * FROM families')).length).toBe(0);
     expect((await sel('SELECT * FROM suppliers')).length).toBe(2);
     const prints = (await listProducts()).filter((p) => p.category === 'impression').map((p) => p.name);
-    expect(prints).toEqual(['Acrylique 3 mm', 'Acrylique 5 mm', 'Alu Dibond', 'HD Metal Print']);
+    expect(prints).toEqual(['Acrylique 3 mm', 'Acrylique 5 mm', 'Alu Dibond', 'HD Metal Print', 'Tirage photo petit format', 'Tirage photo grand format']);
   });
 
   it('migration 2 restricts supports on an existing database (history kept)', async () => {
@@ -67,12 +67,12 @@ describe('migrations & seed', () => {
 
   it('print supports and frames: structure only, no purchase price in the code', async () => {
     const products = await listProducts();
-    expect(products.filter((p) => p.category === 'impression').map((p) => p.name)).toEqual(['Acrylique 3 mm', 'Acrylique 5 mm', 'Alu Dibond', 'HD Metal Print']);
+    expect(products.filter((p) => p.category === 'impression').map((p) => p.name)).toEqual(['Acrylique 3 mm', 'Acrylique 5 mm', 'Alu Dibond', 'HD Metal Print', 'Tirage photo petit format', 'Tirage photo grand format']);
     const cadre = products.find((p) => p.name === 'Cadre gamme 6')!;
     expect(cadre).toMatchObject({ category: 'option', needs_composition: 1 });
     const variants = await listVariants();
     expect(variants.filter((v) => v.product_id === cadre.id)).toHaveLength(12);
-    expect(variants.filter((v) => products.find((p) => p.id === v.product_id)?.category === 'impression')).toHaveLength(48);
+    expect(variants.filter((v) => products.find((p) => p.id === v.product_id)?.category === 'impression')).toHaveLength(48 + 12 + 15);
     expect((await sel('SELECT * FROM supplier_prices')).length).toBe(0);
     expect((await sel('SELECT * FROM price_list_items')).length).toBe(0);
   });
@@ -107,6 +107,27 @@ describe('migrations & seed', () => {
     expect(sps).toHaveLength(1);
     expect(sps[0].price_cents).toBe(5500);
     expect(parseSupplierCsv('Produit;Prix;Prix TTC (oui/non)\r\nX;10;\r\n').rows[0].errors.join()).toContain('oui ou non');
+  });
+
+  it('paper prints + Flybox frame: structure, print_frame setting, CSV import links to the catalogue', async () => {
+    const { parsePrintFrame, FRAME_NAME, applyOnelabPaper } = await import('../services/onelab');
+    const { getSetting } = await import('../services/base');
+    expect(await applyOnelabPaper()).toBe(false); // idempotent
+    const products = await listProducts();
+    const cfg = parsePrintFrame(await getSetting('print_frame'))!;
+    const frame = products.find((p) => p.id === cfg.frame)!;
+    expect(frame).toMatchObject({ name: FRAME_NAME, category: 'option' });
+    expect(cfg.prints.map((id) => products.find((p) => p.id === id)!.name)).toEqual(['Tirage photo petit format', 'Tirage photo grand format']);
+    const vs = await listVariants();
+    expect(vs.filter((v) => v.product_id === frame.id).map((v) => v.name)).toContain('20 × 20 cm');
+    expect(vs.filter((v) => v.product_id === cfg.prints[0]).map((v) => v.name)).toContain('10 × 15 cm');
+    const { parseSupplierCsv, importSupplierRows } = await import('../services/suppliers');
+    const sup = (await sel<{ id: string }>("SELECT id FROM suppliers WHERE name='Onelab Pro'"))[0].id;
+    const r = await importSupplierRows(sup, parseSupplierCsv(`Produit;Support;Format;Prix;Prix TTC (oui/non);TVA %\r\nTest tirage;Tirage photo petit format;10x15;1,00;non;20\r\nTest cadre;${FRAME_NAME};20x20;10,00;non;20\r\nInconnu;Autre;10x15;1,00;non;20\r\n`).rows);
+    expect(r).toMatchObject({ created: 3, linked: 2 });
+    const costs = await variantCosts();
+    const v15 = vs.find((v) => v.product_id === cfg.prints[0] && v.name === '10 × 15 cm')!;
+    expect(costs.get(v15.id)?.cost).toBe(120); // HT + TVA non récupérable
   });
 
   it('supplier products not in the catalogue: created and linked in one click', async () => {
@@ -256,6 +277,17 @@ describe('orders', () => {
     };
     const draft = await saveCart(cart, 'brouillon');
     expect(draft.number).toMatch(/^\d{4}-0001$/);
+    // an option attached to a print line keeps its link (saved, reloaded, duplicated)
+    const withFrame = await loadCart(draft.id);
+    const parent = withFrame.items[1];
+    withFrame.items.push({ key: uid(), variantId: null, productId: null, category: 'option', productName: 'Cadre', variantName: '40 × 40 cm', compositionKey: ck, parentKey: parent.key, qty: 2, unitPriceCents: 5000, unitCostCents: 0 });
+    await saveCart(withFrame, 'brouillon');
+    expect((await loadCart(draft.id)).items[2].parentKey).toBe(parent.key);
+    const dup = await loadCart(await duplicateOrder(draft.id));
+    expect(dup.items[2].parentKey).toBe(dup.items[1].key);
+    expect(dup.items[2].parentKey).not.toBe(parent.key);
+    withFrame.items.pop();
+    await saveCart(withFrame, 'brouillon');
     const reloaded = await loadCart(draft.id);
     expect(reloaded.items).toHaveLength(2);
     reloaded.items[1].qty = 1; // quantity change

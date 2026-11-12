@@ -64,7 +64,7 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
   if (!o) throw new Error('Commande introuvable');
   const comps = await sel<{ id: string; style_id: string | null; style_name: string; iris_count: number; participant_ids: string; participant_names: string | null; instructions: string | null; fee_cents: number; orientation: string | null }>(
     'SELECT * FROM order_compositions WHERE order_id=? ORDER BY sort', [orderId]);
-  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number }>(
+  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number; parent_item_id: string | null }>(
     'SELECT * FROM order_items WHERE order_id=? ORDER BY sort', [orderId]);
   const disc = await sel<{ label: string; amount_cents: number; reason: string | null }>("SELECT * FROM order_discounts WHERE order_id=? AND kind='manual'", [orderId]);
   const cart: Cart = {
@@ -72,7 +72,7 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
     compositions: comps.map((c) => ({ key: c.id, styleId: c.style_id, styleName: c.style_name, irisCount: c.iris_count, feeCents: c.fee_cents,
       participantIds: JSON.parse(c.participant_ids), participantNames: c.participant_names ?? '', instructions: c.instructions ?? '', orientation: (c.orientation as Orientation | null) ?? null })),
     items: items.map((i) => ({ key: i.id, variantId: i.variant_id, productId: i.product_id, category: i.category, productName: i.product_name,
-      variantName: i.variant_name, compositionKey: i.composition_id, qty: i.qty, unitPriceCents: i.unit_price_cents, unitCostCents: i.unit_cost_cents })),
+      variantName: i.variant_name, compositionKey: i.composition_id, parentKey: i.parent_item_id, qty: i.qty, unitPriceCents: i.unit_price_cents, unitCostCents: i.unit_cost_cents })),
     manual: disc.map((d) => ({ label: d.label, amount_cents: d.amount_cents, reason: d.reason })),
     notes: o.notes ?? '', desiredDelivery: o.desired_delivery, paymentPlan: o.payment_plan ? JSON.parse(o.payment_plan) : null,
   };
@@ -142,10 +142,10 @@ export async function saveCart(cart: Cart, target: 'brouillon' | 'validee', corr
     params: [c.key, id, c.styleId, c.styleName, c.irisCount, JSON.stringify(c.participantIds), c.participantNames, c.instructions || null, c.feeCents, n, c.orientation ?? null],
   }));
   cart.items.forEach((i, n) => stmts.push({
-    sql: `INSERT INTO order_items (id, order_id, composition_id, variant_id, product_id, category, product_name, variant_name, qty, unit_price_cents, line_total_cents, unit_cost_cents, sort)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, qty=excluded.qty,
+    sql: `INSERT INTO order_items (id, order_id, composition_id, variant_id, product_id, category, product_name, variant_name, qty, unit_price_cents, line_total_cents, unit_cost_cents, sort, parent_item_id)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, parent_item_id=excluded.parent_item_id, qty=excluded.qty,
           unit_price_cents=excluded.unit_price_cents, line_total_cents=excluded.line_total_cents, unit_cost_cents=excluded.unit_cost_cents, sort=excluded.sort`,
-    params: [i.key, id, i.compositionKey ?? null, i.variantId, i.productId, i.category, i.productName, i.variantName ?? null, i.qty, i.unitPriceCents, i.qty * i.unitPriceCents, i.unitCostCents, n],
+    params: [i.key, id, i.compositionKey ?? null, i.variantId, i.productId, i.category, i.productName, i.variantName ?? null, i.qty, i.unitPriceCents, i.qty * i.unitPriceCents, i.unitCostCents, n, i.parentKey ?? null],
   }));
   stmts.push({ sql: 'DELETE FROM order_discounts WHERE order_id=?', params: [id] });
   for (const d of t.discounts)
@@ -219,8 +219,10 @@ export async function duplicateOrder(id: string): Promise<string> {
   const copy: Cart = {
     ...c, orderId: null, number: undefined, status: 'brouillon',
     compositions: c.compositions.map((x) => { const k = uid(); map.set(x.key, k); return { ...x, key: k }; }),
-    items: c.items.map((x) => ({ ...x, key: uid(), compositionKey: x.compositionKey ? map.get(x.compositionKey) ?? null : null })),
+    items: [],
   };
+  const imap = new Map(c.items.map((x) => [x.key, uid()]));
+  copy.items = c.items.map((x) => ({ ...x, key: imap.get(x.key)!, compositionKey: x.compositionKey ? map.get(x.compositionKey) ?? null : null, parentKey: x.parentKey ? imap.get(x.parentKey) ?? null : null }));
   const ctx = await pricingContext(c.sessionId);
   for (const x of copy.compositions) if (x.styleId) x.feeCents = findPrice(ctx.rows, 'style', x.styleId, x.irisCount) ?? x.feeCents;
   for (const x of copy.items) if (x.variantId) x.unitPriceCents = findPrice(ctx.rows, 'variant', x.variantId, copy.compositions.find((k) => k.key === x.compositionKey)?.irisCount ?? 0) ?? x.unitPriceCents;

@@ -43,6 +43,8 @@ export interface CartItem {
   productName: string;
   variantName?: string | null;
   compositionKey?: string | null;
+  /** Option attached to another line of the cart (e.g. a frame under a print): follows its quantity. */
+  parentKey?: string | null;
   styleId?: string | null; // style of the linked composition (for pack/promo selectors)
   qty: number;
   unitPriceCents: number;

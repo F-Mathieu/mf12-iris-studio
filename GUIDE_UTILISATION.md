@@ -104,6 +104,8 @@ Cliquez sur un produit pour :
 - **Livraison / unité** (bouton *Modifier* du fournisseur) : vous pouvez y répartir une estimation des frais de port par tirage.
 - **Import CSV** : bouton *Modèle CSV*, à remplir dans Excel, puis *Import CSV*. Les lignes sans prix, ou sans « oui/non » dans la colonne *Prix TTC*, sont refusées : aucun prix n'est inventé.
 - **Produit fournisseur absent du Catalogue** (ex. un cadre) : ouvrez sa ligne → *Créer dans le catalogue et lier* (choisissez la catégorie, ex. Options), ou *Ajouter les non liés au catalogue* pour tous d'un coup. Fixez ensuite son prix de vente (template **et** Séance → Paramètres).
+- **Liaison automatique à l’import** : si la colonne *Support* porte exactement le nom d’un produit du Catalogue et *Format* un de ses formats (ex. `Tirage photo petit format` + `10x15`), la ligne est liée directement.
+- **Tirages papier et cadre** : le Catalogue contient *Tirage photo petit format* (7 × 10 à 20 × 25 cm) et *Tirage photo grand format* (20 × 30 à 50 × 100 cm), papier Fujifilm DPII Lustre, ainsi que l’option *Cadre Flybox 5 + acrylique anti-reflet* (20 × 20 à 50 × 100 cm). Dans le panier, sous un tirage, le lien **+ Ajouter un cadre** ajoute le cadre du même format, à la même quantité. Le cadre n’apparaît pas dans l’onglet Options : il se choisit uniquement sous un tirage. Le lien ne s’affiche que si le cadre de ce format a un prix de vente dans la grille.
 - Onglet **Comparateur** : pour un format donné, il affiche le prix catalogue, la remise, la TVA, le port, le coût réel, votre prix de vente et la marge.
 
 ### 2.5 Templates tarifaires — vos prix de vente

@@ -99,7 +99,7 @@ function SupplierDetail({ supplier, onEdit, reload }: { supplier: Supplier; onEd
       {price && <PriceDialog sp={price} supplier={supplier} onClose={() => setPrice(null)} onSaved={() => { setPrice(null); d.reload(); }} />}
       {hist && <HistoryDialog sp={hist} onClose={() => setHist(null)} />}
       {imp && (
-        <Modal open onClose={() => setImp(null)} size="lg" title="Import des tarifs fournisseur" footer={<><Button variant="ghost" onClick={() => setImp(null)}>Annuler</Button><Button variant="gold" disabled={!imp.rows.some((r) => !r.errors.length)} onClick={() => act(() => importSupplierRows(supplier.id, imp.rows), (r) => `${r.created} produit(s) créé(s), ${r.priced} prix ajouté(s), ${r.skipped} ignoré(s)`).then(() => { setImp(null); d.reload(); reload(); })}>Importer</Button></>}>
+        <Modal open onClose={() => setImp(null)} size="lg" title="Import des tarifs fournisseur" footer={<><Button variant="ghost" onClick={() => setImp(null)}>Annuler</Button><Button variant="gold" disabled={!imp.rows.some((r) => !r.errors.length)} onClick={() => act(() => importSupplierRows(supplier.id, imp.rows), (r) => `${r.created} produit(s) créé(s), ${r.priced} prix ajouté(s), ${r.linked} lié(s) au catalogue, ${r.skipped} ignoré(s)`).then(() => { setImp(null); d.reload(); reload(); })}>Importer</Button></>}>
           <div className="max-h-[50vh] overflow-auto text-[12.5px]">{imp.rows.map((r) => (
             <div key={r.line} className={cx('flex justify-between border-b border-ink-700/50 py-1.5', r.errors.length && 'text-red-300')}><span>{r.line}. {r.name} {r.format}</span><span>{r.errors.length ? r.errors.join(', ') : `${eur(r.price_cents)} ${r.price_is_ttc ? 'TTC' : 'HT'}`}</span></div>
           ))}</div>
