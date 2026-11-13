@@ -159,20 +159,51 @@ function products(doc: jsPDF, d: BrochureData) {
     y = title(doc, y, CAT_TITLE[cat][0], CAT_TITLE[cat][1]);
     for (const p of prods) {
       const framed = p.variants.some((v) => v.framed != null);
-      const need = 22 + Math.min(p.variants.length, 6) * 7;
-      if (y + need > H - 22) y = newPage(doc, d.brand, CAT_TITLE[cat][0], d.session);
-      const hasImg = img(doc, p.image, M, y, 30, 30);
-      const tx = hasImg ? M + 36 : M;
-      text(doc, 12.5, INK, 'bold'); doc.text(p.name, tx, y + 5);
-      let yy = y + 10;
-      if (p.description) { text(doc, 8.8, GREY); const t = doc.splitTextToSize(p.description, W - M - tx); doc.text(t.slice(0, 4), tx, yy); yy += Math.min(4, t.length) * 4 + 1; }
-      if (framed) { text(doc, 8.6, GOLD, 'bold'); doc.text(`Encadrement possible : ${d.frameName ?? 'cadre'} (prix « avec cadre » = tirage + cadre).`, tx, yy, { maxWidth: W - M - tx }); yy += 5; }
-      const head = framed ? [['Format', 'Tirage seul', 'Avec cadre']] : [['Format', 'Prix']];
-      const body: RowInput[] = p.variants.map((v) => (framed ? [v.name, eur(v.price), v.framed != null ? eur(v.framed) : '—'] : [v.name, eur(v.price)]));
-      autoTable(doc, { ...tableStyle, startY: Math.max(yy + 1, hasImg ? y + 32 : 0), head, body, margin: { ...tableStyle.margin, left: tx, top: 40 },
-        styles: { ...tableStyle.styles, fontSize: 9, cellPadding: 1.8 },
-        columnStyles: framed ? { 1: { halign: 'right', cellWidth: 32 }, 2: { halign: 'right', cellWidth: 32, fontStyle: 'bold' } } : { 1: { halign: 'right', cellWidth: 36 } } });
-      y = lastY(doc) + 10;
+      const asList = !framed && p.variants.length <= 3; // few prices: dotted lines instead of a table
+      const IMG = 24, tx = p.image ? M + IMG + 7 : M, tw = W - M - tx;
+      text(doc, 8.8, GREY);
+      const desc = p.description ? (doc.splitTextToSize(p.description, tw) as string[]).slice(0, 4) : [];
+      // whole block height, so a product is never split between two pages
+      const h = Math.max(p.image ? IMG : 0, 7 + desc.length * 4 + (framed ? 5 : 0) + (asList ? p.variants.length * 6 : 9 + Math.ceil(p.variants.length / (p.variants.length > 6 ? 2 : 1)) * 6.2)) + 9;
+      if (y + Math.min(h, H - 64) > H - 22) y = newPage(doc, d.brand, CAT_TITLE[cat][0], d.session);
+      const top = y, page = doc.getCurrentPageInfo().pageNumber;
+      img(doc, p.image, M, top, IMG, IMG);
+      text(doc, 12.5, INK, 'bold'); doc.text(p.name, tx, top + 5);
+      let yy = top + 10.5;
+      if (desc.length) { text(doc, 8.8, GREY); doc.text(desc, tx, yy); yy += desc.length * 4; }
+      if (framed) { text(doc, 8.6, GOLD, 'bold'); doc.text(`Encadrement possible : ${d.frameName ?? 'cadre'} (prix « avec cadre » = tirage + cadre).`, tx, yy, { maxWidth: tw }); yy += 5; }
+      if (asList) {
+        yy += 2;
+        for (const v of p.variants) {
+          text(doc, 9.5, INK); doc.text(v.name, tx, yy);
+          doc.setFont('helvetica', 'bold'); doc.text(eur(v.price), W - M, yy, { align: 'right' });
+          doc.setDrawColor(215, 212, 205); doc.setLineWidth(0.15); doc.setLineDashPattern([0.6, 0.9], 0);
+          doc.line(tx + doc.getTextWidth(v.name) + 2, yy - 0.6, W - M - doc.getTextWidth(eur(v.price)) - 2, yy - 0.6);
+          doc.setLineDashPattern([], 0);
+          yy += 6;
+        }
+        y = Math.max(yy, p.image ? top + IMG : 0) + 8;
+      } else {
+        const head = framed ? [['Format', 'Tirage seul', 'Avec cadre']] : [['Format', 'Prix']];
+        const rowOf = (v: (typeof p.variants)[number]): RowInput => (framed ? [v.name, eur(v.price), v.framed != null ? eur(v.framed) : '—'] : [v.name, eur(v.price)]);
+        // long lists: two tables side by side (half the height)
+        const half = p.variants.length > 6 ? Math.ceil(p.variants.length / 2) : p.variants.length;
+        const parts = [p.variants.slice(0, half), p.variants.slice(half)].filter((x) => x.length);
+        const gap = 6, colW = parts.length > 1 ? (tw - gap) / 2 : tw;
+        let end = 0, endPage = page;
+        parts.forEach((part, k) => {
+          if (k > 0) doc.setPage(page);
+          const left = tx + k * (colW + gap);
+          autoTable(doc, { ...tableStyle, startY: yy + 1, head, body: part.map(rowOf), margin: { ...tableStyle.margin, left, right: W - left - colW, top: 40 },
+            styles: { ...tableStyle.styles, fontSize: 8.8, cellPadding: 1.7 },
+            columnStyles: framed ? { 1: { halign: 'right', cellWidth: parts.length > 1 ? 22 : 32 }, 2: { halign: 'right', cellWidth: parts.length > 1 ? 22 : 32, fontStyle: 'bold' } } : { 1: { halign: 'right', cellWidth: parts.length > 1 ? 26 : 36 } } });
+          const pg = doc.getCurrentPageInfo().pageNumber; // page where this table ended
+          if (pg > endPage || (pg === endPage && lastY(doc) > end)) { end = pg > endPage ? lastY(doc) : Math.max(end, lastY(doc)); endPage = pg; }
+        });
+        doc.setPage(endPage);
+        (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY = end;
+        y = (endPage === page ? Math.max(lastY(doc), p.image ? top + IMG : 0) : lastY(doc)) + 10;
+      }
     }
   }
 }
@@ -190,7 +221,7 @@ function packs(doc: jsPDF, d: BrochureData) {
       if (t.length) { text(doc, 8.8, GREY); doc.text(t, M + 6, y + 11.5); }
       y += h + 4;
     }
-    y += 4;
+    y += 10;
   }
   if (d.conditions) {
     y = title(doc, y, 'Conditions');
