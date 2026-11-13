@@ -258,41 +258,57 @@ fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
-/// AppleScript run with arguments (no string escaping needed): new visible Mail message with attachment.
+/// AppleScript run with arguments (no string escaping needed): new visible Mail message with attachments
+/// (argv: to, subject, body, then one path per attachment).
 const MAIL_SCRIPT: &str = r#"on run argv
   set toAddr to item 1 of argv
   set subj to item 2 of argv
   set bodyText to item 3 of argv
-  set att to POSIX file (item 4 of argv)
+  set n to count of argv
+  set atts to {}
+  repeat with i from 4 to n
+    set end of atts to POSIX file (item i of argv)
+  end repeat
   tell application "Mail"
     set msg to make new outgoing message with properties {subject:subj, content:bodyText & return & return, visible:true}
     tell msg
       if toAddr is not "" then make new to recipient at end of to recipients with properties {address:toAddr}
-      tell content to make new attachment with properties {file name:att} at after last paragraph
+      repeat with att in atts
+        tell content to make new attachment with properties {file name:(contents of att)} at after last paragraph
+      end repeat
     end tell
     activate
   end tell
 end run"#;
 
-/// Saves the PDF in <data>/factures and opens a ready-to-send message in Mail.
-/// Falls back to revealing the file + opening the mailto link (default mail app) if Mail can't be scripted.
+#[derive(Deserialize)]
+struct MailFile {
+    name: String,
+    bytes: Vec<u8>,
+}
+
+/// Saves the attachments in <data>/envois and opens a ready-to-send message in Mail (nothing is sent).
+/// Falls back to revealing the files + opening the mailto link (default mail app) if Mail can't be scripted.
 #[tauri::command]
-fn compose_mail(app: tauri::AppHandle, to: String, subject: String, body: String, file_name: String, bytes: Vec<u8>, mailto: String) -> Result<String, String> {
-    let dir = data_dir(&app)?.join("factures");
+fn compose_mail(app: tauri::AppHandle, to: String, subject: String, body: String, files: Vec<MailFile>, mailto: String) -> Result<String, String> {
+    let dir = data_dir(&app)?.join("envois");
     fs::create_dir_all(&dir).map_err(err)?;
-    let safe: String = file_name.chars().map(|c| if c == '/' || c == ':' { '-' } else { c }).collect();
-    let path = dir.join(safe);
-    fs::write(&path, &bytes).map_err(err)?;
-    let p = path.to_string_lossy().to_string();
-    let ok = std::process::Command::new("osascript")
-        .args(["-e", MAIL_SCRIPT, &to, &subject, &body, &p])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let mut paths: Vec<String> = Vec::new();
+    for f in &files {
+        let safe: String = f.name.chars().map(|c| if c == '/' || c == ':' { '-' } else { c }).collect();
+        let path = dir.join(safe);
+        fs::write(&path, &f.bytes).map_err(err)?;
+        paths.push(path.to_string_lossy().to_string());
+    }
+    let mut args: Vec<&str> = vec!["-e", MAIL_SCRIPT, &to, &subject, &body];
+    args.extend(paths.iter().map(|p| p.as_str()));
+    let ok = std::process::Command::new("osascript").args(&args).output().map(|o| o.status.success()).unwrap_or(false);
     if ok {
         return Ok("mail".into());
     }
-    let _ = std::process::Command::new("open").args(["-R", &p]).status();
+    if let Some(first) = paths.first() {
+        let _ = std::process::Command::new("open").args(["-R", first]).status();
+    }
     std::process::Command::new("open").arg(&mailto).status().map_err(err)?;
     Ok("fallback".into())
 }

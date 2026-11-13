@@ -9,6 +9,9 @@ import { todayIso } from '../lib/ids';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { clientName, issueInvoice, type InvoiceRow } from './invoices';
 import { invoicePdf } from '../lib/pdf';
+import { brochurePdf, type BrochureData } from '../lib/brochure';
+import { cropForPdf } from '../lib/images';
+import { parsePrintFrame } from './onelab';
 import { catalogPdf, clientRecapPdf, productionSheetPdf, type Brand, type CatalogData } from '../lib/pdf';
 
 export async function brand(): Promise<Brand> {
@@ -20,10 +23,14 @@ export async function orderRecapPdf(orderId: string) {
   const d = await getOrderDetail(orderId);
   if (!d) throw new Error('Commande introuvable');
   const { order: o, cart, payments, discounts } = d;
+  const covers = await sel<{ style_id: string; thumb: string }>('SELECT e.style_id, m.thumb FROM composition_examples e JOIN media m ON m.id=e.media_id ORDER BY e.sort');
+  const imageOf = async (styleId: string | null) => { const t = covers.find((x) => x.style_id === styleId)?.thumb; return t ? cropForPdf(t, 1, 480) : null; };
+  const images = await Promise.all(cart.compositions.map((c) => imageOf(c.styleId)));
   return clientRecapPdf({
+    draft: o.status === 'brouillon',
     brand: await brand(), number: o.number, date: o.validated_at ?? o.created_at, status: ORDER_STATUS[o.status], session: o.session_name,
     family: clientName(o.contact_first_name, o.family_name), contact: [o.family_phone, o.family_email].filter(Boolean).join(' · '),
-    compositions: cart.compositions.map((c) => ({ style: c.styleName, iris: c.irisCount, participants: c.participantNames, fee: c.feeCents,
+    compositions: cart.compositions.map((c, n) => ({ style: c.styleName, iris: c.irisCount, participants: c.participantNames, fee: c.feeCents, image: images[n],
       orientation: c.orientation ? ORIENTATION_LABEL[c.orientation].toLowerCase() : null, instructions: c.instructions || null,
       items: cart.items.filter((i) => i.compositionKey === c.key).map((i) => ({ name: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, qty: i.qty, unit: i.unitPriceCents })) })),
     looseItems: cart.items.filter((i) => !i.compositionKey).map((i) => ({ name: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, qty: i.qty, unit: i.unitPriceCents })),
@@ -59,7 +66,57 @@ export async function catalogData(sessionId: string): Promise<CatalogData> {
     promotions: promos.map((p) => ({ name: p.name, description: p.description })),
   };
 }
-export const sessionCatalogPdf = async (sessionId: string, compact = false) => catalogPdf(await catalogData(sessionId), compact);
+/** Catalogue: illustrated brochure (default) or compact price grid. */
+export const sessionCatalogPdf = async (sessionId: string, compact = false) => (compact ? catalogPdf(await catalogData(sessionId), true) : sessionBrochurePdf(sessionId));
+
+/** Data of the illustrated brochure: session sale prices, style examples (cover first), product photos, frame prices. */
+export async function brochureData(sessionId: string, forName?: string | null): Promise<BrochureData> {
+  const c = await catalogData(sessionId);
+  const settings = await getSettings();
+  const s = await one<{ price_list_id: string | null }>('SELECT price_list_id FROM sessions WHERE id=?', [sessionId]);
+  const rows = s?.price_list_id ? await getPriceItems(s.price_list_id) : [];
+  const styles = (await listStyles()).filter((x) => x.active);
+  const ex = await sel<{ style_id: string; full: string; thumb: string }>('SELECT e.style_id, m.full, m.thumb FROM composition_examples e JOIN media m ON m.id=e.media_id ORDER BY e.sort');
+  const products = (await listProducts()).filter((p) => p.active);
+  const variants = (await listVariants()).filter((v) => v.active);
+  const media = await sel<{ id: string; thumb: string }>('SELECT m.id, m.thumb FROM media m JOIN products p ON p.media_id=m.id');
+  const frameCfg = parsePrintFrame(settings.print_frame);
+  const frameProduct = frameCfg ? products.find((p) => p.id === frameCfg.frame) : undefined;
+  /** Generic price, or the lowest price by number of iris. */
+  const priceOf = (id: string) => {
+    const g = findPrice(rows, 'variant', id);
+    if (g != null) return { price: g, byIris: false };
+    const ps = rows.filter((r) => r.kind === 'variant' && r.ref_id === id && r.enabled).map((r) => r.price_cents);
+    return ps.length ? { price: Math.min(...ps), byIris: new Set(ps).size > 1 } : null;
+  };
+  const styleOut = await Promise.all(c.styles.map(async (st, i) => {
+    const imgs = ex.filter((e) => e.style_id === styles[i]?.id);
+    return { ...st, hero: imgs[0] ? await cropForPdf(imgs[0].full, 1, 1100) : null, thumbs: await Promise.all(imgs.slice(1, 4).map((e) => cropForPdf(e.thumb, 1, 480))) };
+  }));
+  const coverSrc = ex.find((e) => styles.some((st) => st.id === e.style_id))?.full;
+  const productOut = await Promise.all(products.filter((p) => p.id !== frameProduct?.id).map(async (p) => {
+    const vs = variants.filter((v) => v.product_id === p.id).map((v) => {
+      const pr = priceOf(v.id);
+      if (!pr) return null;
+      let framed: number | null | undefined;
+      if (frameProduct && frameCfg!.prints.includes(p.id)) {
+        const fv = variants.find((x) => x.product_id === frameProduct.id && x.name === v.name);
+        const fp = fv ? findPrice(rows, 'variant', fv.id) : null;
+        framed = fp != null ? pr.price + fp : null;
+      }
+      return { name: pr.byIris ? `${v.name} (dès, selon le nombre d’iris)` : v.name, price: pr.price, framed };
+    }).filter((v): v is NonNullable<typeof v> => !!v);
+    const m = media.find((x) => x.id === p.media_id);
+    const styleName = p.style_id ? styles.find((st) => st.id === p.style_id)?.name : null;
+    return { category: p.category, name: styleName && !p.name.includes(styleName) ? `${p.name} — ${styleName}` : p.name, description: p.description, image: m ? await cropForPdf(m.thumb, 1, 480) : null, variants: vs };
+  }));
+  return {
+    brand: c.brand, session: c.session, date: todayIso(), forName: forName ?? null, intro: settings.brochure_intro || null, conditions: c.conditions,
+    cover: coverSrc ? await cropForPdf(coverSrc, 210 / 165, 1600) : null,
+    styles: styleOut, products: productOut, frameName: frameProduct?.name.replace(/^Cadre /, 'cadre ') ?? null, promotions: c.promotions,
+  };
+}
+export const sessionBrochurePdf = async (sessionId: string, forName?: string | null) => brochurePdf(await brochureData(sessionId, forName));
 
 export async function productionPdf(f: { sessionId?: string; taskIds?: string[] }, title: string) {
   let tasks = await listTasks({ sessionId: f.sessionId });

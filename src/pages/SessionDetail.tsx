@@ -70,7 +70,7 @@ export default function SessionDetail() {
                 <div className="flex justify-between"><span className="text-mist-400">Créations / tâches à produire</span><span className="tabular">{kpi.data.toProduce}</span></div>
                 <div className="flex justify-between"><span className="text-mist-400">Livrées</span><span className="tabular">{kpi.data.delivered}</span></div>
                 <div className="flex justify-between"><span className="text-mist-400">Produits vendus</span><span className="tabular">{kpi.data.itemsSold}</span></div>
-                <div className="pt-2"><Button size="sm" variant="subtle" icon={<FileDown className="size-3.5" />} onClick={() => act(async () => { const b = await sessionCatalogPdf(id); return saveFile(`catalogue-${slug(session.name)}.pdf`, b, PDF_FILTER); }, 'Catalogue PDF enregistré')}>Catalogue PDF de la séance</Button></div>
+                <div className="pt-2"><Button size="sm" variant="subtle" icon={<FileDown className="size-3.5" />} onClick={() => act(async () => { const b = await sessionCatalogPdf(id); return saveFile(`brochure-${slug(session.name)}.pdf`, b, PDF_FILTER); }, 'Brochure PDF enregistrée')}>Brochure des offres (PDF)</Button></div>
               </div>
             </Card>
           </div>

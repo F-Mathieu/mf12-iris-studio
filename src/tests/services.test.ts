@@ -334,6 +334,42 @@ describe('orders', () => {
     await expect(saveCart(await loadCart(dupId), 'validee')).rejects.toThrow('annulée');
   });
 
+  it('brochure (sale prices, framed print price, no internal data) and draft recap « Votre sélection »', async () => {
+    const x = await setupSale();
+    const { parsePrintFrame } = await import('../services/onelab');
+    const { getSetting } = await import('../services/base');
+    const cfg = parsePrintFrame(await getSetting('print_frame'))!;
+    const vs = await listVariants();
+    const print20 = vs.find((v) => v.product_id === cfg.prints[0] && v.name === '20 × 20 cm')!;
+    const frame20 = vs.find((v) => v.product_id === cfg.frame && v.name === '20 × 20 cm')!;
+    const pl = (await getSession(x.sid))!.price_list_id!;
+    await setPrice(pl, 'variant', print20.id, 0, 1500);
+    await setPrice(pl, 'variant', frame20.id, 0, 4500);
+    const { brochureData, sessionBrochurePdf, orderRecapPdf } = await import('../services/documents');
+    const data = await brochureData(x.sid, 'Léa Martin');
+    const paper = data.products.find((p) => p.name === 'Tirage photo petit format')!;
+    expect(paper.variants).toEqual([{ name: '20 × 20 cm', price: 1500, framed: 6000 }]);
+    expect(data.products.some((p) => p.name.startsWith('Cadre Flybox'))).toBe(false); // offered under the prints only
+    const txt = new TextDecoder('latin1').decode(await sessionBrochurePdf(x.sid, 'Léa Martin'));
+    expect(txt.startsWith('%PDF-')).toBe(true);
+    for (const w of ['Fusion', '80,00', '60,00', '15,00']) expect(txt).toContain(w);
+    for (const w of ['Onelab', 'Marge', 'marge', 'Co\\373t', 'fournisseur']) expect(txt).not.toContain(w);
+    const ck = uid();
+    const draft = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
+      compositions: [{ key: ck, styleId: x.fusion.id, styleName: 'Fusion', irisCount: 4, feeCents: 8000, participantIds: [], participantNames: '', instructions: '' }],
+      items: [{ key: uid(), variantId: print20.id, productId: cfg.prints[0], category: 'impression', productName: 'Tirage photo petit format', variantName: '20 × 20 cm', compositionKey: ck, qty: 1, unitPriceCents: 1500, unitCostCents: 0 }] }, 'brouillon');
+    const recap = new TextDecoder('latin1').decode(await orderRecapPdf(draft.id));
+    expect(recap).toContain('Votre s');
+    expect(recap).toContain('95,00');
+    expect(recap).not.toContain('Solde restant');
+    const { recapMailBody, recapMailSubject } = await import('../lib/invoiceMail');
+    expect(recapMailSubject('Gala')).toBe('Votre sélection – Gala – MF/1.2');
+    const body = recapMailBody({ firstName: 'Léa', client: 'Léa Martin', number: draft.number, session: 'Gala', total: 9500, signature: 'MF/1.2' });
+    expect(body).toMatch(/^Bonjour Léa,/);
+    expect(body).toMatch(/95,00\s€/);
+    expect(body).not.toMatch(/\{\w+\}/);
+  });
+
   it('payment plan is saved with the order, recalculated on correction, printed on the recap', async () => {
     const x = await setupSale();
     const cart: Cart = { ...emptyCart(x.sid, x.reg.family_id, x.reg.id), paymentPlan: { count: 3, first_date: '2026-11-21' },

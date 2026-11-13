@@ -23,6 +23,8 @@
 
 - Tirages papier Onelab (petits/grands formats, DPII Lustre) + option « Cadre Flybox 5 + acrylique anti-reflet » rattachée à une ligne de tirage (`order_items.parent_item_id`, migration 6 ; `settings.print_frame`) : quantité suivie, retrait en cascade, duplication, liste « Impressions à commander ». Import CSV fournisseur : liaison auto Support = produit, Format = variante. Prix d’achat fournis par CSV local (jamais dans le dépôt). Testé : unitaires + aperçu navigateur.
 
+- Brochure des offres illustrée (`lib/brochure.ts`, `brochureData`) : remplace le « Catalogue commercial » ; images recadrées/réduites via canvas (`cropForPdf`). Récap brouillon « Votre sélection » illustré. E-mail « récap + brochure » (`emailOrderRecap`, bouton dans le configurateur et la fiche commande) ; `compose_mail` accepte plusieurs pièces jointes. Description des tirages papier corrigée (ne cite plus le fournisseur, `paper_desc_v2`). Testé : unitaires + aperçu navigateur (PDF rendus et relus). Mail.app non vérifié sur Mac réel.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

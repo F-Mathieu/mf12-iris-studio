@@ -15,7 +15,7 @@ import { act } from '../lib/act';
 
 type Kind = 'catalogue' | 'grille' | 'recap' | 'production';
 const KINDS: { id: Kind; label: string; text: string; icon: typeof FileText; client: boolean }[] = [
-  { id: 'catalogue', label: 'Catalogue commercial', text: 'Montages, exemples, tarifs de la séance, packs.', icon: BookOpen, client: true },
+  { id: 'catalogue', label: 'Brochure des offres', text: 'Illustrée : créations et exemples, guide des formats, supports et tarifs de la séance, packs.', icon: BookOpen, client: true },
   { id: 'grille', label: 'Grille tarifaire', text: 'Version compacte imprimable.', icon: Table2, client: true },
   { id: 'recap', label: 'Récapitulatif client', text: 'Commande, remises, règlement, solde.', icon: Receipt, client: true },
   { id: 'production', label: 'Fiche de production', text: 'Usage interne : références iris, styles, produits.', icon: ClipboardList, client: false },
@@ -39,7 +39,7 @@ export default function Documents() {
       const bytes = kind === 'catalogue' ? await sessionCatalogPdf(session) : kind === 'grille' ? await sessionCatalogPdf(session, true)
         : kind === 'recap' ? await orderRecapPdf(order) : await productionPdf({ sessionId: session }, sName);
       const o = orders.data?.find((x) => x.id === order);
-      const name = kind === 'recap' ? `commande-${o?.number}-${slug(o?.family_name ?? '')}.pdf` : `${kind}-${slug(sName)}.pdf`;
+      const name = kind === 'recap' ? `commande-${o?.number}-${slug(o?.family_name ?? '')}.pdf` : `${kind === 'catalogue' ? 'brochure' : kind}-${slug(sName)}.pdf`;
       return { bytes, url: URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' })), name };
     });
     setBusy(false);

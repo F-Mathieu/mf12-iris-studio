@@ -278,6 +278,21 @@ L'application n'encaisse rien : vous encaissez avec vos propres moyens, puis vou
 
 > Ne saisissez jamais de numéro de carte bancaire.
 
+### 4.4 bis Envoyer le récap de la sélection + la brochure
+Dans le configurateur de vente (panier en brouillon), bouton **Envoyer le récap** : le panier est enregistré, puis l’app **Mail** s’ouvre avec un message prêt pour le client :
+- objet « Votre sélection – {séance} – MF/1.2 », texte de base (modifiable dans **Paramètres → Facturation**) ;
+- **2 pièces jointes** : *Votre sélection* (récapitulatif illustré, non contractuel, sans bloc de règlement) et la **Brochure des offres** de la séance, préparée au nom du client.
+
+La **Brochure des offres** se télécharge aussi seule : **Documents PDF → Brochure des offres**, ou fiche séance → *Brochure des offres (PDF)*. Elle contient :
+- une couverture avec photo ;
+- le déroulé en 4 étapes ;
+- les créations avec leurs photos d’exemple et les prix selon le nombre d’iris ;
+- le guide des formats avec croquis ;
+- les fichiers numériques, les impressions (tirages avec et sans cadre) et les options ;
+- les packs, les conditions et le contact.
+
+Elle n’affiche que les prix de vente de la séance, jamais les coûts ni les fournisseurs. Les illustrations viennent de vos images : la **photo à la une** de chaque style (couverture et grande image), les autres exemples en vignettes, et la photo de chaque produit (Catalogue → produit → image). Un produit sans photo s’affiche sans image. Le texte d’introduction est modifiable dans Paramètres.
+
 ### 4.5 Remettre la facture
 **Une fois** : renseignez **Paramètres → Facturation** (nom et prénom de l’entrepreneur, SIRET, adresse professionnelle, médiateur de la consommation ; « EI » et « Dispensé d’immatriculation au RCS et au RM » sont pré-remplis).
 

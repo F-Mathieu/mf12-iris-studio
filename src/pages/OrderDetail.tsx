@@ -7,7 +7,7 @@ import { confirmAndDeleteOrder } from '../components/deleteOrder';
 import { addPayment, cancelOrder, deletePayment, duplicateOrder, getOrderDetail, PAYMENT_METHODS, setPaymentPlan, type PaymentMethod } from '../services/orders';
 import { invoicePdfOf, orderInvoicePdf, orderRecapPdf } from '../services/documents';
 import { activeInvoice, invoicesOfOrder, type InvoiceRow } from '../services/invoices';
-import { emailInvoice } from '../services/mail';
+import { emailInvoice, emailOrderRecap } from '../services/mail';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -60,12 +60,17 @@ export default function OrderDetail() {
       : `PDF ${x.number} enregistré — joignez-le au message ouvert`);
   };
 
+  const sendRecap = () => act(() => emailOrderRecap(id), (how) => (how === 'mail'
+    ? `E-mail prêt dans Mail : sélection + brochure${o.family_email ? '' : ' — aucune adresse e-mail pour ce client'}`
+    : 'PDF enregistrés (sélection + brochure) — joignez-les au message ouvert'));
+
   return (
     <>
       <PageHeader back={() => nav(-1)} title={<>Commande <span className="font-mono text-[28px]">{o.number}</span></>}
         subtitle={<div className="flex items-center gap-3"><OrderBadge s={o.status} />{o.status === 'validee' && <PayBadge total={o.total_cents} paid={o.paid_cents} />}<span>{[o.contact_first_name, o.family_name].filter(Boolean).join(' ')} · {o.session_name} · {fmtDate(o.validated_at ?? o.created_at)}</span></div>}
         actions={<>
           {o.status === 'validee' && <Button icon={<Mail className="size-4" />} onClick={() => sendMail()}>Envoyer par e-mail</Button>}
+          {o.status === 'brouillon' && <Button icon={<Mail className="size-4" />} onClick={sendRecap}>Envoyer le récap par e-mail</Button>}
           {o.status === 'validee' ? <Button variant="gold" icon={<FileDown className="size-4" />} onClick={invoice}>Facture PDF</Button> : <Button icon={<FileDown className="size-4" />} onClick={pdf}>Récapitulatif PDF</Button>}
           {o.status !== 'annulee' && <Button icon={<Pencil className="size-4" />} onClick={() => nav(`/vente/commande/${id}`)}>{o.status === 'validee' ? 'Corriger' : 'Reprendre'}</Button>}
           <Button icon={<Copy className="size-4" />} onClick={async () => { const nid = await act(() => duplicateOrder(id), 'Commande dupliquée en brouillon'); if (nid) nav(`/vente/commande/${nid}`); }}>Dupliquer</Button>

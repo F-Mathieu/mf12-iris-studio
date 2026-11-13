@@ -73,7 +73,7 @@ export const parsePrintFrame = (v: string | null | undefined): PrintFrameConfig 
 export async function applyOnelabPaper(): Promise<boolean> {
   if ((await getSetting('onelab_paper')) === '1' || (await getSetting('seeded')) !== '1') return false;
   const s: Stmt[] = [];
-  const desc = 'Tirage papier Fujifilm DPII Lustre (Onelab Pro).';
+  const desc = PAPER_DESC;
   const small = await ensureProductWithFormats(s, PAPER_SMALL_NAME, 'impression', 20, [], desc, PAPER_SMALL);
   const large = await ensureProductWithFormats(s, PAPER_LARGE_NAME, 'impression', 21, [], desc, PAPER_LARGE);
   const frame = await ensureProductWithFormats(s, FRAME_NAME, 'option', 41, [], 'Cadre Flybox 5 avec protection acrylique anti-reflet, au format du tirage.', FRAME_FORMATS);
@@ -83,9 +83,21 @@ export async function applyOnelabPaper(): Promise<boolean> {
   return true;
 }
 
+const PAPER_DESC = 'Tirage sur papier photo Fujifilm DPII Lustre.';
+/** 1.1.3 shipped a client-facing description naming the supplier: replaced (only if unchanged by the user). */
+export async function fixPaperDescription(): Promise<boolean> {
+  if ((await getSetting('paper_desc_v2')) === '1') return false;
+  await batch([
+    { sql: "UPDATE products SET description=? WHERE description='Tirage papier Fujifilm DPII Lustre (Onelab Pro).'", params: [PAPER_DESC] },
+    { sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('paper_desc_v2', '1')" },
+  ]);
+  return true;
+}
+
 /** Data upgrades run at every start after migrations + seed (each one is idempotent). */
 export async function applyDataUpgrades() {
   await applyOnelab2026();
   await applyOnelabFramesG6();
   await applyOnelabPaper();
+  await fixPaperDescription();
 }

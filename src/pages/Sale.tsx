@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MonitorPlay, Trash2 } from 'lucide-react';
+import { Mail, MonitorPlay, Trash2 } from 'lucide-react';
 import { Button, ErrorBox, Loading, useAsync, useConfirm } from '../components/ui';
 import { deleteDraft } from '../services/orders';
 import { Configurator, type ConfiguratorApi } from '../components/Configurator';
 import { one } from '../services/base';
 import { useApp } from '../store';
 import { act } from '../lib/act';
+import { emailOrderRecap } from '../services/mail';
 
 /** Admin sales screen: /vente/:sessionId/:registrationId or /vente/commande/:orderId */
 export default function Sale() {
@@ -46,6 +47,12 @@ export default function Sale() {
           if (!(await confirm({ title: 'Supprimer ce brouillon ?', text: 'La sélection en cours de cette famille sera effacée.', danger: true, confirm: 'Supprimer' }))) return;
           if (await act(() => deleteDraft(oid), 'Brouillon supprimé')) nav(`/seances/${c.session_id}?tab=planning`);
         }}>Supprimer le brouillon</Button>}
+        {(draftStatus ?? c.status ?? 'brouillon') === 'brouillon' && <Button variant="subtle" icon={<Mail className="size-4" />} onClick={() => act(async () => {
+          const id = await api.current?.saveDraft(); // the recap reflects the cart as shown
+          if (!id) throw new Error('Le panier est vide : ajoutez au moins une création.');
+          setSavedId(id);
+          return emailOrderRecap(id);
+        }, (how) => (how === 'mail' ? 'E-mail prêt dans Mail : sélection + brochure' : 'PDF enregistrés (sélection + brochure) — joignez-les au message ouvert'))}>Envoyer le récap</Button>}
         <Button variant="outline" icon={<MonitorPlay className="size-4" />} onClick={() => act(async () => {
           const id = (await api.current?.saveDraft()) ?? oid; // keep the cart built so far
           await enterClient({ sessionId: c.session_id, familyId: c.family_id, registrationId: c.registration_id, orderId: id });

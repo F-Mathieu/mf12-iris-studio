@@ -5,13 +5,13 @@ import { eur } from './money';
 import { fmtDate } from './format';
 import type { InvoiceData } from '../services/invoices';
 
-const GOLD: [number, number, number] = [184, 155, 104];
-const INK: [number, number, number] = [20, 20, 22];
-const GREY: [number, number, number] = [110, 110, 115];
+export const GOLD: [number, number, number] = [184, 155, 104];
+export const INK: [number, number, number] = [20, 20, 22];
+export const GREY: [number, number, number] = [110, 110, 115];
 
 export interface Brand { name: string; tagline?: string; contact?: string; email?: string; phone?: string; website?: string; address?: string }
 
-function header(doc: jsPDF, brand: Brand, title: string, subtitle?: string) {
+export function header(doc: jsPDF, brand: Brand, title: string, subtitle?: string) {
   const w = doc.internal.pageSize.getWidth();
   doc.setFillColor(...INK);
   doc.rect(0, 0, w, 30, 'F');
@@ -30,7 +30,7 @@ function header(doc: jsPDF, brand: Brand, title: string, subtitle?: string) {
   doc.setTextColor(...INK);
 }
 
-function footer(doc: jsPDF, brand: Brand) {
+export function footer(doc: jsPDF, brand: Brand) {
   const n = doc.getNumberOfPages();
   const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
   const contact = [brand.contact, brand.phone, brand.email, brand.website].filter(Boolean).join('  ·  ');
@@ -43,14 +43,14 @@ function footer(doc: jsPDF, brand: Brand) {
   }
 }
 
-const tableStyle = {
+export const tableStyle = {
   styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.4, textColor: INK, lineColor: [225, 225, 228] as [number, number, number], lineWidth: 0.1 },
   headStyles: { fillColor: [38, 38, 42] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const },
   alternateRowStyles: { fillColor: [248, 247, 244] as [number, number, number] },
   margin: { left: 14, right: 14, top: 36, bottom: 20 },
 };
-const lastY = (doc: jsPDF) => (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
-const out = (doc: jsPDF) => new Uint8Array(doc.output('arraybuffer'));
+export const lastY = (doc: jsPDF) => (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 40;
+export const out = (doc: jsPDF) => new Uint8Array(doc.output('arraybuffer'));
 
 function section(doc: jsPDF, y: number, text: string) {
   if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 40; }
@@ -64,7 +64,9 @@ function section(doc: jsPDF, y: number, text: string) {
 /* ------------------------------------------------------------ client recap */
 export interface RecapData {
   brand: Brand; number: string; date: string; status: string; session: string; family: string; contact?: string | null;
-  compositions: { style: string; iris: number; participants: string; fee: number; orientation?: string | null; instructions?: string | null; items: { name: string; qty: number; unit: number }[] }[];
+  /** Draft = « Votre sélection » (proposal, no payment block). */
+  draft?: boolean;
+  compositions: { style: string; iris: number; participants: string; fee: number; image?: string | null; orientation?: string | null; instructions?: string | null; items: { name: string; qty: number; unit: number }[] }[];
   looseItems: { name: string; qty: number; unit: number }[];
   subtotal: number; discounts: { label: string; amount: number }[]; total: number; paid: number; paymentStatus: string;
   payments: { date: string; method: string; amount: number }[]; dueDate?: string | null; notes?: string | null;
@@ -72,12 +74,26 @@ export interface RecapData {
 }
 export function clientRecapPdf(d: RecapData): Uint8Array {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  header(doc, d.brand, 'Récapitulatif de commande', `N° ${d.number} — ${fmtDate(d.date)}`);
+  header(doc, d.brand, d.draft ? 'Votre sélection' : 'Récapitulatif de commande', `N° ${d.number} — ${fmtDate(d.date)}`);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold'); doc.text(d.family, 14, 42);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(...GREY);
-  doc.text([d.contact ? `Contact : ${d.contact}` : '', `Séance : ${d.session}`, `Statut : ${d.status}`].filter(Boolean), 14, 48);
+  doc.text([d.contact ? `Contact : ${d.contact}` : '', `Séance : ${d.session}`, d.draft ? 'Proposition — non contractuelle' : `Statut : ${d.status}`].filter(Boolean), 14, 48);
   doc.setTextColor(...INK);
+  // creations chosen, illustrated with the style's example
+  let startY = 64;
+  const pics = d.compositions.filter((c) => c.image).slice(0, 5);
+  if (pics.length) {
+    const sz = 30;
+    pics.forEach((c, i) => {
+      const x = 14 + i * (sz + 6);
+      try { doc.addImage(c.image!, 'JPEG', x, 62, sz, sz, undefined, 'FAST'); } catch { /* skip */ }
+      doc.setFontSize(7.8); doc.setFont('helvetica', 'bold'); doc.text(doc.splitTextToSize(`${c.style} · ${c.iris} iris`, sz + 4)[0], x, 96);
+      doc.setFont('helvetica', 'normal');
+    });
+    doc.setFontSize(7); doc.setTextColor(...GREY); doc.text('Visuels d’exemple : votre création sera réalisée avec vos propres iris.', 14, 101); doc.setTextColor(...INK);
+    startY = 106;
+  }
   const body: RowInput[] = [];
   for (const c of d.compositions) {
     body.push([{ content: `Création ${c.style} — ${c.iris} iris${c.participants ? ` (${c.participants})` : ''}`, styles: { fontStyle: 'bold' } }, '1', eur(c.fee), eur(c.fee)]);
@@ -86,14 +102,19 @@ export function clientRecapPdf(d: RecapData): Uint8Array {
     for (const i of c.items) body.push([`    ${i.name}`, String(i.qty), eur(i.unit), eur(i.unit * i.qty)]);
   }
   for (const i of d.looseItems) body.push([i.name, String(i.qty), eur(i.unit), eur(i.unit * i.qty)]);
-  autoTable(doc, { ...tableStyle, startY: 64, head: [['Désignation', 'Qté', 'Prix unitaire', 'Total']], body,
+  autoTable(doc, { ...tableStyle, startY, head: [['Désignation', 'Qté', 'Prix unitaire', 'Total']], body,
     columnStyles: { 1: { halign: 'center', cellWidth: 16 }, 2: { halign: 'right', cellWidth: 30 }, 3: { halign: 'right', cellWidth: 30 } } });
   const tot: RowInput[] = [['Sous-total', eur(d.subtotal)], ...d.discounts.map((x) => [x.label, `- ${eur(x.amount)}`]),
     [{ content: 'Total', styles: { fontStyle: 'bold', fontSize: 11 } }, { content: eur(d.total), styles: { fontStyle: 'bold', fontSize: 11 } }],
-    ['Déjà réglé', eur(d.paid)], [{ content: 'Solde restant', styles: { fontStyle: 'bold' } }, { content: eur(d.total - d.paid), styles: { fontStyle: 'bold' } }]];
+    ...(d.draft ? [] : [['Déjà réglé', eur(d.paid)], [{ content: 'Solde restant', styles: { fontStyle: 'bold' } }, { content: eur(d.total - d.paid), styles: { fontStyle: 'bold' } }]] as RowInput[])];
   autoTable(doc, { ...tableStyle, startY: lastY(doc) + 4, body: tot, theme: 'plain', margin: { left: 110, right: 14 }, columnStyles: { 1: { halign: 'right' } } });
   let y = lastY(doc) + 8;
   doc.setFontSize(9.5);
+  if (d.draft) {
+    doc.setTextColor(...GREY);
+    doc.text(doc.splitTextToSize('Récapitulatif de votre sélection, à titre indicatif : la commande est confirmée à sa validation. Toutes les créations, supports et formats proposés sont présentés dans la brochure des offres.', 182), 14, y);
+    doc.setTextColor(...INK); y += 10;
+  } else
   doc.text(`Règlement : ${d.paymentStatus}${d.dueDate ? ` — échéance prévue le ${fmtDate(d.dueDate)}` : ''}`, 14, y);
   if (d.payments.length) { y += 5; doc.setTextColor(...GREY); doc.text(d.payments.map((p) => `${fmtDate(p.date)} · ${p.method} · ${eur(p.amount)}`), 14, y); y += d.payments.length * 4.2; doc.setTextColor(...INK); }
   if (d.instalments?.length) {
