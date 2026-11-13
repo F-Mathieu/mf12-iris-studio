@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Ban, Copy, CreditCard, FileDown, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Ban, Copy, CreditCard, Eye, EyeOff, FileDown, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Textarea, useAsync, useConfirm } from '../components/ui';
 import { OrderBadge, PayBadge } from '../components/badges';
 import { confirmAndDeleteOrder } from '../components/deleteOrder';
@@ -26,6 +26,8 @@ export default function OrderDetail() {
   const inv = useAsync(() => invoicesOfOrder(id), [id]);
   const [payOpen, setPayOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  const [showInternal, setShowInternal] = useState(false); // cost / margin folded by default
+  useEffect(() => setShowInternal(false), [id]); // folded again on every order
   if (d.error) return <ErrorBox error={d.error} />;
   if (!d.data) return <Loading />;
   const { order: o, cart, payments, discounts, history } = d.data;
@@ -172,13 +174,18 @@ export default function OrderDetail() {
               </div>
             </Card>
           )}
+          {/* Internal data (cost, margin): folded by default — this page is often open in front of clients. */}
           <Card>
-            <CardHeader title="Données internes" subtitle="Jamais visibles en mode client ni dans les PDF clients." />
-            <div className="space-y-1.5 px-5 py-4 text-[13px]">
-              <div className="flex justify-between"><span className="text-mist-400">Coût fournisseurs estimé</span><span className="tabular">{eur(o.cost_estimate_cents)}</span></div>
-              <div className="flex justify-between"><span className="text-mist-400">Marge commerciale estimée</span><span className="tabular">{eur(m.margin_cents)}</span></div>
-              <div className="flex justify-between"><span className="text-mist-400">Taux de marque</span><span className="tabular">{fmtRate(m.margin_rate)}</span></div>
-            </div>
+            <button type="button" onClick={() => setShowInternal((x) => !x)} className="flex w-full items-center justify-between px-5 py-2.5 text-[12px] text-mist-500 hover:text-mist-300">
+              <span>Infos internes</span>{showInternal ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+            </button>
+            {showInternal && (
+              <div className="space-y-1.5 border-t border-ink-700/70 px-5 py-4 text-[13px]">
+                <div className="flex justify-between"><span className="text-mist-400">Coût fournisseurs estimé</span><span className="tabular">{eur(o.cost_estimate_cents)}</span></div>
+                <div className="flex justify-between"><span className="text-mist-400">Marge commerciale estimée</span><span className="tabular">{eur(m.margin_cents)}</span></div>
+                <div className="flex justify-between"><span className="text-mist-400">Taux de marque</span><span className="tabular">{fmtRate(m.margin_rate)}</span></div>
+              </div>
+            )}
           </Card>
           <Card className="px-5 py-4 text-[13px]">
             <div className="font-medium">{[o.contact_first_name, o.family_name].filter(Boolean).join(' ')}</div>
