@@ -60,7 +60,11 @@ export interface Selector {
  * Optional order-amount condition, valid for every promotion type, based on the normal price (before discounts).
  * threshold_category: only items of this category count (e.g. 'impression' = "dès 200 € de tableaux").
  */
-export interface Threshold { min_subtotal_cents?: number; max_subtotal_cents?: number; threshold_category?: string }
+export interface Threshold {
+  min_subtotal_cents?: number; max_subtotal_cents?: number; threshold_category?: string;
+  /** Not listed in the client brochure / catalogue (still applied in the cart). */
+  hide_in_brochure?: boolean;
+}
 export type PromoConfig = Threshold & (
   | { kind?: 'pack'; items: { selector: Selector; qty: number }[]; mode: 'price' | 'discount'; value_cents: number; repeat?: boolean }
   | { kind?: 'percent'; pct_bp: number; scope: 'order' | 'category' | 'product' | 'style'; target?: string; max_units?: number }

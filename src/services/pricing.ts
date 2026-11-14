@@ -94,6 +94,9 @@ export async function savePromotion(priceListId: string, p: Omit<Promotion, 'id'
   else await batch([insertStmt('promotions', { id: uid(), price_list_id: priceListId, ...row })]);
 }
 export const setPromotionActive = (id: string, active: boolean) => run('UPDATE promotions SET active=? WHERE id=?', [active ? 1 : 0, id]);
+/** Shows / hides an offer in the client brochure (kept in the promotion's config JSON). */
+export const setPromotionInBrochure = (id: string, show: boolean) =>
+  run("UPDATE promotions SET config=json_set(config, '$.hide_in_brochure', json(?)) WHERE id=?", [show ? 'false' : 'true', id]);
 export const deletePromotion = (id: string) => run('DELETE FROM promotions WHERE id=?', [id]);
 
 /** Sets the sale price of several variants to cost × coefficient in one transaction (mode « Coefficient »). */

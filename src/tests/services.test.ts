@@ -362,6 +362,15 @@ describe('orders', () => {
     expect(recap).toContain('Votre s');
     expect(recap).toContain('95,00');
     expect(recap).not.toContain('Solde restant');
+    // offers can be hidden from the brochure (still applied in the cart)
+    const { setPromotionInBrochure, listPromotions } = await import('../services/pricing');
+    await savePromotion(pl, { name: 'Remise 10 € dès 100 €', type: 'amount', config: { amount_cents: 1000, min_subtotal_cents: 10000 }, priority: 10, stackable: true, active: true });
+    await savePromotion(pl, { name: 'Pack secret', type: 'amount', config: { amount_cents: 500 }, priority: 20, stackable: true, active: true });
+    const secret = (await listPromotions(pl)).find((r) => r.name === 'Pack secret')!;
+    await setPromotionInBrochure(secret.id, false);
+    expect((await brochureData(x.sid)).promotions.map((p) => p.name)).toEqual(['Remise 10 € dès 100 €']);
+    await setPromotionInBrochure(secret.id, true);
+    expect((await brochureData(x.sid)).promotions).toHaveLength(2);
     const { recapMailBody, recapMailSubject } = await import('../lib/invoiceMail');
     expect(recapMailSubject('Gala')).toBe('Votre sélection – Gala – MF/1.2');
     const body = recapMailBody({ firstName: 'Léa', client: 'Léa Martin', number: draft.number, session: 'Gala', total: 9500, signature: 'MF/1.2' });

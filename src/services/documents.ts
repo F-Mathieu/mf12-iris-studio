@@ -48,7 +48,7 @@ export async function catalogData(sessionId: string): Promise<CatalogData> {
     `SELECT s.name, s.price_list_id, t.conditions FROM sessions s LEFT JOIN price_lists pl ON pl.id=s.price_list_id LEFT JOIN price_templates t ON t.id=pl.source_template_id WHERE s.id=?`, [sessionId]);
   if (!s) throw new Error('Séance introuvable');
   const rows = s.price_list_id ? await getPriceItems(s.price_list_id) : [];
-  const promos = s.price_list_id ? (await listPromotions(s.price_list_id)).filter((p) => p.active) : [];
+  const promos = s.price_list_id ? (await listPromotions(s.price_list_id)).filter((p) => p.active && !JSON.parse(p.config || '{}').hide_in_brochure) : [];
   const styles = (await listStyles()).filter((x) => x.active);
   const images = await sel<{ style_id: string; full: string }>('SELECT e.style_id, m.full FROM composition_examples e JOIN media m ON m.id=e.media_id ORDER BY e.sort');
   const products = (await listProducts()).filter((p) => p.active);

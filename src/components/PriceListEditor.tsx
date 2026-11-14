@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Gift, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BookOpen, BookX, Gift, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Field, IconButton, Input, Loading, Modal, MoneyInput, Select, Textarea, Toggle, useAsync, useConfirm, cx } from './ui';
 import { listStyles, listProducts, listVariants, CATEGORY_LABEL, type Product, type Variant } from '../services/catalog';
-import { deletePromotion, getPriceItems, parseCoefInput, setPricesFromCoef, listPromotions, savePromotion, setPrice, setPromotionActive, toPromotion, type PriceListItem } from '../services/pricing';
+import { deletePromotion, getPriceItems, parseCoefInput, setPricesFromCoef, listPromotions, savePromotion, setPrice, setPromotionActive, setPromotionInBrochure, toPromotion, type PriceListItem } from '../services/pricing';
 import { variantCosts } from '../services/suppliers';
 import { eur, fmtCoef, fmtRate, margin, pctToBp, bpToPct, priceFromCoef, priceFromMarginRate } from '../lib/money';
 import type { Promotion, PromoConfig, Selector } from '../lib/pricing';
@@ -149,9 +149,10 @@ function PromotionsEditor({ priceListId, rows, reload, styles, products }: { pri
           <div key={r.id} className="flex items-center gap-4 px-5 py-3">
             <Gift className="size-4 text-gold-400" />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 font-medium">{p.name}<Badge>{TYPE_LABEL[p.type]}</Badge>{!p.stackable && <Badge tone="amber">Non cumulable</Badge>}<span className="text-[11.5px] text-mist-400">priorité {p.priority}</span></div>
+              <div className="flex items-center gap-2 font-medium">{p.name}<Badge>{TYPE_LABEL[p.type]}</Badge>{!p.stackable && <Badge tone="amber">Non cumulable</Badge>}{p.config.hide_in_brochure && <Badge>Masquée de la brochure</Badge>}<span className="text-[11.5px] text-mist-400">priorité {p.priority}</span></div>
               <div className="mt-0.5 truncate text-[12.5px] text-mist-400">{describe(p)}</div>
             </div>
+            <IconButton title={p.config.hide_in_brochure ? 'Afficher dans la brochure client' : 'Masquer de la brochure client'} onClick={() => act(() => setPromotionInBrochure(r.id, !!p.config.hide_in_brochure).then(reload))}>{p.config.hide_in_brochure ? <BookX className="size-4 text-mist-500" /> : <BookOpen className="size-4 text-gold-400" />}</IconButton>
             <Toggle checked={p.active} onChange={(v) => act(() => setPromotionActive(r.id, v).then(reload))} label={p.active ? 'Active' : 'Inactive'} />
             <IconButton title="Modifier" onClick={() => setEdit({ ...p, description: r.description })}><Pencil className="size-4" /></IconButton>
             <IconButton title="Supprimer" onClick={async () => (await confirm({ title: `Supprimer « ${p.name} » ?`, danger: true, confirm: 'Supprimer' })) && act(() => deletePromotion(r.id).then(reload))}><Trash2 className="size-4" /></IconButton>
@@ -186,7 +187,8 @@ function PromotionDialog({ promo, styles, products, onClose, onSave }: { promo: 
         <Field label="Nom affiché au client *" className="col-span-2"><Input autoFocus value={p.name ?? ''} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="Fusion familiale + tableau" /></Field>
         <Field label="Type"><Select value={p.type} onChange={(e) => changeType(e.target.value as Promotion['type'])}>{Object.entries(TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select></Field>
         <Field label="Priorité" hint="Plus petit = évalué en premier"><Input type="number" value={p.priority ?? 100} onChange={(e) => setP({ ...p, priority: Number(e.target.value) })} /></Field>
-        <Field label="Description (catalogue client)" className="col-span-4"><Textarea rows={2} value={p.description ?? ''} onChange={(e) => setP({ ...p, description: e.target.value })} /></Field>
+        <Field label="Description (catalogue client)" className="col-span-3"><Textarea rows={2} value={p.description ?? ''} onChange={(e) => setP({ ...p, description: e.target.value })} /></Field>
+        <div className="flex items-end pb-2"><Toggle checked={!c.hide_in_brochure} onChange={(v) => setC({ hide_in_brochure: !v })} label="Afficher dans la brochure" /></div>
         {p.type === 'pack' && (
           <div className="col-span-4 space-y-2 rounded-xl border border-ink-700 p-3">
             <div className="text-[12px] font-medium text-mist-300">Contenu du pack (détecté automatiquement dans le panier)</div>

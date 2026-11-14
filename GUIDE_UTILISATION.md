@@ -291,6 +291,8 @@ La **Brochure des offres** se télécharge aussi seule : **Documents PDF → Bro
 - les fichiers numériques, les impressions (tirages avec et sans cadre) et les options ;
 - les packs, les conditions et le contact.
 
+**Packs & offres affichés** : dans la liste « Packs & promotions », l’icône livre (ou « Afficher dans la brochure » dans la fiche de l’offre) masque ou affiche chaque offre. Une offre masquée s’applique toujours dans le panier. À régler dans la grille de la **séance** (Séance → Tarifs), et dans le template pour les prochaines séances.
+
 Elle n’affiche que les prix de vente de la séance, jamais les coûts ni les fournisseurs. Les illustrations viennent de vos images : la **photo à la une** de chaque style (couverture et grande image), les autres exemples en vignettes, et la photo de chaque produit (Catalogue → produit → image). Un produit sans photo s’affiche sans image. Le texte d’introduction est modifiable dans Paramètres.
 
 ### 4.5 Remettre la facture
