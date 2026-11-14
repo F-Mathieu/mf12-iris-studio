@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parsePrintFrame } from '../services/onelab';
-import { BadgePercent, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, BadgePercent, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, Stepper, Textarea, useAsync, useConfirm, cx } from './ui';
 import { Lightbox, type LightItem } from './Lightbox';
@@ -439,6 +439,21 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
 /** Cart content fingerprint (to know whether the selection was saved). */
 const snap = (c: Cart) => JSON.stringify([c.compositions, c.items, c.manual, c.paymentPlan ?? null, c.notes]);
 
+type Slot = { id: string | null; name: string };
+/** Names are stored joined by ", " (participantNames): no comma inside a name. */
+const cleanName = (s: string) => s.replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+/** Initial order: the creation being edited (ids and names kept in order), else the default selection. */
+function initialSlots(style: Style, participants: { id: string; first_name: string }[], initial?: CartComp): Slot[] {
+  const names = initial?.participantNames ? initial.participantNames.split(', ') : [];
+  const fn = (id: string) => participants.find((p) => p.id === id)?.first_name ?? '';
+  if (participants.length) {
+    const ids = initial ? initial.participantIds.filter((id) => participants.some((p) => p.id === id)) : defaultIris(style, participants);
+    const aligned = !!initial && names.length === initial.participantIds.length;
+    return ids.map((id) => ({ id, name: (aligned ? names[initial!.participantIds.indexOf(id)] : undefined) ?? fn(id) }));
+  }
+  return Array.from({ length: initial?.irisCount ?? style.min_iris }, (_, i) => ({ id: null, name: names[i] ?? '' }));
+}
+
 /** Default iris selection for a style: the family's participants, up to the style maximum. */
 function defaultIris(style: Style, participants: { id: string }[]) {
   return participants.slice(0, style.max_iris).map((p) => p.id);
@@ -463,17 +478,21 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
   /** Editing an existing creation of the cart. */
   initial?: CartComp;
 }) {
-  const [sel, setSel] = useState<string[]>(() => initial ? initial.participantIds.filter((id) => participants.some((p) => p.id === id)) : defaultIris(style, participants));
-  const [manualCount, setManualCount] = useState(initial?.irisCount ?? style.min_iris);
+  // Iris in the order of the montage (left → right, top → bottom), each with a name the client can change.
+  const [slots, setSlots] = useState<Slot[]>(() => initialSlots(style, participants, initial));
+  const sel = slots.filter((s) => s.id).map((s) => s.id!);
+  const firstName = (id: string | null) => participants.find((p) => p.id === id)?.first_name ?? '';
+  const move = (i: number, d: -1 | 1) => setSlots((s) => { const n = [...s]; [n[i], n[i + d]] = [n[i + d], n[i]]; return n; });
+  const resize = (n: number) => setSlots((s) => (n > s.length ? [...s, ...Array.from({ length: n - s.length }, () => ({ id: null, name: '' }))] : s.slice(0, n)));
   const [instructions, setInstructions] = useState(initial?.instructions ?? '');
   const [orientation, setOrientation] = useState<Orientation>(initial?.orientation ?? 'horizontal');
-  const count = participants.length ? sel.length : manualCount;
+  const count = slots.length;
   const valid = count >= style.min_iris && count <= style.max_iris;
   const p = valid ? price(count) : null;
   const shown = examples.filter((e) => e.iris_count == null || e.iris_count === count);
   const gallery = (shown.length ? shown : examples);
   const items: LightItem[] = gallery.map((e) => ({ mediaId: e.media_id, thumb: e.thumb, caption: e.caption ?? `${style.name}${e.iris_count ? ` — ${e.iris_count} iris` : ''}` }));
-  const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < style.max_iris ? [...s, id] : s));
+  const toggle = (id: string) => setSlots((s) => (s.some((x) => x.id === id) ? s.filter((x) => x.id !== id) : s.length < style.max_iris ? [...s, { id, name: firstName(id) }] : s));
   return (
     <Modal open onClose={onClose} size="xl" title={<span className="font-display text-[28px]">{style.name}</span>} subtitle={style.description ?? undefined}
       footer={<>
@@ -481,7 +500,7 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
         <span className="mr-3 text-[22px] font-semibold text-gold-400 tabular">{p != null ? (p === 0 ? 'Inclus' : eur(p)) : '—'}</span>
         <Button variant="gold" size="lg" disabled={!valid || p == null} icon={initial ? <Check className="size-4" /> : <Plus className="size-4" />} onClick={() => onAdd({
           key: uid(), styleId: style.id, styleName: style.name, irisCount: count, feeCents: p ?? 0,
-          participantIds: sel, participantNames: participants.filter((x) => sel.includes(x.id)).map((x) => x.first_name).join(', '), instructions,
+          participantIds: sel, participantNames: slots.map((s) => cleanName(s.name) || firstName(s.id)).filter(Boolean).join(', '), instructions,
           orientation: count > 1 ? orientation : null,
         })}>{initial ? 'Mettre à jour la création' : 'Ajouter cette création'}</Button>
       </>}>
@@ -510,10 +529,26 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
                 ))}
               </div>
             ) : (
-              <div className="flex items-center gap-3"><Stepper value={manualCount} min={style.min_iris} max={style.max_iris} onChange={setManualCount} /><span className="text-[12.5px] text-mist-400">Nombre d’iris</span></div>
+              <div className="flex items-center gap-3"><Stepper value={count} min={style.min_iris} max={style.max_iris} onChange={resize} /><span className="text-[12.5px] text-mist-400">Nombre d’iris</span></div>
             )}
             <div className="mt-2 text-[12.5px] text-mist-400">{count} iris sélectionné(s)</div>
           </div>
+          {(count > 1 || !participants.length) && count > 0 && (
+            <div>
+              <div className="text-[13px] font-semibold">Ordre dans le montage</div>
+              <div className="mb-2 text-[12px] text-mist-400">N° 1 = en haut à gauche, puis de gauche à droite et de haut en bas. Renommez un iris si besoin.</div>
+              <div className="space-y-1.5">
+                {slots.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gold-500/15 text-[12px] font-semibold text-gold-300">{i + 1}</span>
+                    <Input className="h-8 flex-1 text-[13px]" value={s.name} placeholder={firstName(s.id) || `Iris ${i + 1}`} onChange={(e) => setSlots((x) => x.map((y, j) => (j === i ? { ...y, name: e.target.value } : y)))} />
+                    <IconButton title="Monter" className="size-7" disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp className="size-3.5" /></IconButton>
+                    <IconButton title="Descendre" className="size-7" disabled={i === slots.length - 1} onClick={() => move(i, 1)}><ArrowDown className="size-3.5" /></IconButton>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {count > 1 && (
             <div>
               <div className="mb-2 text-[13px] font-semibold">Disposition des iris</div>
@@ -522,7 +557,7 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
                   const [w, h, px] = o === 'ligne' ? [80, 30, 80] : o === 'colonne' ? [30, 80, 26] : o === 'vertical' ? [40, 60, 44] : o === 'diagonale' ? [45, 45, 56] : [60, 40, 72];
                   return (
                   <button key={o} onClick={() => setOrientation(o)} className={cx('flex flex-col items-center justify-end gap-1.5 rounded-xl border p-2 text-center text-[12.5px] transition', orientation === o ? 'border-gold-500 bg-gold-500/10 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>
-                    <IrisSketch n={count} w={w} h={h} width={px} orientation={o} />
+                    <IrisSketch n={count} w={w} h={h} width={px} orientation={o} numbered />
                     {ORIENTATION_LABEL[o]}
                   </button>
                 ); })}

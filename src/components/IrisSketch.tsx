@@ -5,7 +5,7 @@ import { FORMAT_GUIDE, arrangementFor, dimsLabel, parseDims, type FormatAdvice, 
 const COLORS = ['#d39b4a', '#6fa3c4', '#8fae62', '#b07fb8', '#e0956b', '#8aa6d6', '#c9b25a', '#6fb5a3'];
 
 /** Schematic (not a reproduction) of n iris laid out in a w × h frame. */
-export function IrisSketch({ n, w, h, width = 160, frame = true, className, orientation }: { n: number; w: number; h: number; width?: number; frame?: boolean; className?: string; orientation?: Orientation | null }) {
+export function IrisSketch({ n, w, h, width = 160, frame = true, className, orientation, numbered }: { n: number; w: number; h: number; width?: number; frame?: boolean; className?: string; orientation?: Orientation | null; /** Shows the iris number (order in the montage). */ numbered?: boolean }) {
   const { circles } = useMemo(() => arrangementFor(Math.max(1, n), w, h, orientation), [n, w, h, orientation]);
   const rays = Array.from({ length: 28 }, (_, i) => (i * Math.PI * 2) / 28);
   const stroke = Math.max(w, h) * 0.012;
@@ -19,7 +19,8 @@ export function IrisSketch({ n, w, h, width = 160, frame = true, className, orie
             <line key={k} x1={c.x + Math.cos(a) * c.r * 0.42} y1={c.y + Math.sin(a) * c.r * 0.42} x2={c.x + Math.cos(a) * c.r * 0.97} y2={c.y + Math.sin(a) * c.r * 0.97}
               stroke="#ffffff" strokeOpacity={0.35} strokeWidth={c.r * 0.035} />
           ))}
-          <circle cx={c.x} cy={c.y} r={c.r * 0.34} fill="#0b0b0c" />
+          <circle cx={c.x} cy={c.y} r={c.r * (numbered ? 0.45 : 0.34)} fill="#0b0b0c" />
+          {numbered && <text x={c.x} y={c.y} dy="0.35em" textAnchor="middle" fontSize={c.r * 0.62} fontWeight={700} fill="#ffffff">{i + 1}</text>}
         </g>
       ))}
     </svg>
