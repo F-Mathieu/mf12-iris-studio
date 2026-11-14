@@ -6,7 +6,7 @@ import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, St
 import { Lightbox, type LightItem } from './Lightbox';
 import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
-import { adviceFor, dimsLabel, sameDims, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
+import { adviceFor, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
 import { useApp } from '../store';
 import { listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
 import { getFamily } from '../services/families';
@@ -197,7 +197,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
             const adv = adviceFor(comp?.irisCount);
             return (
               <div className="mb-4 flex items-center gap-5 rounded-2xl border border-gold-500/30 bg-gold-500/[0.05] p-4">
-                {adv ? <IrisSketch n={adv.iris} w={comp?.orientation === 'vertical' ? adv.format[1] : adv.format[0]} h={comp?.orientation === 'vertical' ? adv.format[0] : adv.format[1]} width={comp?.orientation === 'vertical' ? (big ? 115 : 95) : big ? 170 : 140} orientation={comp?.orientation === 'diagonale' ? 'diagonale' : null} /> : comp && <IrisSketch n={comp.irisCount} w={60} h={40} width={big ? 170 : 140} orientation={comp.orientation} />}
+                {adv ? <IrisSketch n={adv.iris} w={isPortrait(comp?.orientation) ? adv.format[1] : adv.format[0]} h={isPortrait(comp?.orientation) ? adv.format[0] : adv.format[1]} width={isPortrait(comp?.orientation) ? (big ? 115 : 95) : big ? 170 : 140} orientation={comp?.orientation === 'vertical' || comp?.orientation === 'horizontal' ? null : comp?.orientation} /> : comp && <IrisSketch n={comp.irisCount} w={60} h={40} width={big ? 170 : 140} orientation={comp.orientation} />}
                 <div className="min-w-0 flex-1">
                   {adv ? (<>
                     <div className="text-[11.5px] font-semibold tracking-[0.18em] text-gold-400">CONSEILLÉ POUR {adv.iris} IRIS</div>
@@ -323,7 +323,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                       <select onClick={(e) => e.stopPropagation()} value={c.orientation ?? ''} onChange={(e) => { const v = (e.target.value || null) as Orientation | null; update((x) => ({ ...x, compositions: x.compositions.map((k) => (k.key === c.key ? { ...k, orientation: v } : k)) })); }}
                         className="mt-0.5 rounded-md border border-ink-600 bg-ink-850 px-1.5 py-0.5 text-[11.5px] text-mist-300 outline-none">
                         <option value="">Disposition : au choix</option>
-                        {(['horizontal', 'vertical', 'diagonale'] as Orientation[]).map((o) => <option key={o} value={o}>Disposition {ORIENTATION_LABEL[o].toLowerCase()}</option>)}
+                        {ORIENTATIONS.map((o) => <option key={o} value={o}>Disposition {ORIENTATION_LABEL[o].toLowerCase()}</option>)}
                       </select>
                     ))}
                     {c.instructions && <div className="mt-0.5 line-clamp-2 text-[11.5px] text-mist-400 italic">« {c.instructions} »</div>}
@@ -518,12 +518,14 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
             <div>
               <div className="mb-2 text-[13px] font-semibold">Disposition des iris</div>
               <div className="grid grid-cols-3 gap-2">
-                {(['horizontal', 'vertical', 'diagonale'] as Orientation[]).map((o) => (
-                  <button key={o} onClick={() => setOrientation(o)} className={cx('flex flex-col items-center gap-1.5 rounded-xl border p-2 text-[12.5px] transition', orientation === o ? 'border-gold-500 bg-gold-500/10 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>
-                    <IrisSketch n={count} w={o === 'vertical' ? 40 : o === 'diagonale' ? 45 : 60} h={o === 'vertical' ? 60 : o === 'diagonale' ? 45 : 40} width={o === 'vertical' ? 44 : o === 'diagonale' ? 56 : 72} orientation={o} />
+                {ORIENTATIONS.map((o) => {
+                  const [w, h, px] = o === 'ligne' ? [80, 30, 80] : o === 'colonne' ? [30, 80, 26] : o === 'vertical' ? [40, 60, 44] : o === 'diagonale' ? [45, 45, 56] : [60, 40, 72];
+                  return (
+                  <button key={o} onClick={() => setOrientation(o)} className={cx('flex flex-col items-center justify-end gap-1.5 rounded-xl border p-2 text-center text-[12.5px] transition', orientation === o ? 'border-gold-500 bg-gold-500/10 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>
+                    <IrisSketch n={count} w={w} h={h} width={px} orientation={o} />
                     {ORIENTATION_LABEL[o]}
                   </button>
-                ))}
+                ); })}
               </div>
             </div>
           )}

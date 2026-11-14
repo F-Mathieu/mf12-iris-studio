@@ -229,7 +229,7 @@ Cliquez sur **Vendre** à côté de la famille. Pour corriger le nom, le prénom
 1. **Onglet Créations** : cliquez sur un style (par exemple Fusion).
    - Agrandissez les exemples d'un clic.
    - **Cochez les prénoms** dont les iris seront inclus : le nombre d'iris se calcule tout seul et le prix s'adapte.
-   - Choisissez la **disposition des iris** : horizontale, verticale ou diagonale (croquis à l’appui ; non proposé pour 1 iris). Elle reste modifiable dans le panier (« Disposition : … »), y compris après un ajout rapide.
+   - Choisissez la **disposition des iris** : **côte à côte (en ligne)**, **en colonne**, **groupée** horizontale ou verticale (ex. 4 iris en 2 + 2) ou **diagonale** (croquis à l’appui ; non proposé pour 1 iris). Elle reste modifiable dans le panier (« Disposition : … »), y compris après un ajout rapide.
    - Ajoutez si besoin des souhaits (ordre des iris, fond…). Ils s’affichent dans le panier, la fiche commande, la postproduction, la fiche de production **et le récapitulatif PDF du client**.
    - **Ajouter cette création** : elle apparaît dans le panier, encadrée en doré, c'est-à-dire **active**.
 2. **Onglet Numérique** : cliquez sur le fichier HD voulu. Il s'ajoute à la création active.

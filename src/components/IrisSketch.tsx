@@ -62,7 +62,7 @@ function GuideCard({ g, active }: { g: FormatAdvice; active: boolean }) {
  */
 export function SizeViewer({ open, onClose, formats, initial, n, orientation }: { open: boolean; onClose: () => void; formats: { label: string; dims: [number, number]; tag?: string }[]; initial?: string; n: number; orientation?: Orientation | null }) {
   const [sel, setSel] = useState(initial ?? formats[0]?.label);
-  const [orient, setOrient] = useState<'h' | 'v'>(orientation === 'vertical' ? 'v' : 'h');
+  const [orient, setOrient] = useState<'h' | 'v'>(orientation === 'vertical' || orientation === 'colonne' ? 'v' : 'h');
   const f = formats.find((x) => x.label === sel) ?? formats[0];
   if (!f) return null;
   const [W, H] = orient === 'h' ? f.dims : [f.dims[1], f.dims[0]];
@@ -102,7 +102,7 @@ export function SizeViewer({ open, onClose, formats, initial, n, orientation }: 
           <g transform={`translate(${px} ${py})`}>
             <rect x={0.8} y={1.2} width={W} height={H} fill="#000" opacity={0.18} />
             <foreignObject x={0} y={0} width={W} height={H}>
-              <IrisSketch n={n} w={W} h={H} width={W} orientation={orientation === 'diagonale' ? 'diagonale' : null} />
+              <IrisSketch n={n} w={W} h={H} width={W} orientation={orientation === 'diagonale' ? 'diagonale' : orientation === 'ligne' || orientation === 'colonne' ? (orient === 'v' ? 'colonne' : 'ligne') : null} />
             </foreignObject>
           </g>
           <text x={SW / 2} y={py + H + 6} fontSize={4.6} textAnchor="middle" fill="#5d564d">{W} × {H} cm</text>

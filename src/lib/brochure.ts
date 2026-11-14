@@ -143,7 +143,7 @@ function formats(doc: jsPDF, d: BrochureData) {
     text(doc, 8.3, GREY); doc.text(doc.splitTextToSize(`${g.layout}${g.altText ? ' ' + g.altText : ''}`, cw - 10).slice(0, 4), x + 5, yy + 61);
   });
   y += 2 * (ch + 6) + 4;
-  text(doc, 8.5, GREY); doc.text('Pour une composition verticale, le même format est simplement tourné. Disposition au choix : horizontale, verticale ou en diagonale.', M, y, { maxWidth: W - 2 * M });
+  text(doc, 8.5, GREY); doc.text('Pour une composition verticale, le même format est simplement tourné. Disposition au choix : côte à côte (en ligne), en colonne, groupée (ex. 2 + 2) ou en diagonale.', M, y, { maxWidth: W - 2 * M });
 }
 
 const CAT_TITLE: Record<string, [string, string]> = {

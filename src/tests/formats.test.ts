@@ -63,3 +63,16 @@ describe('e-mail de facture', () => {
   });
   it('mailto encodé', () => expect(mailtoUrl('a@b.fr', 'Facture – X', 'L1\nL2')).toBe('mailto:a%40b.fr?subject=Facture%20%E2%80%93%20X&body=L1%0AL2'));
 });
+
+describe('dispositions en ligne / en colonne', () => {
+  it('4 iris côte à côte : une seule rangée, même hauteur, sans chevauchement', () => {
+    const { circles } = arrangementFor(4, 60, 20, 'ligne');
+    expect(new Set(circles.map((c) => c.y)).size).toBe(1);
+    for (let i = 1; i < 4; i++) expect(circles[i].x - circles[i - 1].x).toBeGreaterThanOrEqual(circles[i].r * 2);
+    expect(circles.every((c) => c.x - c.r >= 0 && c.x + c.r <= 60 && c.y - c.r >= 0 && c.y + c.r <= 20)).toBe(true);
+  });
+  it('en colonne : une seule colonne ; groupée horizontale reste en 2 + 2', () => {
+    expect(new Set(arrangementFor(3, 20, 60, 'colonne').circles.map((c) => c.x)).size).toBe(1);
+    expect(arrangementFor(4, 40, 40, 'horizontal').rows).toEqual([2, 2]);
+  });
+});

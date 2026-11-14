@@ -15,7 +15,7 @@ export interface TaskItem { id: string; product_name: string; variant_name: stri
 export interface Task {
   id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string;
   order_id: string; order_number: string; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
-  composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: 'horizontal' | 'vertical' | 'diagonale' | null;
+  composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: import('../lib/formatsGuide').Orientation | null;
   order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null;
   example_thumb: string | null;
   items: TaskItem[]; refs: { participant: string; reference: string; file_path: string | null }[]; hasPrint: boolean;

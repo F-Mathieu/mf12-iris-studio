@@ -59,11 +59,26 @@ export function arrangement(n: number, w: number, h: number, margin = 0.08) {
   return { rows, circles };
 }
 
-export type Orientation = 'horizontal' | 'vertical' | 'diagonale';
-export const ORIENTATION_LABEL: Record<Orientation, string> = { horizontal: 'Horizontale', vertical: 'Verticale', diagonale: 'Diagonale' };
+/** ligne / colonne: all iris on one row / one column; horizontal / vertical: grouped (e.g. 2 + 2); diagonale. */
+export type Orientation = 'ligne' | 'colonne' | 'horizontal' | 'vertical' | 'diagonale';
+export const ORIENTATIONS: Orientation[] = ['ligne', 'colonne', 'horizontal', 'vertical', 'diagonale'];
+export const ORIENTATION_LABEL: Record<Orientation, string> = { ligne: 'Côte à côte (en ligne)', colonne: 'En colonne', horizontal: 'Groupée horizontale', vertical: 'Groupée verticale', diagonale: 'Diagonale' };
+/** Orientations drawn in a portrait frame. */
+export const isPortrait = (o: Orientation | null | undefined) => o === 'vertical' || o === 'colonne';
 
 /** Circles for a given disposition: vertical = horizontal layout turned 90°, diagonal = iris along the diagonal. */
 export function arrangementFor(n: number, w: number, h: number, orientation?: Orientation | null) {
+  if ((orientation === 'ligne' || orientation === 'colonne') && n > 1) {
+    const row = orientation === 'ligne';
+    const L = row ? w : h, S = row ? h : w;
+    const d = Math.min((L * 0.92) / n, S * 0.92);
+    const start = (L - n * d) / 2;
+    const circles = Array.from({ length: n }, (_, i) => {
+      const a = start + d * (i + 0.5), b = S / 2;
+      return { x: row ? a : b, y: row ? b : a, r: (d / 2) * 0.96 };
+    });
+    return { rows: row ? [n] : Array(n).fill(1), circles };
+  }
   if (orientation === 'vertical') {
     const t = arrangement(n, h, w);
     return { rows: t.rows, circles: t.circles.map((c) => ({ x: c.y, y: c.x, r: c.r })) };
