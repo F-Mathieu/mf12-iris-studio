@@ -4,6 +4,7 @@ import autoTable, { type RowInput } from 'jspdf-autotable';
 import { eur } from './money';
 import { fmtDate } from './format';
 import type { InvoiceData } from '../services/invoices';
+import { sketchesBlock, type CompositionSketch } from './pdfSketch';
 
 export const GOLD: [number, number, number] = [184, 155, 104];
 export const INK: [number, number, number] = [20, 20, 22];
@@ -71,6 +72,7 @@ export interface RecapData {
   subtotal: number; discounts: { label: string; amount: number }[]; total: number; paid: number; paymentStatus: string;
   payments: { date: string; method: string; amount: number }[]; dueDate?: string | null; notes?: string | null;
   instalments?: { n: number; date: string; amount: number; paid: boolean }[];
+  sketches?: CompositionSketch[];
 }
 export function clientRecapPdf(d: RecapData): Uint8Array {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -121,7 +123,8 @@ export function clientRecapPdf(d: RecapData): Uint8Array {
     y += 7; doc.setFont('helvetica', 'bold'); doc.text(`Paiement en ${d.instalments.length} fois`, 14, y); doc.setFont('helvetica', 'normal');
     d.instalments.forEach((x) => { y += 4.6; doc.text(`${x.n}. ${fmtDate(x.date)} : ${eur(x.amount)}${x.paid ? ' (réglé)' : ''}`, 18, y); });
   }
-  if (d.notes) { y += 6; doc.setFontSize(8.5); doc.text(doc.splitTextToSize(`Notes : ${d.notes}`, 180), 14, y); }
+  if (d.notes) { y += 6; doc.setFontSize(8.5); doc.text(doc.splitTextToSize(`Notes : ${d.notes}`, 180), 14, y); y += 6; }
+  if (d.sketches?.length) { y = sketchesBlock(doc, y + 6, d.sketches, { bottom: 30 }); doc.setFontSize(9.5); doc.setTextColor(...INK); }
   y = Math.max(y + 10, lastY(doc) + 30);
   doc.setFontSize(7.5); doc.setTextColor(...GREY);
   doc.text('TVA non applicable, art. 293 B du CGI. Les visuels présentés lors de la séance sont des exemples de réalisations ; vos créations seront réalisées à partir de vos propres iris.', 14, Math.min(y, 275), { maxWidth: 182 });
@@ -312,6 +315,7 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
     if (d.seller.iban && d.balance > 0) { doc.text(`Règlement par virement : IBAN ${d.seller.iban}`, 14, y); y += 6; }
   }
   if (d.seller.terms) { doc.setFontSize(8.5); const t = doc.splitTextToSize(d.seller.terms, 182); doc.text(t, 14, y); y += t.length * 4; }
+  if (devis && d.sketches?.length) y = sketchesBlock(doc, y + 4, d.sketches, { bottom: 24 });
   if (devis) {
     // « Bon pour accord » box, signed and returned by the client
     const H = doc.internal.pageSize.getHeight();

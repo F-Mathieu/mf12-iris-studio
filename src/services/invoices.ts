@@ -10,6 +10,7 @@ import { getOrderDetail, PAYMENT_METHODS } from './orders';
 import { discountLabel, instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import type { Stmt } from '../lib/db/types';
+import type { CompositionSketch } from '../lib/pdfSketch';
 
 export interface Seller {
   tradeName: string; legalName: string; status: string; address: string; siret: string; registration: string;
@@ -20,6 +21,8 @@ export interface InvoiceData {
   kind: 'facture' | 'avoir' | 'devis'; number: string; date: string; saleDate: string;
   /** Devis only: end of validity, extra conditions. */
   validUntil?: string; quoteTerms?: string | null;
+  /** Devis: layout of each creation (numbered iris + names). */
+  sketches?: CompositionSketch[];
   seller: Seller; client: { name: string; phone?: string | null; email?: string | null };
   order: { number: string; session: string };
   lines: InvoiceLine[]; discounts: { label: string; amount: number }[];

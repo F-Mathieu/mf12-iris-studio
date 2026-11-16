@@ -6,6 +6,7 @@ import { batch, getSettings, insertStmt, nowIso, one, sel, uid, updateStmt } fro
 import { buildInvoiceData, REQUIRED_SELLER, sellerInfo, type InvoiceData } from './invoices';
 import { getOrderDetail } from './orders';
 import { schedule } from '../lib/pricing';
+import { compositionSketches } from './sketches';
 
 export type QuoteStatus = 'envoye' | 'signe' | 'refuse';
 export const QUOTE_STATUS: Record<QuoteStatus, string> = { envoye: 'Envoyé', signe: 'Signé', refuse: 'Refusé' };
@@ -33,6 +34,7 @@ export async function buildQuoteData(orderId: string, number: string): Promise<I
   const days = Math.max(1, Number(s.quote_validity_days) || 30);
   return {
     ...base, kind: 'devis', validUntil: addDays(base.date, days), quoteTerms: s.quote_terms || null,
+    sketches: d ? compositionSketches(d.cart) : [],
     paid: 0, balance: base.total, payments: [],
     instalments: plan && plan.count > 1 ? schedule(base.total, plan).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: false })) : undefined,
   };

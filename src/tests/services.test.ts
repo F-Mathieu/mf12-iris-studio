@@ -362,6 +362,8 @@ describe('orders', () => {
     expect(recap).toContain('Votre s');
     expect(recap).toContain('95,00');
     expect(recap).not.toContain('Solde restant');
+    expect(recap).toContain('disposition et ordre des iris');
+    expect(recap).toContain('Iris 4'); // unnamed iris are numbered
     // offers can be hidden from the brochure (still applied in the cart)
     const { setPromotionInBrochure, listPromotions } = await import('../services/pricing');
     await savePromotion(pl, { name: 'Remise 10 € dès 100 €', type: 'amount', config: { amount_cents: 1000, min_subtotal_cents: 10000 }, priority: 10, stackable: true, active: true });

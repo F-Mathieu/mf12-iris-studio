@@ -11,6 +11,7 @@ import { clientName, issueInvoice, type InvoiceRow } from './invoices';
 import { invoicePdf } from '../lib/pdf';
 import { brochurePdf, type BrochureData } from '../lib/brochure';
 import { cropForPdf } from '../lib/images';
+import { compositionSketches } from './sketches';
 import { parsePrintFrame } from './onelab';
 import { catalogPdf, clientRecapPdf, productionSheetPdf, type Brand, type CatalogData } from '../lib/pdf';
 
@@ -28,6 +29,7 @@ export async function orderRecapPdf(orderId: string) {
   const images = await Promise.all(cart.compositions.map((c) => imageOf(c.styleId)));
   return clientRecapPdf({
     draft: o.status === 'brouillon',
+    sketches: compositionSketches(cart),
     brand: await brand(), number: o.number, date: o.validated_at ?? o.created_at, status: ORDER_STATUS[o.status], session: o.session_name,
     family: clientName(o.contact_first_name, o.family_name), contact: [o.family_phone, o.family_email].filter(Boolean).join(' · '),
     compositions: cart.compositions.map((c, n) => ({ style: c.styleName, iris: c.irisCount, participants: c.participantNames, fee: c.feeCents, image: images[n],

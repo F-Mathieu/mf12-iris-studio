@@ -304,6 +304,7 @@ Bouton **Devis** (configurateur de vente, ou fiche commande) :
 - **Établir le devis (PDF)** ou **Établir et envoyer par e-mail** (Mail s’ouvre : objet « Devis – {séance} – MF/1.2 », devis en pièce jointe, texte de base) ;
 - le devis est **numéroté** (D2026-0001…) et **figé** ; s’il est redemandé sans changement du panier, c’est le même devis (même numéro) ; si le panier a changé, un nouveau devis est établi, l’ancien reste tel quel ;
 - il comporte vos mentions légales, le détail, le total, l’échéancier en plusieurs fois s’il y en a un, la date de validité (30 jours par défaut), « Devis gratuit », et un cadre **« Bon pour accord »** (date, nom, signature) ;
+- partie **« Vos créations — disposition et ordre des iris »** : pour chaque création, le croquis de la disposition choisie (iris numérotés, au format du tirage commandé, sinon format conseillé) et la légende « 1 Julie · 2 Léa · 3 Tom ». Elle figure aussi sur le récap « Votre sélection » ;
 - quand le client le renvoie signé : bouton ✓ **Marquer signé** (date au choix), ou ✕ refusé. Ensuite, **validez la commande** pour figer les prix.
 
 Réglages (**Paramètres → Facturation**) : durée de validité, conditions particulières (ex. acompte, délai), texte de l’e-mail.
