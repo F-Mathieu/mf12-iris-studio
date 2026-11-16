@@ -43,7 +43,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
       <Card>
         <DataTable<RegistrationRow> rows={rows} rowKey={(r) => r.id}
           empty={<Empty icon={<Users className="size-5" />} title="Aucun inscrit" text="Importez votre fichier Excel (CSV) ou ajoutez les familles manuellement." />}
-          rowClassName={(r) => (r.quote_signed_at ? 'bg-gold-500/[0.15] shadow-[inset_3px_0_0_rgb(212,175,105)]' : r.quote_sent_at ? 'bg-green-500/[0.08] shadow-[inset_3px_0_0_rgb(74,222,128)]' : null)}
+          rowClassName={(r) => (r.appt_status === 'absent' ? 'bg-red-500/[0.10] shadow-[inset_3px_0_0_rgb(248,113,113)] text-mist-300' : r.quote_signed_at ? 'bg-gold-500/[0.15] shadow-[inset_3px_0_0_rgb(212,175,105)]' : r.quote_sent_at ? 'bg-green-500/[0.08] shadow-[inset_3px_0_0_rgb(74,222,128)]' : null)}
           columns={[
             { key: 'time', header: 'RDV', sort: (r) => `${r.appt_date ?? ''}${r.appt_time ?? ''}`, cell: (r) => <span className="tabular">{r.appt_time ?? '—'}{r.appt_date && <span className="ml-1 text-[11.5px] text-mist-400">{fmtDate(r.appt_date, { day: '2-digit', month: '2-digit' })}</span>}</span> },
             { key: 'ref', header: 'Réf.', sort: (r) => r.external_ref ?? '', cell: (r) => <span className="font-mono text-[12px] text-mist-300">{r.external_ref ?? ''}</span> },

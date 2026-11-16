@@ -280,6 +280,7 @@ L'application n'encaisse rien : vous encaissez avec vos propres moyens, puis vou
 > Ne saisissez jamais de numéro de carte bancaire.
 
 ### Suivi des devis dans la liste des inscrits
+Les familles **absentes** (statut « Absent ») sont automatiquement surlignées en **rouge**.
 Colonne **Devis** : case **Envoyé** (ligne surlignée en **vert**) et case **Validé** (ligne surlignée en **doré**, prioritaire). Elles se cochent à la main, et automatiquement quand un devis est envoyé par e-mail depuis l’app ou marqué signé. Survolez une case cochée pour voir la date ; la colonne se trie (validés, puis envoyés).
 
 ### 4.4 Envoyer les offres de la séance (avant tout choix)
