@@ -17,10 +17,12 @@ export interface RegistrationRow {
   quote_sent_at: string | null; quote_signed_at: string | null;
   /** « En attente » of the client's reply (ticked by hand). */
   awaiting_reply_at: string | null;
+  /** « Traitée »: everything done for this family (ticked by hand). */
+  done_at: string | null;
 }
 
 /** Ticks / unticks « en attente », « devis envoyé » or « devis validé » on a registration. */
-const FOLLOW_COL = { waiting: 'awaiting_reply_at', sent: 'quote_sent_at', signed: 'quote_signed_at' } as const;
+const FOLLOW_COL = { waiting: 'awaiting_reply_at', sent: 'quote_sent_at', signed: 'quote_signed_at', done: 'done_at' } as const;
 export const setRegistrationQuote = (id: string, what: keyof typeof FOLLOW_COL, on: boolean) =>
   run(`UPDATE session_registrations SET ${FOLLOW_COL[what]}=? WHERE id=?`, [on ? nowIso().slice(0, 10) : null, id]);
 

@@ -277,6 +277,9 @@ ALTER TABLE session_registrations ADD COLUMN quote_signed_at TEXT;
   /* 9 — case « en attente de retour » (récap envoyé, réponse attendue), cochée à la main. */ `
 ALTER TABLE session_registrations ADD COLUMN awaiting_reply_at TEXT;
 `,
+  /* 10 — case « commande traitée » (tout est fait pour cette famille), cochée à la main. */ `
+ALTER TABLE session_registrations ADD COLUMN done_at TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

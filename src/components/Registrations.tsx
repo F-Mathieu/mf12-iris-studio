@@ -43,7 +43,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
       <Card>
         <DataTable<RegistrationRow> rows={rows} rowKey={(r) => r.id}
           empty={<Empty icon={<Users className="size-5" />} title="Aucun inscrit" text="Importez votre fichier Excel (CSV) ou ajoutez les familles manuellement." />}
-          rowClassName={(r) => (r.appt_status === 'absent' ? 'bg-red-500/[0.10] shadow-[inset_3px_0_0_rgb(248,113,113)] text-mist-300' : r.quote_signed_at ? 'bg-gold-500/[0.15] shadow-[inset_3px_0_0_rgb(212,175,105)]' : r.quote_sent_at ? 'bg-green-500/[0.08] shadow-[inset_3px_0_0_rgb(74,222,128)]' : r.awaiting_reply_at ? 'bg-sky-500/[0.10] shadow-[inset_3px_0_0_rgb(56,189,248)]' : null)}
+          rowClassName={(r) => (r.done_at ? 'bg-white/[0.015] opacity-55 shadow-[inset_3px_0_0_rgb(148,163,184)]' : r.appt_status === 'absent' ? 'bg-red-500/[0.10] shadow-[inset_3px_0_0_rgb(248,113,113)] text-mist-300' : r.quote_signed_at ? 'bg-gold-500/[0.15] shadow-[inset_3px_0_0_rgb(212,175,105)]' : r.quote_sent_at ? 'bg-green-500/[0.08] shadow-[inset_3px_0_0_rgb(74,222,128)]' : r.awaiting_reply_at ? 'bg-sky-500/[0.10] shadow-[inset_3px_0_0_rgb(56,189,248)]' : null)}
           columns={[
             { key: 'time', header: 'RDV', sort: (r) => `${r.appt_date ?? ''}${r.appt_time ?? ''}`, cell: (r) => <span className="tabular">{r.appt_time ?? '—'}{r.appt_date && <span className="ml-1 text-[11.5px] text-mist-400">{fmtDate(r.appt_date, { day: '2-digit', month: '2-digit' })}</span>}</span> },
             { key: 'ref', header: 'Réf.', sort: (r) => r.external_ref ?? '', cell: (r) => <span className="font-mono text-[12px] text-mist-300">{r.external_ref ?? ''}</span> },
@@ -51,11 +51,12 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
             { key: 'parts', header: 'Participants', cell: (r) => <div className="max-w-[220px] truncate text-mist-300" title={r.participant_names ?? ''}><span className="mr-1.5 tabular text-mist-100">{r.nb_participants || r.participants_count || 0}</span>{r.participant_names}</div> },
             { key: 'status', header: 'Statut', cell: (r) => <ApptBadge s={r.appt_status} /> },
             { key: 'order', header: 'Commande', cell: (r) => r.order_status ? <div className="flex items-center gap-1.5"><OrderBadge s={r.order_status as 'validee'} />{r.order_status === 'validee' && <PayBadge total={r.order_total ?? 0} paid={r.paid_cents ?? 0} />}</div> : <span className="text-mist-400">—</span> },
-            { key: 'quote', header: 'Suivi', sort: (r) => (r.quote_signed_at ? 3 : r.quote_sent_at ? 2 : r.awaiting_reply_at ? 1 : 0), cell: (r) => (
+            { key: 'quote', header: 'Suivi', sort: (r) => (r.done_at ? 4 : r.quote_signed_at ? 3 : r.quote_sent_at ? 2 : r.awaiting_reply_at ? 1 : 0), cell: (r) => (
               <div className="flex flex-col gap-1 text-[12px]">
                 <QuoteTick checked={!!r.awaiting_reply_at} tone="blue" label="En attente" date={r.awaiting_reply_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'waiting', on).then(reload))} />
                 <QuoteTick checked={!!r.quote_sent_at} tone="green" label="Devis envoyé" date={r.quote_sent_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'sent', on).then(reload))} />
                 <QuoteTick checked={!!r.quote_signed_at} tone="gold" label="Devis validé" date={r.quote_signed_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'signed', on).then(reload))} />
+                <QuoteTick checked={!!r.done_at} tone="grey" label="Traitée" date={r.done_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'done', on).then(reload))} />
               </div>) },
             { key: 'total', header: 'Montant', align: 'right', sort: (r) => r.order_total ?? 0, cell: (r) => (r.order_total != null ? eur(r.order_total) : '') },
             { key: 'a', header: '', align: 'right', cell: (r) => (
@@ -136,7 +137,7 @@ export function AppointmentDialog({ reg, onClose, onSaved }: { reg: Registration
 }
 
 /** Small checkbox of the « Devis » column (the row is highlighted when ticked). */
-const TICK_TONE = { blue: ['text-sky-300', 'accent-sky-500'], green: ['text-green-300', 'accent-green-500'], gold: ['text-gold-300', 'accent-gold-500'] } as const;
+const TICK_TONE = { blue: ['text-sky-300', 'accent-sky-500'], green: ['text-green-300', 'accent-green-500'], gold: ['text-gold-300', 'accent-gold-500'], grey: ['text-mist-200', 'accent-slate-400'] } as const;
 function QuoteTick({ checked, label, tone, date, onChange }: { checked: boolean; label: string; tone: keyof typeof TICK_TONE; date: string | null; onChange: (on: boolean) => void }) {
   return (
     <label className={cx('flex cursor-pointer items-center gap-1.5 whitespace-nowrap', checked ? TICK_TONE[tone][0] : 'text-mist-400 hover:text-mist-200')} title={checked && date ? `${label} le ${fmtDate(date)}` : undefined} onClick={(e) => e.stopPropagation()}>
