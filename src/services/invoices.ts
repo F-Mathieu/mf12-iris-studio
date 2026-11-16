@@ -17,7 +17,9 @@ export interface Seller {
 }
 export interface InvoiceLine { label: string; detail?: string; qty: number; unit: number; total: number }
 export interface InvoiceData {
-  kind: 'facture' | 'avoir'; number: string; date: string; saleDate: string;
+  kind: 'facture' | 'avoir' | 'devis'; number: string; date: string; saleDate: string;
+  /** Devis only: end of validity, extra conditions. */
+  validUntil?: string; quoteTerms?: string | null;
   seller: Seller; client: { name: string; phone?: string | null; email?: string | null };
   order: { number: string; session: string };
   lines: InvoiceLine[]; discounts: { label: string; amount: number }[];

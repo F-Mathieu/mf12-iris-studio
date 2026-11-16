@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DEFAULT_INVOICE_MAIL, DEFAULT_RECAP_MAIL, MAIL_PLACEHOLDERS, RECAP_PLACEHOLDERS } from '../lib/invoiceMail';
+import { DEFAULT_INVOICE_MAIL, DEFAULT_QUOTE_MAIL, DEFAULT_RECAP_MAIL, MAIL_PLACEHOLDERS, QUOTE_PLACEHOLDERS, RECAP_PLACEHOLDERS } from '../lib/invoiceMail';
 import { DatabaseBackup, Download, FolderOpen, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
 import { setSetting } from '../services/base';
@@ -59,6 +59,9 @@ export default function Settings() {
             <Field label="Mention libre (facultatif)" hint="Ex. délais de livraison, droit à l’image…"><Input value={v('invoice_terms')} onChange={(e) => setDraft({ ...draft, invoice_terms: e.target.value })} /></Field>
             <Field label="Texte de l’e-mail d’envoi de facture" hint={`Objet : « Facture – séance – MF/1.2 ». Variables : ${MAIL_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={9} value={v('invoice_mail_body') || DEFAULT_INVOICE_MAIL} onChange={(e) => setDraft({ ...draft, invoice_mail_body: e.target.value })} /></Field>
             <Field label="Texte de l’e-mail « récap de la sélection + brochure »" hint={`Objet : « Votre sélection – séance – MF/1.2 ». Variables : ${RECAP_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={9} value={v('recap_mail_body') || DEFAULT_RECAP_MAIL} onChange={(e) => setDraft({ ...draft, recap_mail_body: e.target.value })} /></Field>
+            <Field label="Devis : durée de validité (jours)"><Input type="number" min={1} className="w-28" value={v('quote_validity_days') || '30'} onChange={(e) => setDraft({ ...draft, quote_validity_days: e.target.value })} /></Field>
+            <Field label="Devis : conditions particulières (facultatif)" hint="Ex. acompte, délai de réalisation…" className="col-span-2"><Textarea rows={2} value={v('quote_terms')} onChange={(e) => setDraft({ ...draft, quote_terms: e.target.value })} /></Field>
+            <Field label="Texte de l’e-mail d’envoi du devis" hint={`Objet : « Devis – séance – MF/1.2 ». Variables : ${QUOTE_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={8} value={v('quote_mail_body') || DEFAULT_QUOTE_MAIL} onChange={(e) => setDraft({ ...draft, quote_mail_body: e.target.value })} /></Field>
             <Field label="Brochure des offres : texte d’introduction (facultatif)" hint="Affiché en page 2 de la brochure. Laissé vide : texte par défaut." className="col-span-2"><Textarea rows={3} value={v('brochure_intro')} onChange={(e) => setDraft({ ...draft, brochure_intro: e.target.value })} /></Field>
           </div>
         </Card>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Ban, Copy, CreditCard, Eye, EyeOff, FileDown, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Ban, Copy, CreditCard, Eye, EyeOff, FileDown, FileSignature, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Textarea, useAsync, useConfirm } from '../components/ui';
 import { OrderBadge, PayBadge } from '../components/badges';
 import { confirmAndDeleteOrder } from '../components/deleteOrder';
@@ -8,6 +8,7 @@ import { addPayment, cancelOrder, deletePayment, duplicateOrder, getOrderDetail,
 import { invoicePdfOf, orderInvoicePdf, orderRecapPdf } from '../services/documents';
 import { activeInvoice, invoicesOfOrder, type InvoiceRow } from '../services/invoices';
 import { emailInvoice, emailOrderRecap } from '../services/mail';
+import { QuoteDialog } from '../components/QuoteDialog';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -26,7 +27,8 @@ export default function OrderDetail() {
   const inv = useAsync(() => invoicesOfOrder(id), [id]);
   const [payOpen, setPayOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
-  const [showInternal, setShowInternal] = useState(false); // cost / margin folded by default
+  const [showInternal, setShowInternal] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false); // cost / margin folded by default
   useEffect(() => setShowInternal(false), [id]); // folded again on every order
   if (d.error) return <ErrorBox error={d.error} />;
   if (!d.data) return <Loading />;
@@ -73,6 +75,7 @@ export default function OrderDetail() {
         actions={<>
           {o.status === 'validee' && <Button icon={<Mail className="size-4" />} onClick={() => sendMail()}>Envoyer par e-mail</Button>}
           {o.status === 'brouillon' && <Button icon={<Mail className="size-4" />} onClick={sendRecap}>Envoyer le récap par e-mail</Button>}
+          {o.status !== 'annulee' && <Button icon={<FileSignature className="size-4" />} onClick={() => setQuoteOpen(true)}>Devis</Button>}
           {o.status === 'validee' ? <Button variant="gold" icon={<FileDown className="size-4" />} onClick={invoice}>Facture PDF</Button> : <Button icon={<FileDown className="size-4" />} onClick={pdf}>Récapitulatif PDF</Button>}
           {o.status !== 'annulee' && <Button icon={<Pencil className="size-4" />} onClick={() => nav(`/vente/commande/${id}`)}>{o.status === 'validee' ? 'Corriger' : 'Reprendre'}</Button>}
           <Button icon={<Copy className="size-4" />} onClick={async () => { const nid = await act(() => duplicateOrder(id), 'Commande dupliquée en brouillon'); if (nid) nav(`/vente/commande/${nid}`); }}>Dupliquer</Button>
@@ -194,6 +197,7 @@ export default function OrderDetail() {
           </Card>
         </div>
       </div>
+      {quoteOpen && <QuoteDialog orderId={id} onClose={() => setQuoteOpen(false)} />}
       <PaymentDialog open={payOpen} balance={balance} suggested={nextDue?.remaining_cents} suggestedLabel={nextDue ? `Échéance n° ${nextDue.n} du ${fmtDate(nextDue.date)}` : undefined} onClose={() => setPayOpen(false)} onSave={async (p) => { if (await act(() => addPayment(id, p), 'Règlement enregistré') !== undefined) { setPayOpen(false); d.reload(); } }} />
       <PlanDialog open={planOpen} initial={{ due: o.payment_due_date, note: o.payment_note }} onClose={() => setPlanOpen(false)} onSave={async (due, note) => { await act(() => setPaymentPlan(id, due, note), 'Échéance enregistrée'); setPlanOpen(false); d.reload(); }} />
     </>

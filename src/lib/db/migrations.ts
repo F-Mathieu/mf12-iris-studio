@@ -262,6 +262,14 @@ CREATE INDEX idx_invoices_order ON invoices(order_id);
   /* 6 — option rattachée à un article (ex. cadre sous un tirage) : id de la ligne parente. */ `
 ALTER TABLE order_items ADD COLUMN parent_item_id TEXT;
 `,
+  /* 7 — devis : numérotation continue (D2026-0001), contenu figé (JSON), suivi envoyé / signé / refusé. */ `
+CREATE TABLE quotes (
+  id TEXT PRIMARY KEY, number TEXT NOT NULL UNIQUE, order_id TEXT REFERENCES orders(id) ON DELETE SET NULL,
+  issued_at TEXT NOT NULL, valid_until TEXT NOT NULL, total_cents INTEGER NOT NULL, data TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'envoye' CHECK (status IN ('envoye','signe','refuse')), signed_at TEXT
+);
+CREATE INDEX idx_quotes_order ON quotes(order_id);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

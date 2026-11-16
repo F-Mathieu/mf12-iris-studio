@@ -25,6 +25,8 @@
 
 - Brochure des offres illustrée (`lib/brochure.ts`, `brochureData`) : remplace le « Catalogue commercial » ; images recadrées/réduites via canvas (`cropForPdf`). Récap brouillon « Votre sélection » illustré. E-mail « récap + brochure » (`emailOrderRecap`, bouton dans le configurateur et la fiche commande) ; `compose_mail` accepte plusieurs pièces jointes. Description des tirages papier corrigée (ne cite plus le fournisseur, `paper_desc_v2`). Testé : unitaires + aperçu navigateur (PDF rendus et relus). Mail.app non vérifié sur Mac réel.
 
+- Devis (`services/quotes.ts`, table `quotes`, migration 7) : numérotation continue D{année}-0001, contenu figé (même format que la facture, kind 'devis'), réémission seulement si le contenu change, validité (`quote_validity_days`), statut envoyé/signé/refusé, PDF avec « Bon pour accord », e-mail (`emailQuote`). Testé : unitaires + aperçu navigateur.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

@@ -243,7 +243,7 @@ export function supplierOrderPdf(brand: Brand, supplier: string, ref: string | n
 export function invoicePdf(d: InvoiceData): Uint8Array {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
-  const avoir = d.kind === 'avoir';
+  const avoir = d.kind === 'avoir', devis = d.kind === 'devis';
   // Seller block
   doc.setTextColor(...GOLD); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(d.seller.tradeName, 14, 20);
   doc.setTextColor(...INK); doc.setFontSize(9.5);
@@ -259,9 +259,11 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
   doc.text(sellerLines, 14, 32);
   // Title block
   doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-  doc.text(avoir ? 'AVOIR' : 'FACTURE', W - 14, 20, { align: 'right' });
+  doc.text(devis ? 'DEVIS' : avoir ? 'AVOIR' : 'FACTURE', W - 14, 20, { align: 'right' });
   doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-  const meta = [`N° ${d.number}`, `Date : ${fmtDate(d.date)}`, `Date de la vente : ${fmtDate(d.saleDate)}`, `Commande : ${d.order.number}`];
+  const meta = devis
+    ? [`N° ${d.number}`, `Date : ${fmtDate(d.date)}`, `Valable jusqu’au : ${fmtDate(d.validUntil)}`, `Réf. sélection : ${d.order.number}`]
+    : [`N° ${d.number}`, `Date : ${fmtDate(d.date)}`, `Date de la vente : ${fmtDate(d.saleDate)}`, `Commande : ${d.order.number}`];
   if (d.ref) meta.push(`Annule la facture ${d.ref.number} du ${fmtDate(d.ref.date)}`);
   doc.text(meta, W - 14, 27, { align: 'right' });
   // Client block
@@ -282,8 +284,8 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
     margin: { left: 14, right: 14, top: 20, bottom: 30 } });
   const tot: RowInput[] = [['Total brut', eur(d.subtotal)]];
   if (d.discount) tot.push(['Remises', `- ${eur(Math.abs(d.discount))}`]);
-  tot.push([{ content: avoir ? 'Total de l’avoir' : 'Total à payer', styles: { fontStyle: 'bold', fontSize: 11 } }, { content: eur(d.total), styles: { fontStyle: 'bold', fontSize: 11 } }]);
-  if (!avoir) {
+  tot.push([{ content: avoir ? 'Total de l’avoir' : devis ? 'Total' : 'Total à payer', styles: { fontStyle: 'bold', fontSize: 11 } }, { content: eur(d.total), styles: { fontStyle: 'bold', fontSize: 11 } }]);
+  if (!avoir && !devis) {
     tot.push(['Déjà réglé', eur(d.paid)]);
     tot.push([{ content: d.balance > 0 ? 'Reste à payer' : 'Facture acquittée', styles: { fontStyle: 'bold' } }, { content: eur(d.balance), styles: { fontStyle: 'bold' } }]);
   }
@@ -291,7 +293,15 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
   let y = lastY(doc) + 6;
   doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('TVA non applicable, art. 293 B du CGI', 14, y); doc.setFont('helvetica', 'normal');
   y += 6;
-  if (avoir) {
+  if (devis) {
+    if (d.instalments?.length) {
+      doc.text(`Modalités de paiement — en ${d.instalments.length} fois :`, 14, y);
+      d.instalments.forEach((x) => { y += 4.5; doc.text(`${x.n}. ${fmtDate(x.date)} — ${eur(x.amount)}`, 18, y); }); y += 6;
+    }
+    if (d.seller.iban) { doc.text(`Règlement par virement possible : IBAN ${d.seller.iban}`, 14, y); y += 6; }
+    doc.text(`Devis gratuit, valable jusqu’au ${fmtDate(d.validUntil)}. Les prix indiqués sont fermes pendant cette durée.`, 14, y, { maxWidth: 182 }); y += 6;
+    if (d.quoteTerms) { doc.setFontSize(8.5); const t = doc.splitTextToSize(d.quoteTerms, 182); doc.text(t, 14, y); y += t.length * 4 + 2; doc.setFontSize(9); }
+  } else if (avoir) {
     doc.text(doc.splitTextToSize(`Cet avoir annule la facture ${d.ref?.number}${d.reason ? ` — motif : ${d.reason}` : ''}.`, 182), 14, y); y += 6;
   } else {
     if (d.payments.length) { doc.text('Règlements reçus :', 14, y); d.payments.forEach((p) => { y += 4.5; doc.text(`${fmtDate(p.date)} — ${p.method} — ${eur(p.amount)}`, 18, y); }); y += 6; }
@@ -302,6 +312,19 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
     if (d.seller.iban && d.balance > 0) { doc.text(`Règlement par virement : IBAN ${d.seller.iban}`, 14, y); y += 6; }
   }
   if (d.seller.terms) { doc.setFontSize(8.5); const t = doc.splitTextToSize(d.seller.terms, 182); doc.text(t, 14, y); y += t.length * 4; }
+  if (devis) {
+    // « Bon pour accord » box, signed and returned by the client
+    const H = doc.internal.pageSize.getHeight();
+    if (y + 52 > H - 22) { doc.addPage(); y = 24; }
+    y += 6;
+    const bx = W - 14 - 100;
+    doc.setDrawColor(...GOLD); doc.setLineWidth(0.5); doc.roundedRect(bx, y, 100, 46, 2, 2);
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.text('BON POUR ACCORD', bx + 5, y + 7);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...GREY);
+    doc.text(['Date :', '', 'Nom et prénom :', '', 'Signature, précédée de la mention manuscrite', '« Bon pour accord » :'], bx + 5, y + 14, { lineHeightFactor: 1.35 });
+    doc.setTextColor(...INK); doc.setFontSize(8.8);
+    doc.text(doc.splitTextToSize('Pour accepter ce devis, merci de le retourner daté et signé, avec la mention « Bon pour accord », avant la fin de sa validité (par e-mail : photo ou scan).', 72), 14, y + 6);
+  }
   // Footer on every page
   const n = doc.getNumberOfPages(), h = doc.internal.pageSize.getHeight();
   for (let i = 1; i <= n; i++) {

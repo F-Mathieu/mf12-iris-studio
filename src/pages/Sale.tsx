@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Mail, MonitorPlay, Trash2 } from 'lucide-react';
+import { FileSignature, Mail, MonitorPlay, Trash2 } from 'lucide-react';
 import { Button, ErrorBox, Loading, useAsync, useConfirm } from '../components/ui';
 import { deleteDraft } from '../services/orders';
 import { Configurator, type ConfiguratorApi } from '../components/Configurator';
@@ -8,6 +8,7 @@ import { one } from '../services/base';
 import { useApp } from '../store';
 import { act } from '../lib/act';
 import { emailOrderRecap } from '../services/mail';
+import { QuoteDialog } from '../components/QuoteDialog';
 
 /** Admin sales screen: /vente/:sessionId/:registrationId or /vente/commande/:orderId */
 export default function Sale() {
@@ -15,6 +16,7 @@ export default function Sale() {
   const nav = useNavigate();
   const { enterClient } = useApp();
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const api = useRef<ConfiguratorApi | null>(null);
   const confirm = useConfirm();
   const [draftStatus, setDraftStatus] = useState<'brouillon' | 'validee' | null>(null);
@@ -53,12 +55,14 @@ export default function Sale() {
           setSavedId(id);
           return emailOrderRecap(id);
         }, (how) => (how === 'mail' ? 'E-mail prêt dans Mail : sélection + brochure' : 'PDF enregistrés (sélection + brochure) — joignez-les au message ouvert'))}>Envoyer le récap</Button>}
+        {(draftStatus ?? c.status ?? 'brouillon') === 'brouillon' && <Button variant="subtle" icon={<FileSignature className="size-4" />} onClick={() => setQuoteOpen(true)}>Devis</Button>}
         <Button variant="outline" icon={<MonitorPlay className="size-4" />} onClick={() => act(async () => {
           const id = (await api.current?.saveDraft()) ?? oid; // keep the cart built so far
           await enterClient({ sessionId: c.session_id, familyId: c.family_id, registrationId: c.registration_id, orderId: id });
         })}>Montrer au client</Button>
         </div>
       </div>
+      {quoteOpen && <QuoteDialog orderId={oid} onClose={() => setQuoteOpen(false)} prepare={async () => { const id = (await api.current?.saveDraft()) ?? null; if (id) setSavedId(id); return id; }} />}
       <div className="min-h-0 flex-1">
         <Configurator key={oid ?? 'new'} apiRef={api} mode="admin" sessionId={c.session_id} familyId={c.family_id} registrationId={c.registration_id} orderId={oid}
           onSaved={(r) => { setDraftStatus(r.status); if (r.status === 'validee') nav(`/commandes/${r.id}`); else setSavedId(r.id); }} />

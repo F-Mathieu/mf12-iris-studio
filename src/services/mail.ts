@@ -5,7 +5,7 @@
 import { isTauri } from '../lib/db';
 import { getSetting } from './base';
 import { invoicePdfOf, orderRecapPdf, sessionBrochurePdf } from './documents';
-import { invoiceMailBody, invoiceMailSubject, mailtoUrl, recapMailBody, recapMailSubject, signatureOf } from '../lib/invoiceMail';
+import { invoiceMailBody, invoiceMailSubject, mailtoUrl, quoteMailBody, quoteMailSubject, recapMailBody, recapMailSubject, signatureOf } from '../lib/invoiceMail';
 import { saveFile } from '../lib/files';
 import { slug } from '../lib/format';
 import { clientName, sellerInfo, type InvoiceData, type InvoiceRow } from './invoices';
@@ -55,5 +55,16 @@ export async function emailOrderRecap(orderId: string): Promise<MailResult> {
       { name: `selection-${o.number}-${slug(o.family_name)}.pdf`, bytes: recap },
       { name: `brochure-${slug(o.session_name)}.pdf`, bytes: brochure },
     ],
+  });
+}
+
+/** Quote (devis) PDF, to be returned signed. */
+export async function emailQuote(row: { number: string; data: string }, opts: { to?: string | null; firstName?: string | null; familyName: string }): Promise<MailResult> {
+  const { invoicePdf } = await import('../lib/pdf');
+  const data: InvoiceData = JSON.parse(row.data);
+  return composeMail({
+    to: (opts.to ?? data.client.email ?? '').trim(), subject: quoteMailSubject(data.order.session),
+    body: quoteMailBody(data, opts.firstName, await getSetting('quote_mail_body')),
+    files: [{ name: `devis-${row.number}-${slug(opts.familyName)}.pdf`, bytes: invoicePdf(data) }],
   });
 }

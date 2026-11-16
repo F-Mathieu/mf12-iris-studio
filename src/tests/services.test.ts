@@ -546,3 +546,43 @@ describe('orders', () => {
     expect((await getOrderDetail(id))!.order.total_cents).toBe(21900);
   });
 });
+
+describe('devis', () => {
+  it('numérotés, figés, réémis seulement si le panier change ; signé ; PDF avec « Bon pour accord » et sans données internes', async () => {
+    const { setSetting } = await import('../services/base');
+    const { issueQuote, quotesOfOrder, setQuoteStatus } = await import('../services/quotes');
+    const { invoicePdf } = await import('../lib/pdf');
+    const x = await setupSale();
+    const item = () => ({ key: uid(), variantId: x.acry40.id, productId: x.acry.id, category: 'impression', productName: 'Acrylique', variantName: '40 × 40 cm', qty: 1, unitPriceCents: 18900, unitCostCents: 6000 });
+    const cart: Cart = { ...emptyCart(x.sid, x.reg.family_id, x.reg.id), paymentPlan: { count: 3, first_date: '2026-12-01' }, items: [item()] };
+    const draft = await saveCart(cart, 'brouillon');
+    await expect(issueQuote(draft.id)).rejects.toThrow('SIRET');
+    await setSetting('legal_name', 'Mathieu Exemple'); await setSetting('legal_address', '1 rue des Iris, 75000 Paris'); await setSetting('siret', '123 456 789 00012');
+    await setSetting('quote_validity_days', '15');
+    const y = new Date().getFullYear();
+    const q1 = await issueQuote(draft.id);
+    expect(q1).toMatchObject({ created: true, row: { number: `D${y}-0001`, status: 'envoye', total_cents: 18900 } });
+    expect(q1.data.kind).toBe('devis');
+    expect(q1.data.instalments).toHaveLength(3);
+    const days = (Date.parse(q1.row.valid_until) - Date.parse(q1.data.date)) / 86400000;
+    expect(days).toBe(15);
+    expect((await issueQuote(draft.id)).created).toBe(false); // unchanged → same quote
+    const c2 = await loadCart(draft.id);
+    c2.items[0].qty = 2;
+    await saveCart(c2, 'brouillon');
+    const q2 = await issueQuote(draft.id);
+    expect(q2).toMatchObject({ created: true, row: { number: `D${y}-0002`, total_cents: 37800 } });
+    expect(JSON.parse(q1.row.data).total).toBe(18900); // the first one stays as issued
+    await setQuoteStatus(q2.row.id, 'signe', '2026-11-20');
+    expect((await quotesOfOrder(draft.id))[0]).toMatchObject({ status: 'signe', signed_at: '2026-11-20' });
+    const txt = new TextDecoder('latin1').decode(invoicePdf(q2.data));
+    for (const w of ['DEVIS', 'BON POUR ACCORD', 'Devis gratuit', '378,00', '293 B']) expect(txt).toContain(w);
+    for (const w of ['FACTURE', 'Reste à payer', 'Onelab', 'Marge', 'Co\\373t']) expect(txt).not.toContain(w);
+    const { quoteMailBody, quoteMailSubject } = await import('../lib/invoiceMail');
+    expect(quoteMailSubject('Gala')).toBe('Devis – Gala – MF/1.2');
+    const body = quoteMailBody(q2.data, 'Léa');
+    expect(body).toContain(`D${y}-0002`);
+    expect(body).toContain('Bon pour accord');
+    expect(body).not.toMatch(/\{\w+\}/);
+  });
+});

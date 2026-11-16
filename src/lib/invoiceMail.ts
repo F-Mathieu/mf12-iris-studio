@@ -65,3 +65,23 @@ export function recapMailBody(v: { firstName?: string | null; client: string; nu
 
 export const signatureOf = (s: { legalName?: string; tradeName?: string; phone?: string; website?: string }) =>
   [s.legalName, s.tradeName, s.phone, s.website].filter(Boolean).join('\n');
+
+/* ---------------- quote (devis) to return signed */
+export const DEFAULT_QUOTE_MAIL = `{bonjour}
+
+Comme convenu, vous trouverez ci-joint le devis {numero} pour votre sélection de la séance « {seance} », d’un montant de {montant}. Il est valable jusqu’au {validite}.
+
+Pour le valider, il suffit de me le retourner daté et signé, avec la mention « Bon pour accord » : une photo ou un scan en réponse à cet e-mail suffit.
+
+Belle journée,
+{signature}`;
+export const QUOTE_PLACEHOLDERS = '{bonjour} {prenom} {client} {numero} {seance} {montant} {validite} {signature}';
+export const quoteMailSubject = (session: string) => `Devis – ${session} – MF/1.2`;
+export function quoteMailBody(d: InvoiceData, firstName?: string | null, template?: string | null): string {
+  const first = firstName?.trim() ?? '';
+  const vars: Record<string, string> = {
+    bonjour: first ? `Bonjour ${first},` : 'Bonjour,', prenom: first, client: d.client.name, numero: d.number, seance: d.order.session,
+    montant: eur(d.total), validite: fmtDate(d.validUntil), signature: signatureOf(d.seller),
+  };
+  return (template?.trim() ? template : DEFAULT_QUOTE_MAIL).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)).replace(/\n{3,}/g, '\n\n').trim();
+}

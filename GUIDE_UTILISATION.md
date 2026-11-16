@@ -296,6 +296,15 @@ La **Brochure des offres** se télécharge aussi seule : **Documents PDF → Bro
 
 Elle n’affiche que les prix de vente de la séance, jamais les coûts ni les fournisseurs. Les illustrations viennent de vos images : la **photo à la une** de chaque style (couverture et grande image), les autres exemples en vignettes, et la photo de chaque produit (Catalogue → produit → image). Un produit sans photo s’affiche sans image. Le texte d’introduction est modifiable dans Paramètres.
 
+### 4.4 ter Faire un devis à retourner signé
+Bouton **Devis** (configurateur de vente, ou fiche commande) :
+- **Établir le devis (PDF)** ou **Établir et envoyer par e-mail** (Mail s’ouvre : objet « Devis – {séance} – MF/1.2 », devis en pièce jointe, texte de base) ;
+- le devis est **numéroté** (D2026-0001…) et **figé** ; s’il est redemandé sans changement du panier, c’est le même devis (même numéro) ; si le panier a changé, un nouveau devis est établi, l’ancien reste tel quel ;
+- il comporte vos mentions légales, le détail, le total, l’échéancier en plusieurs fois s’il y en a un, la date de validité (30 jours par défaut), « Devis gratuit », et un cadre **« Bon pour accord »** (date, nom, signature) ;
+- quand le client le renvoie signé : bouton ✓ **Marquer signé** (date au choix), ou ✕ refusé. Ensuite, **validez la commande** pour figer les prix.
+
+Réglages (**Paramètres → Facturation**) : durée de validité, conditions particulières (ex. acompte, délai), texte de l’e-mail.
+
 ### 4.5 Remettre la facture
 **Une fois** : renseignez **Paramètres → Facturation** (nom et prénom de l’entrepreneur, SIRET, adresse professionnelle, médiateur de la consommation ; « EI » et « Dispensé d’immatriculation au RCS et au RM » sont pré-remplis).
 
