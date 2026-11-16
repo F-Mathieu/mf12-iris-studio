@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DEFAULT_INVOICE_MAIL, DEFAULT_OFFERS_MAIL, DEFAULT_QUOTE_MAIL, DEFAULT_RECAP_MAIL, MAIL_PLACEHOLDERS, OFFERS_PLACEHOLDERS, QUOTE_PLACEHOLDERS, RECAP_PLACEHOLDERS } from '../lib/invoiceMail';
 import { DatabaseBackup, Download, FolderOpen, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
+import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
 import { setSetting } from '../services/base';
 import { appPaths, backupNow, exportCsv, integrityCheck, listBackups, restoreBackup } from '../services/backup';
 import { useApp } from '../store';
@@ -64,6 +64,21 @@ export default function Settings() {
             <Field label="Devis : conditions particulières (facultatif)" hint="Ex. acompte, délai de réalisation…" className="col-span-2"><Textarea rows={2} value={v('quote_terms')} onChange={(e) => setDraft({ ...draft, quote_terms: e.target.value })} /></Field>
             <Field label="Texte de l’e-mail d’envoi du devis" hint={`Objet : « Devis – séance – MF/1.2 ». Variables : ${QUOTE_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={8} value={v('quote_mail_body') || DEFAULT_QUOTE_MAIL} onChange={(e) => setDraft({ ...draft, quote_mail_body: e.target.value })} /></Field>
             <Field label="Brochure des offres : texte d’introduction (facultatif)" hint="Affiché en page 2 de la brochure. Laissé vide : texte par défaut." className="col-span-2"><Textarea rows={3} value={v('brochure_intro')} onChange={(e) => setDraft({ ...draft, brochure_intro: e.target.value })} /></Field>
+          </div>
+        </Card>
+        <Card className="col-span-2 row-start-3">
+          <CardHeader title="Micro-entreprise — calcul du bénéfice" subtitle="Cotisations URSSAF en % du chiffre d’affaires (achats non déductibles). Taux 2026 par défaut : à vérifier sur autoentrepreneur.urssaf.fr selon votre déclaration d’activité." />
+          <div className="grid grid-cols-4 gap-4 p-5">
+            <Field label="Déclaration" className="col-span-2"><Select value={v('micro_mode') || 'services'} onChange={(e) => setDraft({ ...draft, micro_mode: e.target.value })}>
+              <option value="services">Tout en prestations de services</option>
+              <option value="mixte">Activité mixte : produits achetés et revendus = vente de marchandises</option>
+            </Select></Field>
+            <Field label="Prestations de services (%)" hint="BIC : 21,2 %"><Input value={v('micro_services_rate') || '21,2'} onChange={(e) => setDraft({ ...draft, micro_services_rate: e.target.value })} /></Field>
+            <Field label="Vente de marchandises (%)" hint="12,3 % (mode mixte)"><Input value={v('micro_sales_rate') || '12,3'} onChange={(e) => setDraft({ ...draft, micro_sales_rate: e.target.value })} /></Field>
+            <div className="col-span-2 flex items-end pb-2"><Toggle checked={v('micro_vl') === '1'} onChange={(x) => setDraft({ ...draft, micro_vl: x ? '1' : '0' })} label="Versement libératoire de l’impôt sur le revenu" /></div>
+            <Field label="Versement libératoire services (%)" hint="1,7 %"><Input value={v('micro_vl_services_rate') || '1,7'} onChange={(e) => setDraft({ ...draft, micro_vl_services_rate: e.target.value })} /></Field>
+            <Field label="Versement libératoire ventes (%)" hint="1 %"><Input value={v('micro_vl_sales_rate') || '1'} onChange={(e) => setDraft({ ...draft, micro_vl_sales_rate: e.target.value })} /></Field>
+            <Field label="Autres contributions (%)" hint="Formation professionnelle, taxe chambre consulaire… (voir votre déclaration URSSAF)"><Input value={v('micro_other_rate') || '0'} onChange={(e) => setDraft({ ...draft, micro_other_rate: e.target.value })} /></Field>
           </div>
         </Card>
         <div className="space-y-5">

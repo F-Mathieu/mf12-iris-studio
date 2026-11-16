@@ -27,6 +27,8 @@
 
 - Devis (`services/quotes.ts`, table `quotes`, migration 7) : numérotation continue D{année}-0001, contenu figé (même format que la facture, kind 'devis'), réémission seulement si le contenu change, validité (`quote_validity_days`), statut envoyé/signé/refusé, PDF avec « Bon pour accord », e-mail (`emailQuote`). Testé : unitaires + aperçu navigateur.
 
+- Bénéfice net micro-entreprise (`lib/micro.ts`, `profitability` : cotisations URSSAF en % du CA, mode services / mixte — produits achetés = unit_cost > 0 —, versement libératoire, autres contributions ; réglages `micro_*`). Rentabilité : synthèse de l’année + colonnes Cotisations / Bénéfice net. Testé : unitaires + aperçu.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

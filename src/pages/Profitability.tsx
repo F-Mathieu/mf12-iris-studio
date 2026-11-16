@@ -14,7 +14,8 @@ export default function Profitability() {
   const [sel, setSel] = useState('');
   return (
     <>
-      <PageHeader title="Rentabilité" subtitle="Chiffre d’affaires, encaissements, marge commerciale et résultat estimé par séance. La marge n’est pas un bénéfice net comptable." />
+      <PageHeader title="Rentabilité" subtitle="Ce qu’il vous reste : chiffre d’affaires − achats fournisseurs − frais − cotisations URSSAF (micro-entreprise, taux dans Paramètres). Estimation, pas une comptabilité." />
+      {data && <YearSummary rows={data} />}
       {!data ? <Loading /> : (
         <Card className="mb-6">
           <CardHeader title="Comparaison des séances" />
@@ -27,12 +28,28 @@ export default function Profitability() {
             { key: 'cf', header: 'Coûts fourn.', align: 'right', cell: (r) => eur(r.sales_cents - r.margin_cents) },
             { key: 'm', header: 'Marge', align: 'right', sort: (r) => r.margin_cents, cell: (r) => eur(r.margin_cents) },
             { key: 'fr', header: 'Frais', align: 'right', cell: (r) => eur(r.expenses_without_time_cents) },
-            { key: 'res', header: 'Résultat estimé', align: 'right', sort: (r) => r.result_cents, cell: (r) => <span className={r.result_cents < 0 ? 'text-red-300' : 'font-medium text-gold-300'}>{eur(r.result_cents)}</span> },
+            { key: 'urs', header: 'Cotisations', align: 'right', cell: (r) => eur(r.charges_cents) },
+            { key: 'net', header: 'Bénéfice net estimé', align: 'right', sort: (r) => r.net_cents, cell: (r) => <span className={r.net_cents < 0 ? 'text-red-300' : 'font-medium text-gold-300'}>{eur(r.net_cents)}</span> },
           ]} />
         </Card>
       )}
       {sel && <ProfitPanel key={sel} sessionId={sel} />}
     </>
+  );
+}
+
+function YearSummary({ rows }: { rows: Awaited<ReturnType<typeof sessionsComparison>> }) {
+  const y = String(new Date().getFullYear());
+  const r = rows.filter((x) => (x.date ?? '').startsWith(y));
+  const sum = (f: (x: (typeof r)[number]) => number) => r.reduce((s, x) => s + f(x), 0);
+  const ca = sum((x) => x.sales_cents), costs = sum((x) => x.sales_cents - x.margin_cents + x.expenses_without_time_cents), ch = sum((x) => x.charges_cents), net = sum((x) => x.net_cents);
+  return (
+    <div className="mb-6 grid grid-cols-4 gap-4">
+      <Stat label={`Chiffre d’affaires ${y}`} value={eur(ca)} sub={`${r.length} séance(s) datée(s) en ${y}`} />
+      <Stat label="Achats & frais" value={eur(costs)} sub="Fournisseurs, livraison, frais de séance" />
+      <Stat label="Cotisations URSSAF" value={eur(ch)} sub={ca ? `${fmtRate(ch / ca)} du CA` : '—'} />
+      <Stat label={`Bénéfice net estimé ${y}`} value={eur(net)} accent sub={ca ? `${fmtRate(net / ca)} du CA` : '—'} />
+    </div>
   );
 }
 
@@ -52,7 +69,7 @@ export function ProfitPanel({ sessionId }: { sessionId: string }) {
         <Stat label="Chiffre d’affaires" value={eur(d.sales_cents)} sub={`${d.orders} commande(s) validée(s)`} />
         <Stat label="Encaissements" value={eur(d.collected_cents)} sub={`Solde à encaisser ${eur(d.balance_cents)}`} />
         <Stat label="Marge commerciale" value={eur(d.margin_cents)} sub={`Taux de marque ${fmtRate(d.sales_cents ? d.margin_cents / d.sales_cents : null)}`} />
-        <Stat label="Résultat estimé" value={eur(d.result_cents)} accent sub={d.time_cents ? `Après temps de travail : ${eur(d.result_with_time_cents)}` : 'Hors temps de travail'} />
+        <Stat label="Bénéfice net estimé" value={eur(d.net_cents)} accent sub={`Après cotisations URSSAF${d.time_cents ? ` · après temps de travail : ${eur(d.net_with_time_cents)}` : ''}`} />
       </div>
       <div className="grid grid-cols-2 gap-5">
         <Card>
@@ -66,9 +83,14 @@ export function ProfitPanel({ sessionId }: { sessionId: string }) {
             <Row l="Frais de livraison fournisseurs" v={d.supplier_shipping_cents} neg />
             <Row l="Marge commerciale" v={d.margin_cents} strong />
             <Row l="Frais de la séance (hors temps)" v={d.expenses_without_time_cents} neg />
-            <Row l="Résultat estimé" v={d.result_cents} strong />
+            <Row l="Résultat avant cotisations" v={d.result_cents} strong />
+            <Row l={d.ca_sales_cents ? `Cotisations URSSAF (services ${eur(d.ca_services_cents)} · ventes ${eur(d.ca_sales_cents)})` : 'Cotisations URSSAF (sur tout le CA)'} v={d.social_cents} neg />
+            {d.tax_cents > 0 && <Row l="Impôt — versement libératoire" v={d.tax_cents} neg />}
+            {d.other_charges_cents > 0 && <Row l="Autres contributions" v={d.other_charges_cents} neg />}
+            <Row l="Bénéfice net estimé (ce qui vous reste)" v={d.net_cents} strong />
             {d.time_cents > 0 && <Row l="Temps de travail estimé" v={d.time_cents} neg />}
-            {d.time_cents > 0 && <Row l="Résultat après temps de travail" v={d.result_with_time_cents} strong />}
+            {d.time_cents > 0 && <Row l="Bénéfice net après temps de travail" v={d.net_with_time_cents} strong />}
+            <div className="pt-2 text-[11.5px] text-mist-500">Les cotisations sont dues sur le chiffre d’affaires encaissé, achats compris : une impression achetée 20 € et vendue 60 € compte 60 € de CA.{d.tax_cents ? '' : ' Impôt sur le revenu non déduit (pas de versement libératoire).'}</div>
           </div>
         </Card>
         <Card>

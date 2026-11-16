@@ -586,3 +586,23 @@ describe('devis', () => {
     expect(body).not.toMatch(/\{\w+\}/);
   });
 });
+
+describe('rentabilité micro-entreprise', () => {
+  it('bénéfice net = CA − coûts fournisseurs − frais − cotisations (achats non déduits de l’assiette)', async () => {
+    const { profitability, addExpense } = await import('../services/finance');
+    const { setSetting } = await import('../services/base');
+    const x = await setupSale();
+    const cart: Cart = { ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
+      items: [{ key: uid(), variantId: x.acry40.id, productId: x.acry.id, category: 'impression', productName: 'Acrylique', variantName: '40 × 40 cm', qty: 1, unitPriceCents: 18900, unitCostCents: 6000 }] };
+    await saveCart(cart, 'validee');
+    await addExpense({ session_id: x.sid, category: 'location', label: 'Salle', amount_cents: 2000, date: '2026-11-01' });
+    let p = await profitability(x.sid);
+    expect(p.sales_cents).toBe(18900);
+    expect(p.social_cents).toBe(Math.round(18900 * 0.212)); // whole CA, purchase included
+    expect(p.net_cents).toBe(18900 - p.supplier_estimated_cents - 2000 - p.social_cents);
+    await setSetting('micro_mode', 'mixte');
+    p = await profitability(x.sid);
+    expect(p.ca_sales_cents).toBe(18900); // bought from a supplier → vente de marchandises
+    expect(p.social_cents).toBe(Math.round(18900 * 0.123));
+  });
+});

@@ -88,3 +88,23 @@ describe('e-mail « offres de la séance »', () => {
     expect(b).not.toMatch(/\{\w+\}/);
   });
 });
+
+import { microCharges, microFromSettings, MICRO_DEFAULTS } from '../lib/micro';
+describe('micro-entreprise : cotisations sur le CA', () => {
+  it('tout en prestations : 21,2 % de tout le CA, achats compris', () => {
+    const c = microCharges(100000, 30000, 100000, MICRO_DEFAULTS); // 1 000 € de CA dont 300 € d’impressions revendues
+    expect(c).toMatchObject({ caServices: 100000, caSales: 0, social: 21200, tax: 0, total: 21200 });
+  });
+  it('mixte : impressions revendues à 12,3 %, le reste à 21,2 %, remises réparties ; versement libératoire', () => {
+    const m = microFromSettings({ micro_mode: 'mixte', micro_vl: '1' });
+    const c = microCharges(90000, 30000, 100000, m); // 100 € de remise sur 1 000 €
+    expect(c.caSales).toBe(27000);
+    expect(c.caServices).toBe(63000);
+    expect(c.social).toBe(Math.round(63000 * 0.212) + Math.round(27000 * 0.123));
+    expect(c.tax).toBe(Math.round(63000 * 0.017) + Math.round(27000 * 0.01));
+  });
+  it('taux saisis en % avec virgule ; valeur invalide → défaut', () => {
+    expect(microFromSettings({ micro_services_rate: '25,6', micro_other_rate: '0,3' })).toMatchObject({ servicesBp: 2560, otherBp: 30 });
+    expect(microFromSettings({ micro_services_rate: 'abc' }).servicesBp).toBe(2120);
+  });
+});

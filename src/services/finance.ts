@@ -1,4 +1,5 @@
-import { batch, insertStmt, nowIso, one, sel, uid } from './base';
+import { batch, getSettings, insertStmt, nowIso, one, sel, uid } from './base';
+import { microCharges, microFromSettings } from '../lib/micro';
 
 export const EXPENSE_CATEGORIES = { location: 'Location', deplacement: 'Déplacement', publicite: 'Publicité', consommables: 'Consommables', temps: 'Temps de travail (estimé)', autre: 'Autres dépenses' } as const;
 export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
@@ -13,6 +14,10 @@ export interface Profitability {
   supplier_estimated_cents: number; supplier_actual_cents: number | null; supplier_shipping_cents: number;
   expenses_cents: number; expenses_without_time_cents: number; time_cents: number; expenses: Record<string, number>;
   margin_cents: number; result_cents: number; result_with_time_cents: number;
+  /** Micro-entreprise: CA split, URSSAF contributions, optional income tax (versement libératoire), other contributions. */
+  ca_services_cents: number; ca_sales_cents: number; social_cents: number; tax_cents: number; other_charges_cents: number; charges_cents: number;
+  /** What is left: result − contributions (before / after the estimated working time). */
+  net_cents: number; net_with_time_cents: number;
 }
 
 /** Profitability of a session. Commercial margin = sales − supplier costs (real if known, otherwise estimated). Not an accounting net profit. */
@@ -33,12 +38,19 @@ export async function profitability(sessionId: string): Promise<Profitability> {
   const allActual = so && so.total > 0 && so.known === so.total;
   const supplierCost = (allActual ? (so!.actual ?? 0) + so!.ship : (o?.est ?? 0) + (so?.ship ?? 0));
   const margin = sales - supplierCost;
+  // Resold goods = articles bought from a supplier (cost > 0): prints, frames… (only used in « mixte » mode).
+  const goods = await one<{ g: number }>(`SELECT COALESCE(sum(i.line_total_cents),0) g FROM order_items i JOIN orders o ON o.id=i.order_id
+     WHERE o.session_id=? AND o.status='validee' AND i.unit_cost_cents > 0`, [sessionId]);
+  const ch = microCharges(sales, goods?.g ?? 0, o?.sub ?? 0, microFromSettings(await getSettings()));
+  const result = margin - (expTotal - time);
   return {
     sales_cents: sales, discounts_cents: o?.disc ?? 0, gross_cents: o?.sub ?? 0, orders: o?.n ?? 0,
     collected_cents: paid?.p ?? 0, balance_cents: sales - (paid?.p ?? 0),
     supplier_estimated_cents: o?.est ?? 0, supplier_actual_cents: so && so.known ? so.actual : null, supplier_shipping_cents: so?.ship ?? 0,
     expenses_cents: expTotal, expenses_without_time_cents: expTotal - time, time_cents: time, expenses,
-    margin_cents: margin, result_cents: margin - (expTotal - time), result_with_time_cents: margin - expTotal,
+    margin_cents: margin, result_cents: result, result_with_time_cents: margin - expTotal,
+    ca_services_cents: ch.caServices, ca_sales_cents: ch.caSales, social_cents: ch.social, tax_cents: ch.tax, other_charges_cents: ch.other, charges_cents: ch.total,
+    net_cents: result - ch.total, net_with_time_cents: margin - expTotal - ch.total,
   };
 }
 

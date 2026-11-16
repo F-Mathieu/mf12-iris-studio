@@ -393,6 +393,12 @@ Données personnelles (protection des enfants et RGPD) :
 
 ## 8. Rentabilité et tableau de bord
 
+### Bénéfice net (micro-entreprise)
+**Rentabilité** (et onglet **Finances** de la séance) affiche le **bénéfice net estimé** = chiffre d’affaires − achats fournisseurs (impressions, cadres, livraison) − frais de séance − **cotisations URSSAF**. En haut : le total de l’année (séances datées de l’année).
+- En micro-entreprise, les cotisations se calculent sur **tout le CA encaissé**, achats compris : une impression achetée 20 € et vendue 60 € compte 60 € de CA. Les achats ne sont pas déductibles, mais ils restent une dépense réelle : ils sont retirés pour calculer ce qui vous reste.
+- **Paramètres → Micro-entreprise** : « tout en prestations de services » (21,2 %) ou « activité mixte » (produits achetés et revendus à 12,3 %, le reste à 21,2 %) — à choisir selon votre déclaration d’activité ; versement libératoire de l’impôt (facultatif) ; autres contributions. Les taux par défaut sont ceux de 2026 : à vérifier sur autoentrepreneur.urssaf.fr.
+- Estimation sur les ventes validées (l’URSSAF se déclare sur les encaissements) ; l’impôt sur le revenu n’est pas déduit sans versement libératoire.
+
 ### 8.1 Frais d'une séance
 Fiche séance → onglet **Finances** :
 - Ajoutez les frais : Location, Déplacement, Publicité, Consommables, Autres.
