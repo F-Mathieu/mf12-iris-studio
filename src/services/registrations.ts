@@ -1,4 +1,4 @@
-import { auditStmt, batch, insertStmt, nowIso, one, sel, uid, updateStmt } from './base';
+import { auditStmt, batch, insertStmt, nowIso, one, run, sel, uid, updateStmt } from './base';
 import { familyStmts, type FamilyInput } from './families';
 import type { Stmt } from '../lib/db/types';
 import type { ImportRow } from '../lib/csv';
@@ -13,7 +13,13 @@ export interface RegistrationRow {
   family_name: string; contact_first_name: string | null; phone: string | null; email: string | null;
   participant_names: string | null; nb_participants: number;
   order_id: string | null; order_status: string | null; order_total: number | null; paid_cents: number | null;
+  /** Quote follow-up (ISO date or null). */
+  quote_sent_at: string | null; quote_signed_at: string | null;
 }
+
+/** Ticks / unticks « devis envoyé » or « devis validé » on a registration. */
+export const setRegistrationQuote = (id: string, what: 'sent' | 'signed', on: boolean) =>
+  run(`UPDATE session_registrations SET ${what === 'sent' ? 'quote_sent_at' : 'quote_signed_at'}=? WHERE id=?`, [on ? nowIso().slice(0, 10) : null, id]);
 
 export async function listRegistrations(sessionId: string): Promise<RegistrationRow[]> {
   return sel<RegistrationRow>(

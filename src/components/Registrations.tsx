@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Download, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
-import { Badge, Button, Card, DataTable, Empty, Field, IconButton, Input, Modal, SearchInput, Select, Textarea, useConfirm, useDebounced, useAsync } from './ui';
+import { Badge, Button, Card, DataTable, Empty, Field, IconButton, Input, Modal, SearchInput, Select, Textarea, cx, useConfirm, useDebounced, useAsync } from './ui';
 import { ApptBadge, OrderBadge, PayBadge } from './badges';
 import { FamilyForm } from './FamilyForm';
 import { ImportDialog } from './ImportDialog';
-import { addRegistration, APPT_STATUS, deleteRegistration, updateRegistration, type ApptStatus, type RegistrationRow } from '../services/registrations';
+import { addRegistration, APPT_STATUS, deleteRegistration, setRegistrationQuote, updateRegistration, type ApptStatus, type RegistrationRow } from '../services/registrations';
 import { saveFamily, searchFamilies } from '../services/families';
 import { registrationTemplate } from '../lib/csv';
 import { saveFile } from '../lib/files';
@@ -43,6 +43,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
       <Card>
         <DataTable<RegistrationRow> rows={rows} rowKey={(r) => r.id}
           empty={<Empty icon={<Users className="size-5" />} title="Aucun inscrit" text="Importez votre fichier Excel (CSV) ou ajoutez les familles manuellement." />}
+          rowClassName={(r) => (r.quote_signed_at ? 'bg-gold-500/[0.15] shadow-[inset_3px_0_0_rgb(212,175,105)]' : r.quote_sent_at ? 'bg-green-500/[0.08] shadow-[inset_3px_0_0_rgb(74,222,128)]' : null)}
           columns={[
             { key: 'time', header: 'RDV', sort: (r) => `${r.appt_date ?? ''}${r.appt_time ?? ''}`, cell: (r) => <span className="tabular">{r.appt_time ?? '—'}{r.appt_date && <span className="ml-1 text-[11.5px] text-mist-400">{fmtDate(r.appt_date, { day: '2-digit', month: '2-digit' })}</span>}</span> },
             { key: 'ref', header: 'Réf.', sort: (r) => r.external_ref ?? '', cell: (r) => <span className="font-mono text-[12px] text-mist-300">{r.external_ref ?? ''}</span> },
@@ -50,6 +51,11 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
             { key: 'parts', header: 'Participants', cell: (r) => <div className="max-w-[220px] truncate text-mist-300" title={r.participant_names ?? ''}><span className="mr-1.5 tabular text-mist-100">{r.nb_participants || r.participants_count || 0}</span>{r.participant_names}</div> },
             { key: 'status', header: 'Statut', cell: (r) => <ApptBadge s={r.appt_status} /> },
             { key: 'order', header: 'Commande', cell: (r) => r.order_status ? <div className="flex items-center gap-1.5"><OrderBadge s={r.order_status as 'validee'} />{r.order_status === 'validee' && <PayBadge total={r.order_total ?? 0} paid={r.paid_cents ?? 0} />}</div> : <span className="text-mist-400">—</span> },
+            { key: 'quote', header: 'Devis', sort: (r) => (r.quote_signed_at ? 2 : r.quote_sent_at ? 1 : 0), cell: (r) => (
+              <div className="flex flex-col gap-1 text-[12px]">
+                <QuoteTick checked={!!r.quote_sent_at} tone="green" label="Envoyé" date={r.quote_sent_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'sent', on).then(reload))} />
+                <QuoteTick checked={!!r.quote_signed_at} tone="gold" label="Validé" date={r.quote_signed_at} onChange={(on) => act(() => setRegistrationQuote(r.id, 'signed', on).then(reload))} />
+              </div>) },
             { key: 'total', header: 'Montant', align: 'right', sort: (r) => r.order_total ?? 0, cell: (r) => (r.order_total != null ? eur(r.order_total) : '') },
             { key: 'a', header: '', align: 'right', cell: (r) => (
               <div className="flex justify-end gap-1">
@@ -125,5 +131,15 @@ export function AppointmentDialog({ reg, onClose, onSaved }: { reg: Registration
       </Modal>
       <FamilyForm open={familyOpen} familyId={reg?.family_id} onClose={() => setFamilyOpen(false)} onSaved={() => { setFamilyOpen(false); setD({}); onSaved(); }} />
     </>
+  );
+}
+
+/** Small checkbox of the « Devis » column (the row is highlighted when ticked). */
+function QuoteTick({ checked, label, tone, date, onChange }: { checked: boolean; label: string; tone: 'green' | 'gold'; date: string | null; onChange: (on: boolean) => void }) {
+  return (
+    <label className={cx('flex cursor-pointer items-center gap-1.5 whitespace-nowrap', checked ? (tone === 'green' ? 'text-green-300' : 'text-gold-300') : 'text-mist-400 hover:text-mist-200')} title={checked && date ? `${label} le ${fmtDate(date)}` : undefined} onClick={(e) => e.stopPropagation()}>
+      <input type="checkbox" className={cx('size-3.5', tone === 'green' ? 'accent-green-500' : 'accent-gold-500')} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
   );
 }

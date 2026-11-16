@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Check, FileDown, FileSignature, Mail, RotateCcw, X } from 'lucide-react';
 import { Badge, Button, Empty, IconButton, Input, Modal, useAsync } from './ui';
-import { issueQuote, quotesOfOrder, setQuoteStatus, QUOTE_STATUS, type QuoteRow } from '../services/quotes';
+import { issueQuote, markQuoteOnRegistration, quotesOfOrder, setQuoteStatus, QUOTE_STATUS, type QuoteRow } from '../services/quotes';
+import { batch } from '../services/base';
 import { emailQuote } from '../services/mail';
 import { getOrderDetail } from '../services/orders';
 import { invoicePdf } from '../lib/pdf';
@@ -28,7 +29,9 @@ export function QuoteDialog({ orderId, prepare, onClose }: { orderId: string | n
       const q = await issueQuote(oid);
       if (send) {
         const o = (await getOrderDetail(oid))!.order;
-        return { q, how: await emailQuote(q.row, { to: o.family_email, firstName: o.contact_first_name, familyName: o.family_name }) };
+        const how = await emailQuote(q.row, { to: o.family_email, firstName: o.contact_first_name, familyName: o.family_name });
+        await batch([markQuoteOnRegistration(oid, 'sent')]); // « devis envoyé » ticked in the registrations list
+        return { q, how };
       }
       await saveFile(await fileName(q.row, oid), invoicePdf(q.data), PDF_FILTER);
       return { q, how: null };

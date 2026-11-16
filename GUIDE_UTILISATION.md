@@ -279,6 +279,9 @@ L'application n'encaisse rien : vous encaissez avec vos propres moyens, puis vou
 
 > Ne saisissez jamais de numéro de carte bancaire.
 
+### Suivi des devis dans la liste des inscrits
+Colonne **Devis** : case **Envoyé** (ligne surlignée en **vert**) et case **Validé** (ligne surlignée en **doré**, prioritaire). Elles se cochent à la main, et automatiquement quand un devis est envoyé par e-mail depuis l’app ou marqué signé. Survolez une case cochée pour voir la date ; la colonne se trie (validés, puis envoyés).
+
 ### 4.4 Envoyer les offres de la séance (avant tout choix)
 Séance → onglet **Inscrits** : sur chaque ligne, l’icône **livre** prépare un e-mail dans Mail pour la famille, avec la **Brochure des offres** de la séance à son nom (objet « Vos créations iris – {séance} – MF/1.2 »). La famille choisit à la maison et vous répond ; vous établissez ensuite le **devis**. Texte modifiable dans Paramètres → Facturation.
 

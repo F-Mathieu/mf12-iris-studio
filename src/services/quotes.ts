@@ -7,6 +7,7 @@ import { buildInvoiceData, REQUIRED_SELLER, sellerInfo, type InvoiceData } from 
 import { getOrderDetail } from './orders';
 import { schedule } from '../lib/pricing';
 import { compositionSketches } from './sketches';
+import type { Stmt } from '../lib/db/types';
 
 export type QuoteStatus = 'envoye' | 'signe' | 'refuse';
 export const QUOTE_STATUS: Record<QuoteStatus, string> = { envoye: 'Envoyé', signe: 'Signé', refuse: 'Refusé' };
@@ -62,6 +63,21 @@ export async function issueQuote(orderId: string): Promise<{ row: QuoteRow; data
   return { row, data, created: true };
 }
 
+/** The registration (session line) of an order: its own, or the family's registration in the session. */
+const REG_OF_ORDER = `COALESCE((SELECT registration_id FROM orders WHERE id=?),
+  (SELECT r.id FROM session_registrations r JOIN orders o ON o.session_id=r.session_id AND o.family_id=r.family_id WHERE o.id=? LIMIT 1))`;
+
+/** Ticks « devis envoyé » / « devis validé » on the registration of the order (date kept if already ticked). */
+export const markQuoteOnRegistration = (orderId: string, what: 'sent' | 'signed', on = true, date?: string | null): Stmt => {
+  const col = what === 'sent' ? 'quote_sent_at' : 'quote_signed_at';
+  return { sql: `UPDATE session_registrations SET ${col}=${on ? `COALESCE(${col}, ?)` : '?'} WHERE id=${REG_OF_ORDER}`, params: [on ? date || nowIso().slice(0, 10) : null, orderId, orderId] };
+};
+
 export async function setQuoteStatus(id: string, status: QuoteStatus, signedAt?: string | null) {
-  await batch([updateStmt('quotes', id, { status, signed_at: status === 'signe' ? signedAt || nowIso().slice(0, 10) : null })]);
+  const q = await one<{ order_id: string | null }>('SELECT order_id FROM quotes WHERE id=?', [id]);
+  const signed = status === 'signe' ? signedAt || nowIso().slice(0, 10) : null;
+  await batch([
+    updateStmt('quotes', id, { status, signed_at: signed }),
+    ...(q?.order_id ? [markQuoteOnRegistration(q.order_id, 'signed', status === 'signe', signed), ...(status === 'signe' ? [markQuoteOnRegistration(q.order_id, 'sent')] : [])] : []),
+  ]);
 }

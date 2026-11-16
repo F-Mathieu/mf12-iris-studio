@@ -577,6 +577,16 @@ describe('devis', () => {
     expect(JSON.parse(q1.row.data).total).toBe(18900); // the first one stays as issued
     await setQuoteStatus(q2.row.id, 'signe', '2026-11-20');
     expect((await quotesOfOrder(draft.id))[0]).toMatchObject({ status: 'signe', signed_at: '2026-11-20' });
+    // the registrations list shows « devis envoyé » + « devis validé » (row highlighted)
+    let reg = (await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!;
+    expect(reg).toMatchObject({ quote_signed_at: '2026-11-20' });
+    expect(reg.quote_sent_at).toBeTruthy();
+    await setQuoteStatus(q2.row.id, 'refuse');
+    reg = (await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!;
+    expect(reg.quote_signed_at).toBeNull();
+    const { setRegistrationQuote } = await import('../services/registrations');
+    await setRegistrationQuote(x.reg.id, 'sent', false);
+    expect((await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!.quote_sent_at).toBeNull();
     const txt = new TextDecoder('latin1').decode(invoicePdf(q2.data));
     for (const w of ['DEVIS', 'BON POUR ACCORD', 'Devis gratuit', '378,00', '293 B']) expect(txt).toContain(w);
     for (const w of ['FACTURE', 'Reste à payer', 'Onelab', 'Marge', 'Co\\373t']) expect(txt).not.toContain(w);

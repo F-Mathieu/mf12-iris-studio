@@ -221,8 +221,10 @@ export const useConfirm = () => useContext(ConfirmCtx);
 
 /* ---------------------------------------------------------------- DataTable */
 export interface Column<T> { key: string; header: ReactNode; cell: (r: T) => ReactNode; sort?: (r: T) => string | number | null; className?: string; align?: 'right' | 'center' }
-export function DataTable<T>({ rows, columns, rowKey, onRowClick, pageSize = 50, empty, initialSort, dense }: {
+export function DataTable<T>({ rows, columns, rowKey, onRowClick, pageSize = 50, empty, initialSort, dense, rowClassName }: {
   rows: T[]; columns: Column<T>[]; rowKey: (r: T) => string; onRowClick?: (r: T) => void; pageSize?: number; empty?: ReactNode; initialSort?: { key: string; dir: 1 | -1 }; dense?: boolean;
+  /** Extra classes per row (e.g. highlight). */
+  rowClassName?: (r: T) => string | false | null | undefined;
 }) {
   const [sort, setSort] = useState(initialSort ?? null);
   const [page, setPage] = useState(0);
@@ -255,7 +257,7 @@ export function DataTable<T>({ rows, columns, rowKey, onRowClick, pageSize = 50,
           </thead>
           <tbody>
             {view.map((r) => (
-              <tr key={rowKey(r)} onClick={() => onRowClick?.(r)} className={cx('border-b border-ink-700/50 transition-colors last:border-0', onRowClick && 'cursor-pointer hover:bg-ink-750/70')}>
+              <tr key={rowKey(r)} onClick={() => onRowClick?.(r)} className={cx('border-b border-ink-700/50 transition-colors last:border-0', onRowClick && 'cursor-pointer hover:bg-ink-750/70', rowClassName?.(r))}>
                 {columns.map((c) => <td key={c.key} className={cx('px-4', dense ? 'py-2' : 'py-3', c.align === 'right' && 'text-right tabular', c.align === 'center' && 'text-center', c.className)}>{c.cell(r)}</td>)}
               </tr>
             ))}

@@ -270,6 +270,10 @@ CREATE TABLE quotes (
 );
 CREATE INDEX idx_quotes_order ON quotes(order_id);
 `,
+  /* 8 — suivi du devis par inscription (cases « devis envoyé » / « devis validé » de la liste des inscrits). */ `
+ALTER TABLE session_registrations ADD COLUMN quote_sent_at TEXT;
+ALTER TABLE session_registrations ADD COLUMN quote_signed_at TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {
