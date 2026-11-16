@@ -279,6 +279,9 @@ L'application n'encaisse rien : vous encaissez avec vos propres moyens, puis vou
 
 > Ne saisissez jamais de numéro de carte bancaire.
 
+### 4.4 Envoyer les offres de la séance (avant tout choix)
+Séance → onglet **Inscrits** : sur chaque ligne, l’icône **livre** prépare un e-mail dans Mail pour la famille, avec la **Brochure des offres** de la séance à son nom (objet « Vos créations iris – {séance} – MF/1.2 »). La famille choisit à la maison et vous répond ; vous établissez ensuite le **devis**. Texte modifiable dans Paramètres → Facturation.
+
 ### 4.4 bis Envoyer le récap de la sélection + la brochure
 Dans le configurateur de vente (panier en brouillon), bouton **Envoyer le récap** : le panier est enregistré, puis l’app **Mail** s’ouvre avec un message prêt pour le client :
 - objet « Votre sélection – {séance} – MF/1.2 », texte de base (modifiable dans **Paramètres → Facturation**) ;

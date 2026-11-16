@@ -85,3 +85,22 @@ export function quoteMailBody(d: InvoiceData, firstName?: string | null, templat
   };
   return (template?.trim() ? template : DEFAULT_QUOTE_MAIL).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)).replace(/\n{3,}/g, '\n\n').trim();
 }
+
+/* ---------------- session offers (brochure) sent after the session, before any selection */
+export const DEFAULT_OFFERS_MAIL = `{bonjour}
+
+Merci pour votre venue à la séance « {seance} » !
+
+Vous trouverez ci-joint la brochure qui présente toutes les créations, les supports, les formats et les tarifs proposés, pour faire votre choix tranquillement à la maison.
+
+Dites-moi simplement ce qui vous plaît en répondant à cet e-mail : je vous préparerai un devis.
+
+Belle journée,
+{signature}`;
+export const OFFERS_PLACEHOLDERS = '{bonjour} {prenom} {client} {seance} {signature}';
+export const offersMailSubject = (session: string) => `Vos créations iris – ${session} – MF/1.2`;
+export function offersMailBody(v: { firstName?: string | null; client: string; session: string; signature: string }, template?: string | null): string {
+  const first = v.firstName?.trim() ?? '';
+  const vars: Record<string, string> = { bonjour: first ? `Bonjour ${first},` : 'Bonjour,', prenom: first, client: v.client, seance: v.session, signature: v.signature };
+  return (template?.trim() ? template : DEFAULT_OFFERS_MAIL).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)).replace(/\n{3,}/g, '\n\n').trim();
+}

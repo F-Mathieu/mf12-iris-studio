@@ -76,3 +76,15 @@ describe('dispositions en ligne / en colonne', () => {
     expect(arrangementFor(4, 40, 40, 'horizontal').rows).toEqual([2, 2]);
   });
 });
+
+import { offersMailBody, offersMailSubject } from '../lib/invoiceMail';
+describe('e-mail « offres de la séance »', () => {
+  it('objet, prénom, séance, pas de variable restante', () => {
+    expect(offersMailSubject('Tempsdanses')).toBe('Vos créations iris – Tempsdanses – MF/1.2');
+    const b = offersMailBody({ firstName: 'Pauline', client: 'Pauline Bischoff', session: 'Tempsdanses', signature: 'MF/1.2' });
+    expect(b.startsWith('Bonjour Pauline,')).toBe(true);
+    expect(b).toContain('« Tempsdanses »');
+    expect(b).toContain('devis');
+    expect(b).not.toMatch(/\{\w+\}/);
+  });
+});

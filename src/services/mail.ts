@@ -5,7 +5,7 @@
 import { isTauri } from '../lib/db';
 import { getSetting } from './base';
 import { invoicePdfOf, orderRecapPdf, sessionBrochurePdf } from './documents';
-import { invoiceMailBody, invoiceMailSubject, mailtoUrl, quoteMailBody, quoteMailSubject, recapMailBody, recapMailSubject, signatureOf } from '../lib/invoiceMail';
+import { invoiceMailBody, invoiceMailSubject, mailtoUrl, offersMailBody, offersMailSubject, quoteMailBody, quoteMailSubject, recapMailBody, recapMailSubject, signatureOf } from '../lib/invoiceMail';
 import { saveFile } from '../lib/files';
 import { slug } from '../lib/format';
 import { clientName, sellerInfo, type InvoiceData, type InvoiceRow } from './invoices';
@@ -66,5 +66,16 @@ export async function emailQuote(row: { number: string; data: string }, opts: { 
     to: (opts.to ?? data.client.email ?? '').trim(), subject: quoteMailSubject(data.order.session),
     body: quoteMailBody(data, opts.firstName, await getSetting('quote_mail_body')),
     files: [{ name: `devis-${row.number}-${slug(opts.familyName)}.pdf`, bytes: invoicePdf(data) }],
+  });
+}
+
+/** The session brochure (all offers), prepared for one family, so they can choose and come back for a quote. */
+export async function emailSessionOffers(r: { sessionId: string; sessionName: string; familyName: string; firstName?: string | null; email?: string | null }): Promise<MailResult> {
+  const client = clientName(r.firstName, r.familyName);
+  const [brochure, seller, tpl] = await Promise.all([sessionBrochurePdf(r.sessionId, client), sellerInfo(), getSetting('offers_mail_body')]);
+  return composeMail({
+    to: (r.email ?? '').trim(), subject: offersMailSubject(r.sessionName),
+    body: offersMailBody({ firstName: r.firstName, client, session: r.sessionName, signature: signatureOf(seller) }, tpl),
+    files: [{ name: `offres-${slug(r.sessionName)}-${slug(r.familyName)}.pdf`, bytes: brochure }],
   });
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
+import { BookOpen, Download, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { Badge, Button, Card, DataTable, Empty, Field, IconButton, Input, Modal, SearchInput, Select, Textarea, useConfirm, useDebounced, useAsync } from './ui';
 import { ApptBadge, OrderBadge, PayBadge } from './badges';
 import { FamilyForm } from './FamilyForm';
@@ -12,6 +12,7 @@ import { saveFile } from '../lib/files';
 import { eur } from '../lib/money';
 import { slug, fmtDate } from '../lib/format';
 import { act } from '../lib/act';
+import { emailSessionOffers } from '../services/mail';
 
 export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { sessionId: string; sessionName: string; regs: RegistrationRow[]; reload: () => void }) {
   const nav = useNavigate();
@@ -53,6 +54,9 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
             { key: 'a', header: '', align: 'right', cell: (r) => (
               <div className="flex justify-end gap-1">
                 <Button size="sm" variant={r.order_id ? 'subtle' : 'gold'} icon={<ShoppingBag className="size-3.5" />} onClick={() => nav(r.order_id ? (r.order_status === 'validee' ? `/commandes/${r.order_id}` : `/vente/commande/${r.order_id}`) : `/vente/${sessionId}/${r.id}`)}>{r.order_id ? (r.order_status === 'validee' ? 'Commande' : 'Reprendre') : 'Vendre'}</Button>
+                <IconButton title={r.email ? `Envoyer les offres de la séance par e-mail (${r.email})` : 'Envoyer les offres de la séance par e-mail (aucune adresse : à saisir dans Mail)'}
+                  onClick={() => act(() => emailSessionOffers({ sessionId, sessionName, familyName: r.family_name, firstName: r.contact_first_name, email: r.email }),
+                    (how) => (how === 'mail' ? `E-mail prêt dans Mail : offres pour ${r.family_name}${r.email ? '' : ' — aucune adresse e-mail'}` : 'Brochure enregistrée — joignez-la au message ouvert'))}><BookOpen className="size-4" /></IconButton>
                 <IconButton title="Modifier l’inscription (nom, prénom, coordonnées, rendez-vous)" onClick={() => setEditReg(r)}><Pencil className="size-4" /></IconButton>
                 <IconButton title="Retirer de la séance" onClick={async () => { if (await confirm({ title: 'Retirer cette famille de la séance ?', text: 'La fiche famille est conservée dans la base clients.', danger: true, confirm: 'Retirer' })) await act(() => deleteRegistration(r.id).then(reload), 'Inscription retirée'); }}><Trash2 className="size-4" /></IconButton>
               </div>) },
