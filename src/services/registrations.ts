@@ -15,11 +15,14 @@ export interface RegistrationRow {
   order_id: string | null; order_status: string | null; order_total: number | null; paid_cents: number | null;
   /** Quote follow-up (ISO date or null). */
   quote_sent_at: string | null; quote_signed_at: string | null;
+  /** « En attente » of the client's reply (ticked by hand). */
+  awaiting_reply_at: string | null;
 }
 
-/** Ticks / unticks « devis envoyé » or « devis validé » on a registration. */
-export const setRegistrationQuote = (id: string, what: 'sent' | 'signed', on: boolean) =>
-  run(`UPDATE session_registrations SET ${what === 'sent' ? 'quote_sent_at' : 'quote_signed_at'}=? WHERE id=?`, [on ? nowIso().slice(0, 10) : null, id]);
+/** Ticks / unticks « en attente », « devis envoyé » or « devis validé » on a registration. */
+const FOLLOW_COL = { waiting: 'awaiting_reply_at', sent: 'quote_sent_at', signed: 'quote_signed_at' } as const;
+export const setRegistrationQuote = (id: string, what: keyof typeof FOLLOW_COL, on: boolean) =>
+  run(`UPDATE session_registrations SET ${FOLLOW_COL[what]}=? WHERE id=?`, [on ? nowIso().slice(0, 10) : null, id]);
 
 export async function listRegistrations(sessionId: string): Promise<RegistrationRow[]> {
   return sel<RegistrationRow>(

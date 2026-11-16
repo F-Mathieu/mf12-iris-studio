@@ -585,6 +585,8 @@ describe('devis', () => {
     reg = (await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!;
     expect(reg.quote_signed_at).toBeNull();
     const { setRegistrationQuote } = await import('../services/registrations');
+    await setRegistrationQuote(x.reg.id, 'waiting', true); // « en attente » : manual only
+    expect((await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!.awaiting_reply_at).toBeTruthy();
     await setRegistrationQuote(x.reg.id, 'sent', false);
     expect((await listRegistrations(x.sid)).find((r) => r.id === x.reg.id)!.quote_sent_at).toBeNull();
     const txt = new TextDecoder('latin1').decode(invoicePdf(q2.data));

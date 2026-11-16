@@ -274,6 +274,9 @@ CREATE INDEX idx_quotes_order ON quotes(order_id);
 ALTER TABLE session_registrations ADD COLUMN quote_sent_at TEXT;
 ALTER TABLE session_registrations ADD COLUMN quote_signed_at TEXT;
 `,
+  /* 9 — case « en attente de retour » (récap envoyé, réponse attendue), cochée à la main. */ `
+ALTER TABLE session_registrations ADD COLUMN awaiting_reply_at TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {
