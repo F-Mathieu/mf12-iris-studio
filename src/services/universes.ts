@@ -1,6 +1,7 @@
 /**
  * Univers de séance (Iris, Back to school, Noël, Halloween, Fête des mères…).
- * Styles, produits et templates appartiennent à un univers ou sont communs (universe_id NULL).
+ * Styles et templates appartiennent à un univers ou sont communs (universe_id NULL). Produits et variantes : un ou
+ * plusieurs univers (table catalog_universes ; aucun lien = commun, variante sans lien = univers de son produit).
  * Une séance a un univers : template proposé par défaut, catalogue filtré, textes de brochure / e-mails propres
  * (texte vide = texte des Paramètres).
  */
@@ -20,7 +21,7 @@ export const listUniverses = (includeArchived = false) =>
   sel<Universe>(`SELECT u.*, t.name default_template_name,
      (SELECT count(*) FROM sessions s WHERE s.universe_id=u.id) sessions_count,
      (SELECT count(*) FROM composition_styles x WHERE x.universe_id=u.id AND x.archived=0) styles_count,
-     (SELECT count(*) FROM products x WHERE x.universe_id=u.id AND x.archived=0) products_count
+     (SELECT count(*) FROM catalog_universes c JOIN products x ON x.id=c.ref_id WHERE c.kind='product' AND c.universe_id=u.id AND x.archived=0) products_count
    FROM universes u LEFT JOIN price_templates t ON t.id=u.default_template_id
    ${includeArchived ? '' : 'WHERE u.archived=0'} ORDER BY u.archived, u.sort, u.name COLLATE NOCASE`);
 
@@ -47,6 +48,23 @@ export async function saveUniverse(u: Partial<Universe> & { name: string }): Pro
 /** SQL filter « commun + cet univers » for a table alias (no filter when no universe). */
 export const universeFilter = (alias: string, universeId?: string | null): { sql: string; params: string[] } =>
   universeId ? { sql: `(${alias}.universe_id IS NULL OR ${alias}.universe_id=?)`, params: [universeId] } : { sql: '1=1', params: [] };
+
+export type CatalogKind = 'product' | 'variant';
+/** SQL: item (alias.id) linked to no universe (common) or to this one. */
+export const linkedFilter = (kind: CatalogKind, alias: string, universeId?: string | null): { sql: string; params: string[] } =>
+  universeId ? {
+    sql: `(NOT EXISTS (SELECT 1 FROM catalog_universes c WHERE c.kind='${kind}' AND c.ref_id=${alias}.id)
+      OR EXISTS (SELECT 1 FROM catalog_universes c WHERE c.kind='${kind}' AND c.ref_id=${alias}.id AND c.universe_id=?))`, params: [universeId],
+  } : { sql: '1=1', params: [] };
+/** SQL expression: comma-separated universe ids of an item. */
+export const linkedIds = (kind: CatalogKind, alias: string) =>
+  `(SELECT group_concat(c.universe_id) FROM catalog_universes c WHERE c.kind='${kind}' AND c.ref_id=${alias}.id)`;
+export const splitIds = (v: string | null | undefined) => (v ? v.split(',') : []);
+/** Statements replacing the universes of a product / variant (empty = common / as its product). */
+export const setLinksStmts = (kind: CatalogKind, refId: string, ids: string[]): Stmt[] => [
+  { sql: 'DELETE FROM catalog_universes WHERE kind=? AND ref_id=?', params: [kind, refId] },
+  ...[...new Set(ids)].map((u) => ({ sql: 'INSERT INTO catalog_universes (kind, ref_id, universe_id) VALUES (?,?,?)', params: [kind, refId, u] })),
+];
 
 /** Text of the session's universe, or the general setting when the universe has none. */
 export async function universeText(sessionId: string | null | undefined, key: UniverseText): Promise<string> {
@@ -75,5 +93,17 @@ export async function applyIrisUniverse(): Promise<boolean> {
   for (const t of ['sessions', 'price_templates', 'composition_styles']) s.push({ sql: `UPDATE ${t} SET universe_id=? WHERE universe_id IS NULL`, params: [id] });
   s.push({ sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('universe_iris', '1')" });
   await batch(s);
+  return true;
+}
+
+/** Data upgrade: existing products (not yet linked) go into the Iris universe; their variants follow them. */
+export async function applyIrisProducts(): Promise<boolean> {
+  if ((await getSetting('universe_iris_products')) === '1') return false;
+  const iris = await one<{ id: string }>('SELECT id FROM universes WHERE name=? COLLATE NOCASE', [IRIS_UNIVERSE]);
+  await batch([
+    ...(iris ? [{ sql: `INSERT OR IGNORE INTO catalog_universes (kind, ref_id, universe_id) SELECT 'product', p.id, ? FROM products p
+        WHERE NOT EXISTS (SELECT 1 FROM catalog_universes c WHERE c.kind='product' AND c.ref_id=p.id)`, params: [iris.id] }] : []),
+    { sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('universe_iris_products', '1')" },
+  ]);
   return true;
 }

@@ -2,6 +2,9 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.1.0)
+- Produits et variantes dans **plusieurs univers** (cases à cocher ; aucun = commun ; variante sans univers = comme son produit). Produits existants → Iris. Migration 13 (`catalog_universes`).
+
 ## Publié en v2.1.0 (à tester sur Mac)
 - Étape 1 Compta (livre des recettes, déclaration URSSAF, dépenses, année & seuils) + prestations déjà signées + numérotation factures externes → publié en **v2.1.0**.
 - Étape 2 Univers de séance (Catalogue → onglet « Univers de séance » ; univers par séance / style / produit / template, template par défaut, textes brochure + e-mails offres / récap ; données existantes = univers Iris).

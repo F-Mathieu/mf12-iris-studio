@@ -682,24 +682,39 @@ describe('univers de séance', () => {
     const u = await listUniverses();
     expect(u.map((x) => x.name)).toEqual(['Iris']);
     expect((await listStyles()).every((s) => s.universe_id === u[0].id)).toBe(true);
-    expect((await listProducts()).every((p) => p.universe_id === null)).toBe(true);
+    expect((await listProducts()).every((p) => p.universe_ids.length === 1 && p.universe_ids[0] === u[0].id)).toBe(true);
+    expect((await listVariants()).every((v) => v.universe_ids.length === 0)).toBe(true); // follow their product
     expect(await applyIrisUniverse()).toBe(false);
     expect((await listUniverses()).length).toBe(1);
   });
 
   it('filters catalogue and templates: common + universe', async () => {
     const { saveUniverse, listUniverses } = await import('../services/universes');
-    const { saveStyle, saveProduct } = await import('../services/catalog');
+    const { saveStyle, saveProduct, saveVariant, removeVariant } = await import('../services/catalog');
     const iris = (await listUniverses())[0].id;
     const noel = await saveUniverse({ name: 'Noël' });
     await expect(saveUniverse({ name: 'noël' })).rejects.toThrow();
     await saveStyle({ name: 'Boule de Noël', universe_id: noel });
-    await saveProduct({ name: 'Carte de vœux', category: 'impression', universe_id: noel });
+    await saveProduct({ name: 'Carte de vœux', category: 'impression', universe_ids: [noel] });
     expect((await listStyles(false, noel)).map((s) => s.name)).toEqual(['Boule de Noël']);
     expect((await listStyles(false, iris)).some((s) => s.name === 'Boule de Noël')).toBe(false);
     expect((await listProducts(false, noel)).some((p) => p.name === 'Carte de vœux')).toBe(true);
     expect((await listProducts(false, iris)).some((p) => p.name === 'Carte de vœux')).toBe(false);
-    expect((await listProducts(false, iris)).length).toBeGreaterThan(0); // common products
+    const common = await saveProduct({ name: 'Clé USB', category: 'option', universe_ids: [] });
+    expect((await listProducts(false, noel)).some((p) => p.id === common)).toBe(true);
+    expect((await listProducts(false, iris)).some((p) => p.id === common)).toBe(true);
+    // product in several universes, one variant restricted to Iris
+    const acry = (await listProducts()).find((p) => p.name === 'Acrylique 3 mm')!;
+    await saveProduct({ ...acry, universe_ids: [iris, noel] });
+    expect((await listProducts(false, noel)).some((p) => p.id === acry.id)).toBe(true);
+    const [v1, v2] = (await listVariants()).filter((v) => v.product_id === acry.id);
+    await saveVariant({ ...v1, universe_ids: [iris] });
+    const noelVariants = (await listVariants(false, noel)).map((v) => v.id);
+    expect(noelVariants).not.toContain(v1.id);
+    expect(noelVariants).toContain(v2.id);
+    expect((await listVariants(false, iris)).map((v) => v.id)).toContain(v1.id);
+    expect((await removeVariant(v1.id))).toBe('deleted');
+    expect((await sel("SELECT * FROM catalog_universes WHERE ref_id=?", [v1.id])).length).toBe(0);
     const t = await createTemplate('Tarif Noël', '', undefined, noel);
     expect((await listTemplates(false, noel)).map((x) => x.id)).toContain(t);
     expect((await listTemplates(false, iris)).map((x) => x.id)).not.toContain(t);

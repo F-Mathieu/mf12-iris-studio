@@ -39,6 +39,20 @@ function UniverseSelect({ value, onChange, universes }: { value: string | null |
   );
 }
 
+/** Multi-choice of universes (none = common / as the product). */
+function UniverseChips({ value, onChange, universes, none = 'Commun' }: { value: string[]; onChange: (v: string[]) => void; universes: Universe[]; none?: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {universes.filter((u) => !u.archived || value.includes(u.id)).map((u) => {
+        const on = value.includes(u.id);
+        return <button key={u.id} type="button" onClick={() => onChange(on ? value.filter((x) => x !== u.id) : [...value, u.id])}
+          className={cx('rounded-full border px-2.5 py-0.5 text-[12px] transition', on ? 'border-gold-500/70 bg-gold-500/15 text-gold-200' : 'border-ink-600 text-mist-400 hover:border-gold-500/50')}>{u.name}</button>;
+      })}
+      {!value.length && <span className="text-[11.5px] text-mist-400">{none}</span>}
+    </div>
+  );
+}
+
 function UniversesView({ archived }: { archived: boolean }) {
   const u = useAsync(() => listUniverses(archived), [archived]);
   const [edit, setEdit] = useState<Partial<Universe> | null>(null);
@@ -186,7 +200,7 @@ function ProductsView({ archived, universe, universes }: { archived: boolean; un
     <>
       {(['numerique', 'impression', 'option'] as Category[]).map((cat) => (
         <div key={cat} className="mb-7">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1, universe_id: universe || null })}>Produit</Button></div>
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1, universe_ids: universe ? [universe] : [] })}>Produit</Button></div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
             {d.data!.products.filter((p) => p.category === cat).map((p) => (
               <Card key={p.id} onClick={() => setEdit(p)} className={cx('flex gap-3 p-3.5', (!p.active || p.archived) && 'opacity-55')}>
@@ -194,7 +208,7 @@ function ProductsView({ archived, universe, universes }: { archived: boolean; un
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 font-medium">{p.name}{p.archived ? <Badge>Archivé</Badge> : !p.active && <Badge tone="amber">Inactif</Badge>}</div>
                   <div className="mt-0.5 truncate text-[12px] text-mist-400">{d.data!.variants.filter((v) => v.product_id === p.id).map((v) => v.name).join(' · ')}</div>
-                  <div className="mt-1 flex gap-1.5">{p.universe_id && <Badge tone="gold">{universeName(universes, p.universe_id)}</Badge>}{p.style_name && <Badge tone="gold">{p.style_name}</Badge>}</div>
+                  <div className="mt-1 flex gap-1.5"><Badge tone={p.universe_ids.length ? 'gold' : undefined}>{p.universe_ids.length ? p.universe_ids.map((id) => universeName(universes, id)).join(' · ') : 'Commun'}</Badge>{p.style_name && <Badge tone="gold">{p.style_name}</Badge>}</div>
                 </div>
               </Card>
             ))}
@@ -225,7 +239,7 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
           <Field label="Nom *"><Input value={p.name ?? ''} onChange={(e) => setP({ ...p, name: e.target.value })} /></Field>
           <Field label="Catégorie"><Select value={p.category} onChange={(e) => setP({ ...p, category: e.target.value as Category })}>{(['numerique', 'impression', 'option'] as Category[]).map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</Select></Field>
           <Field label="Description" className="col-span-2"><Textarea rows={2} value={p.description ?? ''} onChange={(e) => setP({ ...p, description: e.target.value })} /></Field>
-          <UniverseSelect value={p.universe_id} universes={universes} onChange={(v) => setP({ ...p, universe_id: v })} />
+          <Field label="Univers" hint="Aucun coché : commun à tous les univers."><UniverseChips value={p.universe_ids ?? []} universes={universes} onChange={(v) => setP({ ...p, universe_ids: v })} /></Field>
           <Field label="Style associé (fichiers numériques)"><Select value={p.style_id ?? ''} onChange={(e) => setP({ ...p, style_id: e.target.value || null })}><option value="">— Aucun —</option>{styles.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
           <div className="space-y-2 pt-6">
             <Toggle checked={!!p.needs_composition} onChange={(v) => setP({ ...p, needs_composition: v ? 1 : 0 })} label="Rattaché à une création" />
@@ -244,7 +258,8 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
               <span>Variante</span><span>Format</span><span>Finition</span><span title="Coût interne ajouté au coût fournisseur">Coût interne +</span><span>Fournisseur</span><span>Actif</span><span />
             </div>
             {vs.data?.map((v) => (
-              <div key={v.id} className={cx('grid grid-cols-[1.2fr_1fr_1fr_110px_1.4fr_auto_auto] items-center gap-2', v.archived && 'opacity-50')}>
+              <div key={v.id} className={cx('border-b border-ink-700/40 pb-2', v.archived && 'opacity-50')}>
+              <div className="grid grid-cols-[1.2fr_1fr_1fr_110px_1.4fr_auto_auto] items-center gap-2">
                 <Input defaultValue={v.name} onBlur={(e) => e.target.value !== v.name && act(() => saveVariant({ ...v, name: e.target.value }).then(vs.reload))} />
                 <Input placeholder="Format" defaultValue={v.format ?? ''} onBlur={(e) => act(() => saveVariant({ ...v, format: e.target.value || null }))} />
                 <Input placeholder="Finition" defaultValue={v.finish ?? ''} onBlur={(e) => act(() => saveVariant({ ...v, finish: e.target.value || null }))} />
@@ -255,6 +270,9 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
                 </Select>
                 <Toggle checked={!!v.active} onChange={(x) => act(() => saveVariant({ ...v, active: x ? 1 : 0 }).then(vs.reload))} />
                 <IconButton title="Supprimer / archiver" onClick={async () => (await confirm({ title: `Retirer la variante « ${v.name} » ?`, text: 'Si elle a déjà été vendue, elle est archivée (historique conservé).' })) && act(() => removeVariant(v.id).then(vs.reload))}><Trash2 className="size-4" /></IconButton>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2 pl-1"><span className="text-[11px] tracking-wider text-mist-400 uppercase">Univers</span>
+                <UniverseChips value={v.universe_ids} universes={universes} none="comme le produit" onChange={(ids) => act(() => saveVariant({ ...v, universe_ids: ids }).then(vs.reload))} /></div>
               </div>
             ))}
             <div className="flex gap-2 pt-1"><Input placeholder="Nouvelle variante (ex. 50 × 50 cm)" value={nv} onChange={(e) => setNv(e.target.value)} className="max-w-xs" />

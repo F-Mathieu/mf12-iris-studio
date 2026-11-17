@@ -306,6 +306,17 @@ ALTER TABLE price_templates ADD COLUMN universe_id TEXT REFERENCES universes(id)
 ALTER TABLE composition_styles ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
 ALTER TABLE products ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
 `,
+  /* 13 — produits et variantes dans un ou plusieurs univers (aucun lien = commun ; variante sans lien = univers
+        de son produit). Remplace products.universe_id (colonne conservée, plus utilisée). */ `
+CREATE TABLE catalog_universes (
+  kind TEXT NOT NULL CHECK (kind IN ('product','variant')), ref_id TEXT NOT NULL,
+  universe_id TEXT NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
+  PRIMARY KEY (kind, ref_id, universe_id)
+);
+CREATE INDEX idx_cu_universe ON catalog_universes(universe_id);
+INSERT OR IGNORE INTO catalog_universes (kind, ref_id, universe_id) SELECT 'product', id, universe_id FROM products WHERE universe_id IS NOT NULL;
+UPDATE products SET universe_id=NULL;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

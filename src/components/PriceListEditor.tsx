@@ -12,11 +12,13 @@ import { act } from '../lib/act';
 /** universeId: shows the common catalogue + this universe (items already priced stay visible). */
 export function PriceListEditor({ priceListId, universeId }: { priceListId: string; universeId?: string | null }) {
   const data = useAsync(async () => {
-    const [items, allStyles, allProducts, variants, costs, promos] = await Promise.all([getPriceItems(priceListId), listStyles(), listProducts(), listVariants(), variantCosts(), listPromotions(priceListId)]);
+    const [items, allStyles, allProducts, allVariants, costs, promos] = await Promise.all([getPriceItems(priceListId), listStyles(), listProducts(), listVariants(), variantCosts(), listPromotions(priceListId)]);
     const inUniverse = (u: string | null) => !universeId || !u || u === universeId;
+    const inAny = (ids: string[]) => !universeId || !ids.length || ids.includes(universeId);
     const priced = new Set(items.map((i) => i.ref_id));
     const styles = allStyles.filter((s) => inUniverse(s.universe_id) || priced.has(s.id));
-    const products = allProducts.filter((p) => inUniverse(p.universe_id) || variants.some((v) => v.product_id === p.id && priced.has(v.id)));
+    const products = allProducts.filter((p) => inAny(p.universe_ids) || allVariants.some((v) => v.product_id === p.id && priced.has(v.id)));
+    const variants = allVariants.filter((v) => inAny(v.universe_ids) || priced.has(v.id));
     return { items, styles, products, variants, costs, promos };
   }, [priceListId, universeId]);
   const confirmBulk = useConfirm();
