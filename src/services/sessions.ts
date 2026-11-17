@@ -9,19 +9,20 @@ export const SESSION_STATUS: Record<SessionStatus, string> = {
 export interface Session {
   id: string; name: string; date: string | null; start_time: string | null; end_time: string | null;
   location: string | null; organizer: string | null; description: string | null; status: SessionStatus;
-  price_list_id: string | null; slot_minutes: number; slot_capacity: number; created_at: string; updated_at: string;
+  price_list_id: string | null; slot_minutes: number; slot_capacity: number; universe_id: string | null; created_at: string; updated_at: string;
 }
 export interface SessionRow extends Session {
-  registrations: number; orders: number; sales_cents: number; price_list_name: string | null;
+  registrations: number; orders: number; sales_cents: number; price_list_name: string | null; universe_name: string | null;
 }
 
-export async function listSessions(opts: { q?: string; status?: string; includeArchived?: boolean } = {}): Promise<SessionRow[]> {
+export async function listSessions(opts: { q?: string; status?: string; includeArchived?: boolean; universeId?: string } = {}): Promise<SessionRow[]> {
   const w: string[] = [], p: string[] = [];
   if (opts.q?.trim()) { w.push('(s.name LIKE ? OR s.location LIKE ? OR s.organizer LIKE ?)'); p.push(like(opts.q), like(opts.q), like(opts.q)); }
   if (opts.status) { w.push('s.status=?'); p.push(opts.status); }
   else if (!opts.includeArchived) w.push("s.status<>'archivee'");
+  if (opts.universeId) { w.push('s.universe_id=?'); p.push(opts.universeId); }
   return sel<SessionRow>(
-    `SELECT s.*, pl.name price_list_name,
+    `SELECT s.*, pl.name price_list_name, (SELECT name FROM universes u WHERE u.id=s.universe_id) universe_name,
        (SELECT count(*) FROM session_registrations r WHERE r.session_id=s.id) registrations,
        (SELECT count(*) FROM orders o WHERE o.session_id=s.id AND o.status='validee') orders,
        COALESCE((SELECT sum(total_cents) FROM orders o WHERE o.session_id=s.id AND o.status='validee'),0) sales_cents
@@ -30,9 +31,9 @@ export async function listSessions(opts: { q?: string; status?: string; includeA
 }
 
 export const getSession = (id: string) =>
-  one<Session & { price_list_name: string | null; source_template_id: string | null; source_template_name: string | null }>(
-    `SELECT s.*, pl.name price_list_name, pl.source_template_id, pl.source_template_name FROM sessions s
-     LEFT JOIN price_lists pl ON pl.id=s.price_list_id WHERE s.id=?`, [id]);
+  one<Session & { price_list_name: string | null; source_template_id: string | null; source_template_name: string | null; universe_name: string | null }>(
+    `SELECT s.*, pl.name price_list_name, pl.source_template_id, pl.source_template_name, u.name universe_name FROM sessions s
+     LEFT JOIN price_lists pl ON pl.id=s.price_list_id LEFT JOIN universes u ON u.id=s.universe_id WHERE s.id=?`, [id]);
 
 export type SessionInput = Partial<Omit<Session, 'id' | 'created_at' | 'updated_at' | 'price_list_id'>> & { name: string; template_id?: string | null };
 
@@ -41,13 +42,16 @@ export async function createSession(input: SessionInput): Promise<string> {
   const id = uid(), now = nowIso();
   const stmts: Stmt[] = [];
   let priceListId: string | null = null;
-  if (input.template_id) {
-    const c = await copyPriceListStmts({ fromTemplateId: input.template_id });
+  // Template not chosen (undefined): the universe's default template.
+  const templateId = input.template_id !== undefined ? input.template_id
+    : input.universe_id ? (await one<{ t: string | null }>('SELECT default_template_id t FROM universes WHERE id=?', [input.universe_id]))?.t ?? null : null;
+  if (templateId) {
+    const c = await copyPriceListStmts({ fromTemplateId: templateId });
     priceListId = c.id; stmts.push(...c.stmts);
   }
   const { template_id: _t, ...rest } = input;
   stmts.push(insertStmt('sessions', {
-    id, ...rest, name: input.name.trim(), status: input.status ?? 'preparation', price_list_id: priceListId,
+    id, ...rest, universe_id: input.universe_id || null, name: input.name.trim(), status: input.status ?? 'preparation', price_list_id: priceListId,
     slot_minutes: input.slot_minutes ?? 20, slot_capacity: input.slot_capacity ?? 1, created_at: now, updated_at: now,
   }));
   stmts.push(auditStmt('session', id, 'create', { name: input.name }));
@@ -55,7 +59,7 @@ export async function createSession(input: SessionInput): Promise<string> {
   return id;
 }
 
-const EDITABLE = ['name', 'date', 'start_time', 'end_time', 'location', 'organizer', 'description', 'status', 'slot_minutes', 'slot_capacity'] as const;
+const EDITABLE = ['name', 'date', 'start_time', 'end_time', 'location', 'organizer', 'description', 'status', 'slot_minutes', 'slot_capacity', 'universe_id'] as const;
 export async function updateSession(id: string, input: Partial<SessionInput>) {
   const rest = Object.fromEntries(EDITABLE.filter((k) => k in input).map((k) => [k, (input as Record<string, unknown>)[k] ?? null])) as Record<string, string | number | null>;
   if ('name' in rest && !String(rest.name ?? '').trim()) throw new Error('Le nom de la séance est obligatoire.');
@@ -83,7 +87,7 @@ export async function duplicateSession(id: string): Promise<string> {
   stmts.push(insertStmt('sessions', {
     id: nid, name: `${s.name} (copie)`, date: s.date, start_time: s.start_time, end_time: s.end_time, location: s.location,
     organizer: s.organizer, description: s.description, status: 'preparation', price_list_id: pl,
-    slot_minutes: s.slot_minutes, slot_capacity: s.slot_capacity, created_at: now, updated_at: now,
+    slot_minutes: s.slot_minutes, slot_capacity: s.slot_capacity, universe_id: s.universe_id, created_at: now, updated_at: now,
   }), auditStmt('session', nid, 'duplicate', { from: id }));
   await batch(stmts);
   return nid;

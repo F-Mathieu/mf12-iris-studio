@@ -1,5 +1,6 @@
 /** Gathers data for PDF documents (client documents only read sale prices). */
 import { getSettings, one, sel } from './base';
+import { universeText } from './universes';
 import { getOrderDetail, PAYMENT_METHODS, PAYMENT_STATUS, ORDER_STATUS } from './orders';
 import { listStyles, listProducts, listVariants } from './catalog';
 import { getPriceItems, listPromotions } from './pricing';
@@ -113,7 +114,7 @@ export async function brochureData(sessionId: string, forName?: string | null): 
     return { category: p.category, name: styleName && !p.name.includes(styleName) ? `${p.name} — ${styleName}` : p.name, description: p.description, image: m ? await cropForPdf(m.thumb, 1, 480) : null, variants: vs };
   }));
   return {
-    brand: c.brand, session: c.session, date: todayIso(), forName: forName ?? null, intro: settings.brochure_intro || null, conditions: c.conditions,
+    brand: c.brand, session: c.session, date: todayIso(), forName: forName ?? null, intro: (await universeText(sessionId, 'brochure_intro')) || null, conditions: c.conditions,
     cover: coverSrc ? await cropForPdf(coverSrc, 210 / 165, 1600) : null,
     styles: styleOut, products: productOut, frameName: frameProduct?.name.replace(/^Cadre /, 'cadre ') ?? null, promotions: c.promotions,
   };

@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardHeader, Empty, Field, Input, Loading, Modal, P
 import { PriceListEditor } from '../components/PriceListEditor';
 import { createTemplate, getPriceItems, getTemplate, listTemplates, updateTemplate } from '../services/pricing';
 import { listProducts, listStyles, listVariants } from '../services/catalog';
+import { listUniverses } from '../services/universes';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
 import { act } from '../lib/act';
@@ -18,23 +19,25 @@ function TemplateList() {
   const nav = useNavigate();
   const confirm = useConfirm();
   const [archived, setArchived] = useState(false);
-  const t = useAsync(() => listTemplates(archived), [archived]);
+  const [universe, setUniverse] = useState('');
+  const universes = useAsync(() => listUniverses(), []);
+  const t = useAsync(() => listTemplates(archived, universe || null), [archived, universe]);
   const [compare, setCompare] = useState(false);
   const create = async (from?: string, name?: string) => {
     const n = name ?? (await confirm({ title: from ? 'Dupliquer le template' : 'Nouveau template tarifaire', input: { label: 'Nom', placeholder: 'Tarif TEMPSDANSES', required: true }, confirm: 'Créer' }));
     if (!n) return;
-    const nid = await act(() => createTemplate(n, '', from), 'Template créé');
+    const nid = await act(() => createTemplate(n, '', from, from ? undefined : universe || null), 'Template créé');
     if (nid) nav(`/tarifs/${nid}`);
   };
   return (
     <>
       <PageHeader title="Templates tarifaires" subtitle="Grilles de prix réutilisables. Appliquer un template à une séance en crée une copie indépendante."
-        actions={<><Toggle checked={archived} onChange={setArchived} label="Archives" /><Button icon={<Columns2 className="size-4" />} onClick={() => setCompare(true)}>Comparer</Button><Button variant="gold" icon={<Plus className="size-4" />} onClick={() => create()}>Nouveau template</Button></>} />
+        actions={<><Select className="w-44" value={universe} onChange={(e) => setUniverse(e.target.value)}><option value="">Tous les univers</option>{universes.data?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select><Toggle checked={archived} onChange={setArchived} label="Archives" /><Button icon={<Columns2 className="size-4" />} onClick={() => setCompare(true)}>Comparer</Button><Button variant="gold" icon={<Plus className="size-4" />} onClick={() => create()}>Nouveau template</Button></>} />
       {!t.data ? <Loading /> : !t.data.length ? <Card><Empty icon={<Tags className="size-5" />} title="Aucun template" /></Card> : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
           {t.data.map((x) => (
             <Card key={x.id} onClick={() => nav(`/tarifs/${x.id}`)} className={cx('p-5', x.archived && 'opacity-55')}>
-              <div className="flex items-start justify-between"><div className="font-display text-[24px] font-semibold">{x.name}</div>{!!x.archived && <Badge>Archivé</Badge>}</div>
+              <div className="flex items-start justify-between"><div className="font-display text-[24px] font-semibold">{x.name}</div><div className="flex gap-1.5"><Badge tone={x.universe_name ? 'gold' : undefined}>{x.universe_name ?? 'Commun'}</Badge>{!!x.archived && <Badge>Archivé</Badge>}</div></div>
               <div className="mt-1 min-h-[18px] text-[12.5px] text-mist-400">{x.description}</div>
               <div className="mt-4 flex items-center justify-between text-[12.5px] text-mist-400">
                 <span>{x.items_count} prix · {x.sessions_count} séance(s)</span><span>maj {fmtDate(x.updated_at)}</span>
@@ -55,9 +58,10 @@ function TemplateList() {
 function TemplateEditor({ id }: { id: string }) {
   const nav = useNavigate();
   const t = useAsync(() => getTemplate(id), [id]);
-  const [meta, setMeta] = useState<{ name?: string; description?: string | null; conditions?: string | null }>({});
+  const [meta, setMeta] = useState<{ name?: string; description?: string | null; conditions?: string | null; universe_id?: string | null }>({});
+  const universes = useAsync(() => listUniverses(true), []);
   if (!t.data) return <Loading />;
-  const m = { name: t.data.name, description: t.data.description, conditions: t.data.conditions, ...meta };
+  const m = { name: t.data.name, description: t.data.description, conditions: t.data.conditions, universe_id: t.data.universe_id, ...meta };
   return (
     <>
       <PageHeader back={() => nav('/tarifs')} title={m.name} subtitle="Modifier ce template ne modifie pas les séances auxquelles il a déjà été appliqué."
@@ -65,11 +69,12 @@ function TemplateEditor({ id }: { id: string }) {
       <Card className="mb-5">
         <div className="grid grid-cols-3 gap-4 p-5">
           <Field label="Nom"><Input value={m.name} onChange={(e) => setMeta({ ...meta, name: e.target.value })} /></Field>
-          <Field label="Description" className="col-span-2"><Input value={m.description ?? ''} onChange={(e) => setMeta({ ...meta, description: e.target.value })} /></Field>
+          <Field label="Univers" hint="Commun : proposé pour toutes les séances."><Select value={m.universe_id ?? ''} onChange={(e) => setMeta({ ...meta, universe_id: e.target.value || null })}><option value="">Commun</option>{universes.data?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field>
+          <Field label="Description"><Input value={m.description ?? ''} onChange={(e) => setMeta({ ...meta, description: e.target.value })} /></Field>
           <Field label="Conditions commerciales (imprimées sur le catalogue)" className="col-span-3"><Textarea rows={2} value={m.conditions ?? ''} onChange={(e) => setMeta({ ...meta, conditions: e.target.value })} placeholder="Délais de livraison, modalités de règlement…" /></Field>
         </div>
       </Card>
-      <PriceListEditor priceListId={t.data.price_list_id} />
+      <PriceListEditor priceListId={t.data.price_list_id} universeId={m.universe_id} />
     </>
   );
 }

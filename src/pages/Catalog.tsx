@@ -3,6 +3,9 @@ import { ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
 import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
 import { listSupplierProducts } from '../services/suppliers';
+import { listUniverses, saveUniverse, type Universe } from '../services/universes';
+import { listTemplates } from '../services/pricing';
+import { DEFAULT_OFFERS_MAIL, DEFAULT_RECAP_MAIL } from '../lib/invoiceMail';
 import { IMAGE_FILTER, pickFiles, type PickedFile } from '../lib/files';
 import { mimeOf } from '../lib/images';
 import { act } from '../lib/act';
@@ -10,20 +13,80 @@ import { act } from '../lib/act';
 const toBlob = (f: PickedFile) => new Blob([f.bytes as BlobPart], { type: mimeOf(f.name) });
 
 export default function Catalog() {
-  const [tab, setTab] = useState<'styles' | 'produits'>('styles');
+  const [tab, setTab] = useState<'styles' | 'produits' | 'univers'>('styles');
   const [archived, setArchived] = useState(false);
+  const [universe, setUniverse] = useState('');
+  const universes = useAsync(() => listUniverses(true), [tab]);
   return (
     <>
-      <PageHeader title="Catalogue" subtitle="Styles de montages présentés en exemple et produits vendus. Rien n’est codé en dur."
-        actions={<Toggle checked={archived} onChange={setArchived} label="Afficher les archives" />} />
-      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'styles', label: 'Styles de montages' }, { id: 'produits', label: 'Produits & variantes' }]} />
-      {tab === 'styles' ? <StylesView archived={archived} /> : <ProductsView archived={archived} />}
+      <PageHeader title="Catalogue" subtitle="Univers de séance, styles de montages présentés en exemple et produits vendus. Rien n’est codé en dur."
+        actions={<>{tab !== 'univers' && <Select className="w-48" value={universe} onChange={(e) => setUniverse(e.target.value)} title="Commun + univers choisi"><option value="">Tous les univers</option>{universes.data?.filter((u) => !u.archived).map((u) => <option key={u.id} value={u.id}>{u.name} (+ commun)</option>)}</Select>}<Toggle checked={archived} onChange={setArchived} label="Afficher les archives" /></>} />
+      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'styles', label: 'Styles de montages' }, { id: 'produits', label: 'Produits & variantes' }, { id: 'univers', label: 'Univers de séance' }]} />
+      {tab === 'styles' ? <StylesView archived={archived} universe={universe} universes={universes.data ?? []} />
+        : tab === 'produits' ? <ProductsView archived={archived} universe={universe} universes={universes.data ?? []} />
+        : <UniversesView archived={archived} />}
     </>
   );
 }
 
-function StylesView({ archived }: { archived: boolean }) {
-  const s = useAsync(() => listStyles(archived), [archived]);
+const universeName = (universes: Universe[], id: string | null | undefined) => (id ? universes.find((u) => u.id === id)?.name ?? '?' : 'Commun');
+
+function UniverseSelect({ value, onChange, universes }: { value: string | null | undefined; onChange: (v: string | null) => void; universes: Universe[] }) {
+  return (
+    <Field label="Univers" hint="Commun : proposé dans toutes les séances.">
+      <Select value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}><option value="">Commun (tous les univers)</option>{universes.filter((u) => !u.archived || u.id === value).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select>
+    </Field>
+  );
+}
+
+function UniversesView({ archived }: { archived: boolean }) {
+  const u = useAsync(() => listUniverses(archived), [archived]);
+  const [edit, setEdit] = useState<Partial<Universe> | null>(null);
+  if (!u.data) return <Loading />;
+  return (
+    <>
+      <div className="mb-4 text-[13px] text-mist-400">Un univers (Iris, Back to school, Noël, Halloween, Fête des mères…) regroupe ses styles, produits et templates — en plus du catalogue commun — ainsi que ses textes de brochure et d’e-mails. Chaque séance choisit son univers.</div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+        {u.data.map((x) => (
+          <Card key={x.id} onClick={() => setEdit(x)} className={cx('p-5', x.archived && 'opacity-55')}>
+            <div className="flex items-start justify-between"><span className="font-display text-[22px] font-semibold">{x.name}</span>{!!x.archived && <Badge>Archivé</Badge>}</div>
+            <div className="mt-1 min-h-[18px] text-[12.5px] text-mist-400">{x.description}</div>
+            <div className="mt-3 text-[12.5px] text-mist-300">Template par défaut : {x.default_template_name ?? <span className="text-amber-300">aucun</span>}</div>
+            <div className="mt-1 text-[12px] text-mist-400">{x.styles_count} style(s) · {x.products_count} produit(s) propres · {x.sessions_count} séance(s)</div>
+          </Card>
+        ))}
+        <button onClick={() => setEdit({ name: '' })} className="flex min-h-[150px] flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouvel univers</button>
+      </div>
+      {edit && <UniverseEditor universe={edit} onClose={() => { setEdit(null); u.reload(); }} />}
+    </>
+  );
+}
+
+function UniverseEditor({ universe, onClose }: { universe: Partial<Universe>; onClose: () => void }) {
+  const [x, setX] = useState(universe);
+  const tpls = useAsync(() => listTemplates(false, x.id ?? null), [x.id]);
+  const save = async () => { if (await act(() => saveUniverse(x as Universe), 'Univers enregistré')) onClose(); };
+  return (
+    <Modal open onClose={onClose} size="lg" title={x.id ? `Univers — ${universe.name}` : 'Nouvel univers'}
+      footer={<><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="gold" disabled={!x.name?.trim()} onClick={save}>Enregistrer</Button></>}>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Nom *"><Input autoFocus value={x.name ?? ''} placeholder="Noël" onChange={(e) => setX({ ...x, name: e.target.value })} /></Field>
+        <Field label="Template tarifaire par défaut" hint="Proposé à la création d’une séance de cet univers.">
+          <Select value={x.default_template_id ?? ''} onChange={(e) => setX({ ...x, default_template_id: e.target.value || null })}><option value="">— Aucun —</option>{tpls.data?.map((t) => <option key={t.id} value={t.id}>{t.name}{t.universe_name ? '' : ' (commun)'}</option>)}</Select>
+        </Field>
+        <Field label="Description" className="col-span-2"><Input value={x.description ?? ''} onChange={(e) => setX({ ...x, description: e.target.value })} /></Field>
+        <div className="col-span-2 text-[12.5px] text-mist-400">Textes propres à l’univers — laissés vides, les textes de Paramètres → Facturation s’appliquent.</div>
+        <Field label="Brochure : texte d’introduction" className="col-span-2"><Textarea rows={3} value={x.brochure_intro ?? ''} onChange={(e) => setX({ ...x, brochure_intro: e.target.value })} /></Field>
+        <Field label="E-mail « offres de la séance »" className="col-span-2"><Textarea rows={6} value={x.offers_mail_body ?? ''} placeholder={DEFAULT_OFFERS_MAIL} onChange={(e) => setX({ ...x, offers_mail_body: e.target.value })} /></Field>
+        <Field label="E-mail « récap de la sélection + brochure »" className="col-span-2"><Textarea rows={6} value={x.recap_mail_body ?? ''} placeholder={DEFAULT_RECAP_MAIL} onChange={(e) => setX({ ...x, recap_mail_body: e.target.value })} /></Field>
+        {x.id && <Toggle checked={!!x.archived} onChange={(v) => setX({ ...x, archived: v ? 1 : 0 })} label="Archivé (plus proposé pour les nouvelles séances)" />}
+      </div>
+    </Modal>
+  );
+}
+
+function StylesView({ archived, universe, universes }: { archived: boolean; universe: string; universes: Universe[] }) {
+  const s = useAsync(() => listStyles(archived, universe || null), [archived, universe]);
   const [edit, setEdit] = useState<Partial<Style> | null>(null);
   if (!s.data) return <Loading />;
   return (
@@ -34,18 +97,19 @@ function StylesView({ archived }: { archived: boolean }) {
             <div className="aspect-[4/3] bg-ink-800">{st.cover_thumb ? <img src={st.cover_thumb} className="size-full object-cover" alt="" /> : <div className="flex size-full items-center justify-center text-mist-400/50"><ImageOff className="size-8" strokeWidth={1} /></div>}</div>
             <div className="p-4">
               <div className="flex items-center justify-between"><span className="font-display text-[22px] font-semibold">{st.name}</span>{st.archived ? <Badge>Archivé</Badge> : !st.active && <Badge tone="amber">Inactif</Badge>}</div>
+              <Badge tone={st.universe_id ? 'gold' : undefined} className="mt-1">{universeName(universes, st.universe_id)}</Badge>
               <div className="mt-1 text-[12.5px] text-mist-400">{st.min_iris === st.max_iris ? `${st.min_iris} iris` : `${st.min_iris} à ${st.max_iris} iris`} · {st.examples_count} exemple(s)</div>
             </div>
           </Card>
         ))}
-        <button onClick={() => setEdit({ name: '', min_iris: 1, max_iris: 1, active: 1 })} className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouveau style</button>
+        <button onClick={() => setEdit({ name: '', min_iris: 1, max_iris: 1, active: 1, universe_id: universe || null })} className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouveau style</button>
       </div>
-      {edit && <StyleEditor style={edit} onClose={() => { setEdit(null); s.reload(); }} />}
+      {edit && <StyleEditor style={edit} universes={universes} onClose={() => { setEdit(null); s.reload(); }} />}
     </>
   );
 }
 
-function StyleEditor({ style, onClose }: { style: Partial<Style>; onClose: () => void }) {
+function StyleEditor({ style, universes, onClose }: { style: Partial<Style>; universes: Universe[]; onClose: () => void }) {
   const [st, setSt] = useState(style);
   const [busy, setBusy] = useState(false);
   const [uploadIris, setUploadIris] = useState<string>('');
@@ -70,6 +134,7 @@ function StyleEditor({ style, onClose }: { style: Partial<Style>; onClose: () =>
       <div className="grid grid-cols-[320px_1fr] gap-6">
         <div className="space-y-4">
           <Field label="Nom *"><Input value={st.name ?? ''} onChange={(e) => setSt({ ...st, name: e.target.value })} /></Field>
+          <UniverseSelect value={st.universe_id} universes={universes} onChange={(v) => setSt({ ...st, universe_id: v })} />
           <Field label="Description (visible par le client)"><Textarea rows={4} value={st.description ?? ''} onChange={(e) => setSt({ ...st, description: e.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Iris minimum"><Input type="number" min={1} value={st.min_iris ?? 1} onChange={(e) => setSt({ ...st, min_iris: Number(e.target.value) })} /></Field>
@@ -113,15 +178,15 @@ function StyleEditor({ style, onClose }: { style: Partial<Style>; onClose: () =>
   );
 }
 
-function ProductsView({ archived }: { archived: boolean }) {
-  const d = useAsync(async () => ({ products: await listProducts(archived), variants: await listVariants(archived) }), [archived]);
+function ProductsView({ archived, universe, universes }: { archived: boolean; universe: string; universes: Universe[] }) {
+  const d = useAsync(async () => ({ products: await listProducts(archived, universe || null), variants: await listVariants(archived) }), [archived, universe]);
   const [edit, setEdit] = useState<Partial<Product> | null>(null);
   if (!d.data) return <Loading />;
   return (
     <>
       {(['numerique', 'impression', 'option'] as Category[]).map((cat) => (
         <div key={cat} className="mb-7">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1 })}>Produit</Button></div>
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1, universe_id: universe || null })}>Produit</Button></div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
             {d.data!.products.filter((p) => p.category === cat).map((p) => (
               <Card key={p.id} onClick={() => setEdit(p)} className={cx('flex gap-3 p-3.5', (!p.active || p.archived) && 'opacity-55')}>
@@ -129,19 +194,19 @@ function ProductsView({ archived }: { archived: boolean }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 font-medium">{p.name}{p.archived ? <Badge>Archivé</Badge> : !p.active && <Badge tone="amber">Inactif</Badge>}</div>
                   <div className="mt-0.5 truncate text-[12px] text-mist-400">{d.data!.variants.filter((v) => v.product_id === p.id).map((v) => v.name).join(' · ')}</div>
-                  {p.style_name && <Badge tone="gold" className="mt-1">{p.style_name}</Badge>}
+                  <div className="mt-1 flex gap-1.5">{p.universe_id && <Badge tone="gold">{universeName(universes, p.universe_id)}</Badge>}{p.style_name && <Badge tone="gold">{p.style_name}</Badge>}</div>
                 </div>
               </Card>
             ))}
           </div>
         </div>
       ))}
-      {edit && <ProductEditor product={edit} onClose={() => { setEdit(null); d.reload(); }} />}
+      {edit && <ProductEditor product={edit} universes={universes} onClose={() => { setEdit(null); d.reload(); }} />}
     </>
   );
 }
 
-function ProductEditor({ product, onClose }: { product: Partial<Product>; onClose: () => void }) {
+function ProductEditor({ product, universes, onClose }: { product: Partial<Product>; universes: Universe[]; onClose: () => void }) {
   const confirm = useConfirm();
   const [p, setP] = useState(product);
   const styles = useAsync(() => listStyles(), []);
@@ -160,6 +225,7 @@ function ProductEditor({ product, onClose }: { product: Partial<Product>; onClos
           <Field label="Nom *"><Input value={p.name ?? ''} onChange={(e) => setP({ ...p, name: e.target.value })} /></Field>
           <Field label="Catégorie"><Select value={p.category} onChange={(e) => setP({ ...p, category: e.target.value as Category })}>{(['numerique', 'impression', 'option'] as Category[]).map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}</Select></Field>
           <Field label="Description" className="col-span-2"><Textarea rows={2} value={p.description ?? ''} onChange={(e) => setP({ ...p, description: e.target.value })} /></Field>
+          <UniverseSelect value={p.universe_id} universes={universes} onChange={(v) => setP({ ...p, universe_id: v })} />
           <Field label="Style associé (fichiers numériques)"><Select value={p.style_id ?? ''} onChange={(e) => setP({ ...p, style_id: e.target.value || null })}><option value="">— Aucun —</option>{styles.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
           <div className="space-y-2 pt-6">
             <Toggle checked={!!p.needs_composition} onChange={(v) => setP({ ...p, needs_composition: v ? 1 : 0 })} label="Rattaché à une création" />

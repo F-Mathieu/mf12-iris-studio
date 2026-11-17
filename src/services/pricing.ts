@@ -3,7 +3,7 @@ import type { Stmt } from '../lib/db/types';
 import type { PriceRow, Promotion, PromoConfig } from '../lib/pricing';
 
 export interface PriceTemplate {
-  id: string; name: string; description: string | null; conditions: string | null; archived: number;
+  id: string; name: string; description: string | null; conditions: string | null; archived: number; universe_id: string | null;
   created_at: string; updated_at: string; price_list_id: string; items_count: number; sessions_count: number;
 }
 export interface PriceListItem extends PriceRow { id: string; price_list_id: string; pricing_mode: 'manual' | 'coef' | 'margin'; pricing_param: number | null; enabled: number }
@@ -13,20 +13,23 @@ export const toPromotion = (r: PromotionRow): Promotion => ({
   id: r.id, name: r.name, type: r.type, config: JSON.parse(r.config) as PromoConfig, priority: r.priority, stackable: !!r.stackable, active: !!r.active,
 });
 
-export async function listTemplates(includeArchived = false): Promise<PriceTemplate[]> {
-  return sel<PriceTemplate>(
-    `SELECT t.*, pl.id price_list_id,
+/** universeId: common templates + those of this universe. */
+export async function listTemplates(includeArchived = false, universeId?: string | null): Promise<(PriceTemplate & { universe_name: string | null })[]> {
+  const w = [includeArchived ? '1=1' : 't.archived=0', universeId ? '(t.universe_id IS NULL OR t.universe_id=?)' : '1=1'];
+  return sel<PriceTemplate & { universe_name: string | null }>(
+    `SELECT t.*, pl.id price_list_id, u.name universe_name,
        (SELECT count(*) FROM price_list_items i WHERE i.price_list_id=pl.id) items_count,
        (SELECT count(*) FROM sessions s JOIN price_lists sp ON sp.id=s.price_list_id WHERE sp.source_template_id=t.id) sessions_count
-     FROM price_templates t JOIN price_lists pl ON pl.template_id=t.id
-     ${includeArchived ? '' : 'WHERE t.archived=0'} ORDER BY t.archived, t.name COLLATE NOCASE`);
+     FROM price_templates t JOIN price_lists pl ON pl.template_id=t.id LEFT JOIN universes u ON u.id=t.universe_id
+     WHERE ${w.join(' AND ')} ORDER BY t.archived, t.name COLLATE NOCASE`, universeId ? [universeId] : []);
 }
 export const getTemplate = (id: string) =>
   one<PriceTemplate>('SELECT t.*, pl.id price_list_id FROM price_templates t JOIN price_lists pl ON pl.template_id=t.id WHERE t.id=?', [id]);
 
-export async function createTemplate(name: string, description = '', fromTemplateId?: string): Promise<string> {
+export async function createTemplate(name: string, description = '', fromTemplateId?: string, universeId?: string | null): Promise<string> {
   const id = uid(), now = nowIso();
-  const stmts: Stmt[] = [insertStmt('price_templates', { id, name: name.trim(), description, created_at: now, updated_at: now })];
+  const universe_id = universeId !== undefined ? universeId : fromTemplateId ? (await one<{ u: string | null }>('SELECT universe_id u FROM price_templates WHERE id=?', [fromTemplateId]))?.u ?? null : null;
+  const stmts: Stmt[] = [insertStmt('price_templates', { id, name: name.trim(), description, universe_id, created_at: now, updated_at: now })];
   if (fromTemplateId) {
     const c = await copyPriceListStmts({ fromTemplateId, toTemplateId: id, name });
     stmts.push(...c.stmts);
@@ -37,7 +40,7 @@ export async function createTemplate(name: string, description = '', fromTemplat
   await batch(stmts);
   return id;
 }
-export const updateTemplate = (id: string, d: { name?: string; description?: string | null; conditions?: string | null; archived?: number }) =>
+export const updateTemplate = (id: string, d: { name?: string; description?: string | null; conditions?: string | null; archived?: number; universe_id?: string | null }) =>
   batch([updateStmt('price_templates', id, { ...d, updated_at: nowIso() }),
     ...(d.name ? [{ sql: 'UPDATE price_lists SET name=? WHERE template_id=?', params: [d.name, id] }] : [])]);
 

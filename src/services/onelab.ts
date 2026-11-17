@@ -100,4 +100,5 @@ export async function applyDataUpgrades() {
   await applyOnelabFramesG6();
   await applyOnelabPaper();
   await fixPaperDescription();
+  await (await import('./universes')).applyIrisUniverse();
 }

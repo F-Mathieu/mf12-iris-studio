@@ -4,6 +4,7 @@
  */
 import { isTauri } from '../lib/db';
 import { getSetting } from './base';
+import { universeText } from './universes';
 import { invoicePdfOf, orderRecapPdf, sessionBrochurePdf } from './documents';
 import { invoiceMailBody, invoiceMailSubject, mailtoUrl, offersMailBody, offersMailSubject, quoteMailBody, quoteMailSubject, recapMailBody, recapMailSubject, signatureOf } from '../lib/invoiceMail';
 import { saveFile } from '../lib/files';
@@ -46,7 +47,7 @@ export async function emailOrderRecap(orderId: string): Promise<MailResult> {
   if (!d) throw new Error('Commande introuvable');
   const o = d.order;
   const client = clientName(o.contact_first_name, o.family_name);
-  const [recap, brochure, seller, tpl] = await Promise.all([orderRecapPdf(orderId), sessionBrochurePdf(o.session_id, client), sellerInfo(), getSetting('recap_mail_body')]);
+  const [recap, brochure, seller, tpl] = await Promise.all([orderRecapPdf(orderId), sessionBrochurePdf(o.session_id, client), sellerInfo(), universeText(o.session_id, 'recap_mail_body')]);
   return composeMail({
     to: (o.family_email ?? '').trim(),
     subject: recapMailSubject(o.session_name),
@@ -72,7 +73,7 @@ export async function emailQuote(row: { number: string; data: string }, opts: { 
 /** The session brochure (all offers), prepared for one family, so they can choose and come back for a quote. */
 export async function emailSessionOffers(r: { sessionId: string; sessionName: string; familyName: string; firstName?: string | null; email?: string | null }): Promise<MailResult> {
   const client = clientName(r.firstName, r.familyName);
-  const [brochure, seller, tpl] = await Promise.all([sessionBrochurePdf(r.sessionId, client), sellerInfo(), getSetting('offers_mail_body')]);
+  const [brochure, seller, tpl] = await Promise.all([sessionBrochurePdf(r.sessionId, client), sellerInfo(), universeText(r.sessionId, 'offers_mail_body')]);
   return composeMail({
     to: (r.email ?? '').trim(), subject: offersMailSubject(r.sessionName),
     body: offersMailBody({ firstName: r.firstName, client, session: r.sessionName, signature: signatureOf(seller) }, tpl),

@@ -1,11 +1,12 @@
 import { auditStmt, batch, insertStmt, nowIso, one, run, sel, uid, updateStmt } from './base';
 import { processImage } from '../lib/images';
+import { universeFilter } from './universes';
 
-export interface Style { id: string; name: string; description: string | null; min_iris: number; max_iris: number; active: number; archived: number; sort: number; examples_count?: number; cover_thumb?: string | null }
+export interface Style { id: string; name: string; description: string | null; min_iris: number; max_iris: number; active: number; archived: number; sort: number; universe_id: string | null; examples_count?: number; cover_thumb?: string | null }
 export interface Example { id: string; style_id: string; media_id: string; iris_count: number | null; caption: string | null; sort: number; thumb: string }
 export type Category = 'numerique' | 'impression' | 'option';
 export const CATEGORY_LABEL: Record<Category | 'creation', string> = { numerique: 'Numérique', impression: 'Impressions', option: 'Options', creation: 'Créations' };
-export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; thumb?: string | null; style_name?: string | null }
+export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; universe_id: string | null; thumb?: string | null; style_name?: string | null }
 export interface Variant { id: string; product_id: string; name: string; format: string | null; finish: string | null; extra_cost_cents: number; preferred_supplier_product_id: string | null; active: number; archived: number; sort: number }
 
 /* ---------- media */
@@ -19,15 +20,18 @@ export async function addMedia(blob: Blob): Promise<string> {
 export const getMediaFull = async (id: string) => (await one<{ full: string }>('SELECT full FROM media WHERE id=?', [id]))?.full ?? null;
 
 /* ---------- styles */
-export const listStyles = (includeArchived = false) =>
-  sel<Style>(`SELECT s.*, (SELECT count(*) FROM composition_examples e WHERE e.style_id=s.id) examples_count,
+/** universeId: only common items + those of this universe. */
+export const listStyles = (includeArchived = false, universeId?: string | null) => {
+  const u = universeFilter('s', universeId);
+  return sel<Style>(`SELECT s.*, (SELECT count(*) FROM composition_examples e WHERE e.style_id=s.id) examples_count,
      (SELECT m.thumb FROM composition_examples e JOIN media m ON m.id=e.media_id WHERE e.style_id=s.id ORDER BY e.sort LIMIT 1) cover_thumb
-     FROM composition_styles s ${includeArchived ? '' : 'WHERE s.archived=0'} ORDER BY s.archived, s.sort, s.name`);
+     FROM composition_styles s WHERE ${u.sql} ${includeArchived ? '' : 'AND s.archived=0'} ORDER BY s.archived, s.sort, s.name`, u.params);
+};
 
 export async function saveStyle(s: Partial<Style> & { name: string }) {
   if (!s.name.trim()) throw new Error('Nom du style obligatoire.');
   const min = Math.max(1, s.min_iris ?? 1), max = Math.max(min, s.max_iris ?? min);
-  const row = { name: s.name.trim(), description: s.description ?? null, min_iris: min, max_iris: max, active: s.active ?? 1, archived: s.archived ?? 0 };
+  const row = { name: s.name.trim(), description: s.description ?? null, min_iris: min, max_iris: max, active: s.active ?? 1, archived: s.archived ?? 0, universe_id: s.universe_id || null };
   if (s.id) { await batch([updateStmt('composition_styles', s.id, row)]); return s.id; }
   const id = uid();
   const n = await one<{ n: number }>('SELECT COALESCE(max(sort),0)+1 n FROM composition_styles');
@@ -56,16 +60,18 @@ export async function deleteExample(id: string) {
 }
 
 /* ---------- products */
-export const listProducts = (includeArchived = false) =>
-  sel<Product>(`SELECT p.*, m.thumb, s.name style_name FROM products p LEFT JOIN media m ON m.id=p.media_id LEFT JOIN composition_styles s ON s.id=p.style_id
-     ${includeArchived ? '' : 'WHERE p.archived=0'} ORDER BY p.archived, CASE p.category WHEN 'numerique' THEN 0 WHEN 'impression' THEN 1 ELSE 2 END, p.sort, p.name`);
+export const listProducts = (includeArchived = false, universeId?: string | null) => {
+  const u = universeFilter('p', universeId);
+  return sel<Product>(`SELECT p.*, m.thumb, s.name style_name FROM products p LEFT JOIN media m ON m.id=p.media_id LEFT JOIN composition_styles s ON s.id=p.style_id
+     WHERE ${u.sql} ${includeArchived ? '' : 'AND p.archived=0'} ORDER BY p.archived, CASE p.category WHEN 'numerique' THEN 0 WHEN 'impression' THEN 1 ELSE 2 END, p.sort, p.name`, u.params);
+};
 export const listVariants = (includeArchived = false) =>
   sel<Variant>(`SELECT * FROM product_variants ${includeArchived ? '' : 'WHERE archived=0'} ORDER BY sort, name`);
 
 export async function saveProduct(p: Partial<Product> & { name: string; category: Category }) {
   if (!p.name.trim()) throw new Error('Nom du produit obligatoire.');
   const row = { category: p.category, name: p.name.trim(), description: p.description ?? null, media_id: p.media_id ?? null, style_id: p.style_id || null,
-    needs_composition: p.needs_composition ?? (p.category === 'option' ? 0 : 1), active: p.active ?? 1, archived: p.archived ?? 0 };
+    needs_composition: p.needs_composition ?? (p.category === 'option' ? 0 : 1), active: p.active ?? 1, archived: p.archived ?? 0, universe_id: p.universe_id || null };
   if (p.id) { await batch([updateStmt('products', p.id, row)]); return p.id; }
   const id = uid();
   const n = await one<{ n: number }>('SELECT COALESCE(max(sort),0)+1 n FROM products');

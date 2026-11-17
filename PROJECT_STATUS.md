@@ -41,6 +41,8 @@
 - E2E Chromium (aperçu navigateur) : parcours complet catalogue → tarifs → séance → import CSV → planning → vente → validation → paiement partiel → postproduction → PDF → mode client (aucune fuite) → sortie PIN.
 - Binaire Tauri natif lancé sous Linux/Xvfb : base créée, migrée, seed, WAL, sauvegarde auto OK.
 
+- **Étape 2 — Univers de séance** (`services/universes.ts`, migration 12 : table `universes` + `universe_id` sur `sessions`, `price_templates`, `composition_styles`, `products` ; NULL = commun) : Catalogue → onglet « Univers de séance » (nom, template par défaut, intro brochure, e-mails offres / récap — vides = textes des Paramètres) ; filtre univers dans Catalogue, Templates, Séances ; univers choisi à la création de séance (template par défaut proposé), modifiable, conservé à la duplication ; grille tarifaire filtrée commun + univers (lignes déjà tarifées toujours visibles). Mise à jour de données `applyIrisUniverse` (drapeau `universe_iris`) : séances, templates et styles existants → univers Iris ; produits communs. Testé : unitaires + aperçu navigateur. Non vérifié sur Mac.
+
 ## Limites connues / non vérifié
 - **Build macOS (.dmg) non produit ici** (environnement Linux) : à lancer sur le Mac (`npm run tauri build`). Application non signée (clic droit → Ouvrir).
 - Aperçu PDF dans l'app : iframe WebKit — non vérifié visuellement sur macOS (l'enregistrement du fichier fonctionne).

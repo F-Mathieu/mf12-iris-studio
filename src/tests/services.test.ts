@@ -675,3 +675,52 @@ describe('prestation déjà signée', () => {
     expect((await issueInvoice(r.orderId)).row.number).toBe(`F${y}-0005`);
   });
 });
+
+describe('univers de séance', () => {
+  it('existing data become the Iris universe (idempotent), products stay common', async () => {
+    const { listUniverses, applyIrisUniverse } = await import('../services/universes');
+    const u = await listUniverses();
+    expect(u.map((x) => x.name)).toEqual(['Iris']);
+    expect((await listStyles()).every((s) => s.universe_id === u[0].id)).toBe(true);
+    expect((await listProducts()).every((p) => p.universe_id === null)).toBe(true);
+    expect(await applyIrisUniverse()).toBe(false);
+    expect((await listUniverses()).length).toBe(1);
+  });
+
+  it('filters catalogue and templates: common + universe', async () => {
+    const { saveUniverse, listUniverses } = await import('../services/universes');
+    const { saveStyle, saveProduct } = await import('../services/catalog');
+    const iris = (await listUniverses())[0].id;
+    const noel = await saveUniverse({ name: 'Noël' });
+    await expect(saveUniverse({ name: 'noël' })).rejects.toThrow();
+    await saveStyle({ name: 'Boule de Noël', universe_id: noel });
+    await saveProduct({ name: 'Carte de vœux', category: 'impression', universe_id: noel });
+    expect((await listStyles(false, noel)).map((s) => s.name)).toEqual(['Boule de Noël']);
+    expect((await listStyles(false, iris)).some((s) => s.name === 'Boule de Noël')).toBe(false);
+    expect((await listProducts(false, noel)).some((p) => p.name === 'Carte de vœux')).toBe(true);
+    expect((await listProducts(false, iris)).some((p) => p.name === 'Carte de vœux')).toBe(false);
+    expect((await listProducts(false, iris)).length).toBeGreaterThan(0); // common products
+    const t = await createTemplate('Tarif Noël', '', undefined, noel);
+    expect((await listTemplates(false, noel)).map((x) => x.id)).toContain(t);
+    expect((await listTemplates(false, iris)).map((x) => x.id)).not.toContain(t);
+  });
+
+  it('a new session takes its universe default template; texts fall back to settings', async () => {
+    const { saveUniverse, universeText } = await import('../services/universes');
+    const { setSetting } = await import('../services/base');
+    const t = await createTemplate('Tarif Halloween');
+    const u = await saveUniverse({ name: 'Halloween', default_template_id: t, offers_mail_body: 'Bouh {bonjour}' });
+    const sid = await createSession({ name: 'Halloween 2026', universe_id: u });
+    const s = await getSession(sid);
+    expect(s?.universe_name).toBe('Halloween');
+    expect(s?.source_template_id).toBe(t);
+    const none = await getSession(await createSession({ name: 'Sans grille', universe_id: u, template_id: null }));
+    expect(none?.price_list_id).toBeNull();
+    await setSetting('recap_mail_body', 'général');
+    expect(await universeText(sid, 'offers_mail_body')).toBe('Bouh {bonjour}');
+    expect(await universeText(sid, 'recap_mail_body')).toBe('général');
+    const dup = await getSession(await duplicateSession(sid));
+    expect(dup?.universe_id).toBe(u);
+    expect((await listSessions({ universeId: u })).length).toBe(3);
+  });
+});

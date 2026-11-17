@@ -91,7 +91,7 @@ function SessionSettings({ session, reload }: { session: NonNullable<Awaited<Ret
   const nav = useNavigate();
   const confirm = useConfirm();
   const [edit, setEdit] = useState(false);
-  const tpls = useAsync(() => listTemplates(), []);
+  const tpls = useAsync(() => listTemplates(false, session.universe_id), [session.universe_id]);
   const [tpl, setTpl] = useState('');
   return (
     <div className="space-y-5 animate-fade">
@@ -108,6 +108,7 @@ function SessionSettings({ session, reload }: { session: NonNullable<Awaited<Ret
           }}>Supprimer</Button>
         </>} />
         <div className="flex flex-wrap items-end gap-4 px-5 py-4">
+          <div className="text-[13px] text-mist-300">Univers : <span className="font-medium text-mist-100">{session.universe_name ?? 'aucun'}</span></div>
           <div className="text-[13px] text-mist-300">Grille de la séance : <span className="font-medium text-mist-100">{session.price_list_name ?? 'aucune'}</span>
             {session.source_template_name && <Badge className="ml-2">issue de « {session.source_template_name} »</Badge>}</div>
           <div className="flex-1" />
@@ -116,7 +117,7 @@ function SessionSettings({ session, reload }: { session: NonNullable<Awaited<Ret
         </div>
       </Card>
       {session.price_list_id
-        ? <><div className="text-[13px] text-mist-400">Tarifs propres à cette séance — modifier le template d’origine ne change pas cette grille.</div><PriceListEditor priceListId={session.price_list_id} /></>
+        ? <><div className="text-[13px] text-mist-400">Tarifs propres à cette séance — modifier le template d’origine ne change pas cette grille.</div><PriceListEditor priceListId={session.price_list_id} universeId={session.universe_id} /></>
         : <Card className="px-5 py-6 text-[13.5px] text-amber-200">Aucune grille tarifaire : appliquez un template pour pouvoir vendre.</Card>}
       <SessionForm open={edit} onClose={() => setEdit(false)} initial={session} onSubmit={async (d) => { await updateSession(session.id, d); setEdit(false); reload(); }} />
     </div>

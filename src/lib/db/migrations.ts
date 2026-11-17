@@ -293,6 +293,19 @@ CREATE TABLE general_expenses (
 );
 CREATE INDEX idx_gexp_date ON general_expenses(date);
 `,
+  /* 12 — univers de séance (Iris, Noël, Halloween…) : catalogue par univers (NULL = commun), template par défaut,
+        textes propres (brochure, e-mails ; vides = textes des Paramètres). */ `
+CREATE TABLE universes (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+  default_template_id TEXT REFERENCES price_templates(id) ON DELETE SET NULL,
+  brochure_intro TEXT, offers_mail_body TEXT, recap_mail_body TEXT,
+  archived INTEGER NOT NULL DEFAULT 0, sort INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+);
+ALTER TABLE sessions ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
+ALTER TABLE price_templates ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
+ALTER TABLE composition_styles ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN universe_id TEXT REFERENCES universes(id) ON DELETE SET NULL;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {
