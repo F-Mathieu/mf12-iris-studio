@@ -34,6 +34,7 @@ App macOS (Tauri 2) de gestion des séances photo d'iris : séances, familles, p
 - Ne pas déclarer une fonction opérationnelle si elle ne l'est pas ; noter dans PROJECT_STATUS.md.
 
 ## Économie de tokens
-- Lire PROJECT_STATUS.md + TASKS.md en début de session, puis seulement les fichiers concernés.
+- Lire **TASKS.md** (feuille de route, questions ouvertes, ce qui n’est pas publié) puis PROJECT_STATUS.md si besoin, puis seulement les fichiers concernés (grep ciblé, pas de lecture complète).
+- Tests visuels Playwright seulement pour les changements d’interface ; vitest + tsc systématiques.
 - Modifications ciblées (Edit), pas de réécriture complète ; réutiliser `ui.tsx`, `act()`, `useAsync`, `insertStmt/updateStmt`.
 - Réponses courtes : Réalisé / Tests / Prochaine étape / Blocage.
