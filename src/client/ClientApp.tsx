@@ -27,7 +27,7 @@ export default function ClientApp() {
       <header className="drag-region flex h-16 shrink-0 items-center justify-between border-b border-ink-800 pr-6 pl-24">
         <div className="flex items-baseline gap-4">
           <span className="font-display text-[28px] font-semibold text-gold-400">{settings.business_name || 'MF/1.2'}</span>
-          <span className="text-[11px] tracking-[0.3em] text-mist-400">IRIS STUDIO</span>
+          <span className="text-[11px] tracking-[0.3em] text-mist-400">STUDIO</span>
           {s.data && <span className="ml-4 text-[13px] text-mist-300">{s.data.name}</span>}
         </div>
         <div className="no-drag flex items-center gap-1">

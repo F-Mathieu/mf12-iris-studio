@@ -42,7 +42,7 @@ export async function pickFiles(filters: Filter[] = [], multiple = false): Promi
 export async function pickBackupFile(): Promise<string | null> {
   if (!isTauri()) return null;
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const r = await open({ multiple: false, filters: [{ name: 'Sauvegarde Iris Studio', extensions: ['db', 'sqlite'] }] });
+  const r = await open({ multiple: false, filters: [{ name: 'Sauvegarde MF/1.2 Studio', extensions: ['db', 'sqlite'] }] });
   return typeof r === 'string' ? r : null;
 }
 

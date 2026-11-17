@@ -1,3 +1,5 @@
+> **MF12 Studio et MF12 Iris Studio.** MF12 Studio est la nouvelle application (elle évolue : univers de séances, photos, mariages, compta). MF12 Iris Studio reste installée telle quelle, en secours. Données séparées : au premier lancement de MF12 Studio, **Paramètres → Sauvegardes → Importer les données d’Iris Studio** en fait une copie (Iris Studio n’est pas modifiée ; fermez-la avant l’import). Factures : n’en émettez que dans une seule des deux apps.
+
 # MF/1.2 Iris Studio — Guide d'utilisation
 
 Ce guide suit l'ordre réel de votre activité : **préparer** une fois l'application, **préparer** chaque séance, **vendre** le jour J, puis **produire, livrer et suivre** vos résultats.

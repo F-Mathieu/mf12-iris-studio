@@ -2,7 +2,7 @@ name: Build macOS (.dmg)
 
 on:
   push:
-    branches: [main, feature/iris-studio-v1]
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -54,7 +54,7 @@ jobs:
       - name: Upload dmg
         uses: actions/upload-artifact@v4
         with:
-          name: MF12-Iris-Studio-macOS-arm64
+          name: MF12-Studio-macOS-arm64
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
@@ -64,8 +64,8 @@ jobs:
         with:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          name: MF/1.2 Iris Studio ${{ inputs.release_tag || github.ref_name }}
+          name: MF/1.2 Studio ${{ inputs.release_tag || github.ref_name }}
           files: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           body: |
-            Application macOS (Apple Silicon). Installation : ouvrir le .dmg, glisser « MF12 Iris Studio » dans Applications.
+            Application macOS (Apple Silicon). Installation : ouvrir le .dmg, glisser « MF12 Studio » dans Applications. Indépendante de « MF12 Iris Studio » (données séparées ; import des données d’Iris Studio dans Paramètres → Sauvegardes).
             Premier lancement : clic droit sur l'app → Ouvrir (application non signée par Apple).

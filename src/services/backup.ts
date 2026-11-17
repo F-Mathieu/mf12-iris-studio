@@ -17,6 +17,10 @@ export async function backupNow(prefix = 'manuel', dest?: string): Promise<strin
 export const listBackups = () => (isTauri() ? invoke<BackupInfo[]>('list_backups') : Promise.resolve([]));
 export const integrityCheck = () => (isTauri() ? invoke<string>('db_integrity') : Promise.resolve('ok'));
 export const restoreBackup = (source: string) => { need(); return invoke<string>('db_restore', { source }); };
+/** MF12 Iris Studio (the original app) on this Mac: path of its data, or null. */
+export const irisSource = () => (isTauri() ? invoke<string | null>('iris_source') : Promise.resolve(null));
+/** Replaces this app's data with a copy of Iris Studio's data (Iris Studio is only read). Returns the safety backup path. */
+export const importIris = () => { need(); return invoke<string>('import_iris'); };
 export const appPaths = () => (isTauri() ? invoke<{ dataDir: string; dbPath: string; backupsDir: string }>('app_paths') : Promise.resolve(null));
 
 /** Automatic backup if the last one is older than `hours`; keeps the N most recent automatic backups. */

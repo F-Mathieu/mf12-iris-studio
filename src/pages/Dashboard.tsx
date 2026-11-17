@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { irisSource } from '../services/backup';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Camera } from 'lucide-react';
 import { Button, Card, CardHeader, Empty, Input, Loading, PageHeader, Select, Stat, useAsync } from '../components/ui';
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const nav = useNavigate();
   const [f, setF] = useState({ from: '', to: '', sessionId: '' });
   const sessions = useAsync(() => listSessions({ includeArchived: true }), []);
+  const iris = useAsync(() => irisSource(), []);
   const { data } = useAsync(() => dashboard(f), [f.from, f.to, f.sessionId]);
   const upcoming = (sessions.data ?? []).filter((s) => s.status === 'preparation' || s.status === 'active').slice(0, 5);
   return (
@@ -24,7 +26,7 @@ export default function Dashboard() {
           <Input type="date" className="w-40" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} title="Au" />
         </>} />
       {!data ? <Loading /> : !sessions.data?.length ? (
-        <Card><Empty icon={<Camera className="size-5" />} title="Bienvenue dans MF/1.2 Iris Studio" text="Commencez par compléter votre catalogue et vos tarifs, puis créez votre première séance." action={<div className="flex gap-2"><Button onClick={() => nav('/catalogue')}>Catalogue</Button><Button onClick={() => nav('/tarifs')}>Tarifs</Button><Button variant="gold" onClick={() => nav('/seances')}>Créer une séance</Button></div>} /></Card>
+        <Card><Empty icon={<Camera className="size-5" />} title="Bienvenue dans MF/1.2 Studio" text={iris.data ? 'Vos données de MF12 Iris Studio ont été trouvées sur ce Mac : importez-en une copie pour retrouver séances, clients, catalogue et tarifs (Iris Studio reste intacte).' : 'Commencez par compléter votre catalogue et vos tarifs, puis créez votre première séance.'} action={<div className="flex gap-2">{iris.data && <Button variant="gold" onClick={() => nav('/parametres')}>Importer les données d’Iris Studio</Button>}<Button onClick={() => nav('/catalogue')}>Catalogue</Button><Button onClick={() => nav('/tarifs')}>Tarifs</Button><Button variant="gold" onClick={() => nav('/seances')}>Créer une séance</Button></div>} /></Card>
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-4 gap-4">

@@ -29,6 +29,8 @@
 
 - Bénéfice net micro-entreprise (`lib/micro.ts`, `profitability` : cotisations URSSAF en % du CA, mode services / mixte — produits achetés = unit_cost > 0 —, versement libératoire, autres contributions ; réglages `micro_*`). Rentabilité : synthèse de l’année + colonnes Cotisations / Bénéfice net. Testé : unitaires + aperçu.
 
+- **Étape 0 — MF12 Studio 2.0.0** : nouvelle app (nom, identifiant `fr.mf12.studio`, icône platine, base `studio.db`) à côté de MF12 Iris Studio (branche `iris`, 1.1.13 figée). Import d’une copie des données d’Iris Studio : commandes Rust `iris_source` / `import_iris` (lecture seule de la source, API backup SQLite → inclut le WAL, sauvegarde de sécurité avant). Test Rust dédié. **Non vérifié sur Mac réel** (chemin ~/Library/Application Support/fr.mf12.irisstudio).
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

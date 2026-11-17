@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Iris Studio ouvre l’app Mail pour préparer l’envoi des factures (destinataire, objet, pièce jointe).</string>
+  <string>MF/1.2 Studio ouvre l’app Mail pour préparer l’envoi des factures (destinataire, objet, pièce jointe).</string>
 </dict>
 </plist>

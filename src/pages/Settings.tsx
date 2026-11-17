@@ -3,7 +3,7 @@ import { DEFAULT_INVOICE_MAIL, DEFAULT_OFFERS_MAIL, DEFAULT_QUOTE_MAIL, DEFAULT_
 import { DatabaseBackup, Download, FolderOpen, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
 import { setSetting } from '../services/base';
-import { appPaths, backupNow, exportCsv, integrityCheck, listBackups, restoreBackup } from '../services/backup';
+import { appPaths, backupNow, exportCsv, importIris, integrityCheck, irisSource, listBackups, restoreBackup } from '../services/backup';
 import { useApp } from '../store';
 import { isTauri } from '../lib/db';
 import { pickBackupFile, saveFile } from '../lib/files';
@@ -29,6 +29,12 @@ export default function Settings() {
     setDraft({}); await reloadSettings();
   }, 'Paramètres enregistrés');
   const setNow = (k: string, val: string) => act(() => setSetting(k, val).then(reloadSettings));
+  const iris = useAsync(() => irisSource(), []);
+  const importFromIris = async () => {
+    if (!(await confirm({ title: 'Importer les données d’Iris Studio ?', text: 'Les données actuelles de MF/1.2 Studio sont remplacées par une COPIE de celles de MF12 Iris Studio (séances, clients, catalogue, prix, commandes, factures, réglages). Iris Studio n’est pas modifiée. Une sauvegarde de sécurité est faite avant. Conseil : fermez Iris Studio avant l’import.', danger: true, confirm: 'Importer', input: { label: 'Tapez IMPORTER pour confirmer', required: true } })) || false) return;
+    const r = await act(() => importIris(), 'Données d’Iris Studio importées');
+    if (r) setTimeout(() => window.location.reload(), 600);
+  };
   const restore = async (path: string) => {
     if (!(await confirm({ title: 'Restaurer cette sauvegarde ?', text: 'Toutes les données actuelles seront remplacées. Une copie de sécurité de la base actuelle est créée automatiquement avant la restauration.', danger: true, confirm: 'Restaurer', input: { label: 'Tapez RESTAURER pour confirmer', required: true } })) || false) return;
     const r = await act(() => restoreBackup(path), 'Sauvegarde restaurée');
@@ -103,12 +109,18 @@ export default function Settings() {
             subtitle="Sauvegarde SQLite en ligne (API de sauvegarde, sûre même base ouverte) + vérification d’intégrité. Les images d’exemple sont incluses dans la base."
             actions={isTauri() && <>
               <Button size="sm" icon={<ShieldCheck className="size-3.5" />} onClick={() => act(async () => { const r = await integrityCheck(); if (r !== 'ok') throw new Error(`Anomalie : ${r}`); return r; }, 'Base de données intègre ✓')}>Vérifier l’intégrité</Button>
-              <Button size="sm" icon={<HardDriveDownload className="size-3.5" />} onClick={() => act(async () => { const { save } = await import('@tauri-apps/plugin-dialog'); const p = await save({ defaultPath: `iris-studio-${todayIso()}.db` }); return p ? backupNow('export', p) : null; }, 'Base exportée')}>Exporter la base…</Button>
+              <Button size="sm" icon={<HardDriveDownload className="size-3.5" />} onClick={() => act(async () => { const { save } = await import('@tauri-apps/plugin-dialog'); const p = await save({ defaultPath: `mf12-studio-${todayIso()}.db` }); return p ? backupNow('export', p) : null; }, 'Base exportée')}>Exporter la base…</Button>
               <Button size="sm" icon={<RotateCcw className="size-3.5" />} onClick={async () => { const p = await pickBackupFile(); if (p) restore(p); }}>Restaurer un fichier…</Button>
               <Button size="sm" variant="gold" icon={<DatabaseBackup className="size-3.5" />} onClick={() => act(() => backupNow().then(backups.reload), 'Sauvegarde créée')}>Sauvegarder maintenant</Button>
             </>} />
           <div className="p-5">
             {!isTauri() && <div className="mb-3 text-[13px] text-amber-200">Aperçu navigateur : les sauvegardes sont disponibles dans l’application macOS.</div>}
+            {iris.data && (
+              <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-gold-500/30 bg-gold-500/[0.05] px-4 py-3 text-[13px]">
+                <div><div className="font-medium">Données de MF12 Iris Studio trouvées sur ce Mac</div><div className="text-mist-400">Importer en fait une copie ici ; Iris Studio reste intacte et utilisable. Factures : n’en émettez que dans une seule des deux apps.</div></div>
+                <Button size="sm" variant="gold" icon={<DatabaseBackup className="size-3.5" />} onClick={importFromIris}>Importer les données d’Iris Studio</Button>
+              </div>
+            )}
             <div className="mb-4 flex flex-wrap items-center gap-6 text-[13px]">
               <Toggle checked={settings.auto_backup !== '0'} onChange={(x) => setNow('auto_backup', x ? '1' : '0')} label="Sauvegarde automatique (au démarrage puis toutes les 12 h)" />
               <span className="text-mist-400">Dernière : {fmtDateTime(settings.last_backup)}</span>

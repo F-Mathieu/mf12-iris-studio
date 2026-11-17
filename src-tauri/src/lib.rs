@@ -11,7 +11,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{Manager, State};
 
-const DB_FILE: &str = "iris_studio.db";
+const DB_FILE: &str = "studio.db";
+/// MF12 Iris Studio (the original app): its data folder sits next to ours (same parent), under its own identifier.
+const IRIS_IDENTIFIER: &str = "fr.mf12.irisstudio";
+const IRIS_DB_FILE: &str = "iris_studio.db";
 
 struct Db(Mutex<Connection>);
 
@@ -216,6 +219,40 @@ fn db_restore(app: tauri::AppHandle, db: State<Db>, source: String) -> Result<St
     Ok(safety.to_string_lossy().into())
 }
 
+fn iris_db(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let p = app.path().app_data_dir().ok()?.parent()?.join(IRIS_IDENTIFIER).join(IRIS_DB_FILE);
+    p.exists().then_some(p)
+}
+
+/// Path of the MF12 Iris Studio database on this Mac, if any.
+#[tauri::command]
+fn iris_source(app: tauri::AppHandle) -> Option<String> {
+    iris_db(&app).map(|p| p.to_string_lossy().into())
+}
+
+/// Replaces this app's data with a COPY of MF12 Iris Studio's data (its database is only read).
+/// A safety backup of the current data is made first. Uses the SQLite backup API from a live
+/// connection, so recent changes still in the WAL file are included.
+#[tauri::command]
+fn import_iris(app: tauri::AppHandle, db: State<Db>) -> Result<String, String> {
+    let src_path = iris_db(&app).ok_or("Données de MF12 Iris Studio introuvables sur ce Mac.")?;
+    let src = Connection::open_with_flags(&src_path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(err)?;
+    src.busy_timeout(Duration::from_secs(10)).map_err(err)?;
+    let check: String = src.query_row("PRAGMA integrity_check", [], |r| r.get(0)).map_err(err)?;
+    if check != "ok" {
+        return Err(format!("La base d’Iris Studio est endommagée : {check}"));
+    }
+    let mut c = db.0.lock().map_err(err)?;
+    let safety = backups_dir(&app)?.join(format!("avant-import-iris-{}.db", chrono_like_now()));
+    backup_to(&c, &safety)?;
+    {
+        let b = Backup::new(&src, &mut c).map_err(err)?;
+        b.run_to_completion(256, Duration::from_millis(5), None).map_err(err)?;
+    }
+    configure(&c)?;
+    Ok(safety.to_string_lossy().into())
+}
+
 #[tauri::command]
 fn list_backups(app: tauri::AppHandle) -> Result<Vec<BackupInfo>, String> {
     let mut out = vec![];
@@ -347,7 +384,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             db_select, db_execute, db_batch, db_backup, db_integrity, db_restore,
-            app_paths, list_backups, prune_backups, path_exists, compose_mail
+            app_paths, list_backups, prune_backups, path_exists, compose_mail, iris_source, import_iris
         ])
         .run(tauri::generate_context!())
         .expect("error while running MF/1.2 Iris Studio");
@@ -356,6 +393,29 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_copies_wal_content_from_a_read_only_source() {
+        let dir = std::env::temp_dir().join(format!("iris-import-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        // « Iris Studio » still open: data only in the WAL, not checkpointed
+        let iris = Connection::open(dir.join("iris.db")).unwrap();
+        configure(&iris).unwrap();
+        iris.execute_batch("PRAGMA wal_autocheckpoint=0; CREATE TABLE invoices(number TEXT); INSERT INTO invoices VALUES ('F2026-0007');").unwrap();
+        let src = Connection::open_with_flags(dir.join("iris.db"), OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let mut studio = Connection::open(dir.join("studio.db")).unwrap();
+        configure(&studio).unwrap();
+        {
+            let b = Backup::new(&src, &mut studio).unwrap();
+            b.run_to_completion(256, Duration::from_millis(1), None).unwrap();
+        }
+        let n: String = studio.query_row("SELECT number FROM invoices", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, "F2026-0007");
+        // the source is untouched
+        let still: i64 = iris.query_row("SELECT count(*) FROM invoices", [], |r| r.get(0)).unwrap();
+        assert_eq!(still, 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn backup_and_restore_roundtrip() {

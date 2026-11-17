@@ -1,4 +1,6 @@
-# MF/1.2 Iris Studio — instructions permanentes
+# MF/1.2 Studio — instructions permanentes
+
+**Deux applications, deux branches.** `main` = **MF12 Studio** (identifiant `fr.mf12.studio`, versions 2.x, base `studio.db`) : l’app qui évolue (univers de séances, photos, mariages, compta). `iris` = **MF12 Iris Studio** figée (identifiant `fr.mf12.irisstudio`, 1.1.13 ; correctifs seulement, publiés depuis la branche `iris`). Données séparées ; Studio importe une **copie** des données d’Iris Studio (`import_iris`, Paramètres → Sauvegardes). Une seule numérotation de factures : n’émettre les factures que dans une app à la fois.
 
 App macOS (Tauri 2) de gestion des séances photo d'iris : séances, familles, planning, catalogue, tarifs, vente, paiements (suivi seulement), postproduction, fournisseurs, rentabilité, PDF, sauvegardes. 100 % local, hors ligne.
 

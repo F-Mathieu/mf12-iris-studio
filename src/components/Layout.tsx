@@ -35,7 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="drag-region h-9 shrink-0" />
         <div className="px-6 pb-6">
           <div className="font-display text-[30px] leading-none font-semibold tracking-tight text-gold-400">{settings.business_name || 'MF/1.2'}</div>
-          <div className="mt-1 text-[10.5px] font-medium tracking-[0.32em] text-mist-400">IRIS STUDIO</div>
+          <div className="mt-1 text-[10.5px] font-medium tracking-[0.32em] text-mist-400">STUDIO</div>
         </div>
         <nav className="flex-1 space-y-5 overflow-y-auto px-3">
           {NAV.map((g, i) => (
