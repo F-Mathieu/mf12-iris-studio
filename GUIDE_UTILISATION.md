@@ -493,3 +493,11 @@ Faites d'abord *Sauvegarder maintenant*, testez, puis restaurez la sauvegarde.
 
 **Mettre à jour l'application.**
 Téléchargez la nouvelle version (page *Releases* du dépôt GitHub) et remplacez l'application dans *Applications*. Vos données sont conservées, et une sauvegarde est faite automatiquement au démarrage.
+
+
+## Compta (micro-entreprise)
+Menu **Compta**. À régler une fois dans **Paramètres → Micro-entreprise** : date de **début d’activité**, déclaration **mensuelle** ou trimestrielle, taux (prestations 21,2 %, versement libératoire 1,7 %), seuils.
+- **Déclaration URSSAF** : la période à déclarer est proposée (1re déclaration : du début d’activité à la fin du mois écoulé, puis mois par mois), avec la date limite. Le grand chiffre doré est **le montant à saisir** sur autoentrepreneur.urssaf.fr (CA **encaissé** sur la période, acomptes compris à leur date, arrondi à l’euro), avec les cotisations et l’impôt estimés. Après l’avoir fait sur le site, cliquez **« J’ai fait cette déclaration »** (montants figés), puis cochez **Payée** au prélèvement. Un badge signale un encaissement ajouté ou supprimé après coup sur une période déjà déclarée. Le tableau de bord rappelle la déclaration à faire.
+- **Livre des recettes** (obligatoire) : tous les encaissements, rempli automatiquement depuis les règlements des commandes ; export CSV et PDF.
+- **Dépenses** : frais généraux (matériel, logiciels, assurance…) à saisir, plus les achats fournisseurs et frais de séances repris automatiquement.
+- **Année & seuils** : encaissé, dépenses, cotisations, **ce qui vous reste**, et jauges des seuils (franchise de TVA, plafond micro), au prorata l’année de création.

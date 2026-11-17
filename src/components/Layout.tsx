@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { BadgeEuro, BookOpen, CalendarClock, Camera, FileText, LayoutDashboard, MonitorPlay, Settings, ShoppingBag, Tags, Truck, TrendingUp, Users, Wand2 } from 'lucide-react';
+import { BadgeEuro, BookOpen, CalendarClock, Camera, FileText, LayoutDashboard, MonitorPlay, Settings, ShoppingBag, Tags, Truck, TrendingUp, Users, Wand2, Landmark } from 'lucide-react';
 import { Button, Field, Modal, Select, useAsync, cx } from './ui';
 import { listSessions } from '../services/sessions';
 import { listRegistrations } from '../services/registrations';
@@ -21,6 +21,7 @@ const NAV: { to: string; label: string; icon: typeof Camera }[][] = [
     { to: '/tarifs', label: 'Templates tarifaires', icon: Tags },
     { to: '/fournisseurs', label: 'Fournisseurs', icon: Truck },
     { to: '/rentabilite', label: 'Rentabilité', icon: TrendingUp },
+    { to: '/compta', label: 'Compta', icon: Landmark },
     { to: '/documents', label: 'Documents PDF', icon: FileText },
     { to: '/parametres', label: 'Paramètres', icon: Settings },
   ],

@@ -622,3 +622,31 @@ describe('rentabilité micro-entreprise', () => {
     expect(p.social_cents).toBe(Math.round(18900 * 0.123));
   });
 });
+
+describe('compta', () => {
+  it('livre des recettes = encaissements datés ; déclaration figée ; chevauchement refusé ; dépenses ; bilan', async () => {
+    const { receipts, declarationFor, recordDeclaration, listDeclarations, addGeneralExpense, purchases, yearSummary, nextDeclaration } = await import('../services/compta');
+    const { setSetting } = await import('../services/base');
+    const x = await setupSale();
+    const draft = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
+      items: [{ key: uid(), variantId: x.acry40.id, productId: x.acry.id, category: 'impression', productName: 'Acrylique', variantName: '40 × 40 cm', qty: 1, unitPriceCents: 18900, unitCostCents: 6000 }] }, 'validee');
+    await addPayment(draft.id, { amount_cents: 5000, method: 'virement', paid_at: '2026-10-05' }); // acompte
+    await addPayment(draft.id, { amount_cents: 13900, method: 'carte', paid_at: '2026-12-02' });   // solde
+    expect((await receipts('2026-09-01', '2026-11-30')).map((r) => r.amount_cents)).toEqual([5000]);
+    const d = await declarationFor('2026-09-01', '2026-11-30');
+    expect(d).toMatchObject({ total_cents: 5000, ca_services_cents: 5000, social_cents: 1060 });
+    await setSetting('activity_start', '2026-09-15');
+    expect(await nextDeclaration('2026-12-05')).toMatchObject({ start: '2026-09-15', end: '2026-11-30', ready: true, configured: true });
+    await recordDeclaration('2026-09-15', '2026-11-30', '2026-12-10');
+    await expect(recordDeclaration('2026-11-01', '2026-12-31', '2027-01-10')).rejects.toThrow('chevauche');
+    expect((await listDeclarations())[0]).toMatchObject({ ca_services_cents: 5000, declared_at: '2026-12-10' });
+    expect((await nextDeclaration('2027-01-03')).start).toBe('2026-12-01');
+    await addGeneralExpense({ date: '2026-11-10', category: 'logiciels', label: 'Lightroom', supplier: 'Adobe', amount_cents: 1199, method: null, note: null });
+    const p = await purchases('2026-01-01', '2026-12-31');
+    expect(p.general_cents).toBe(1199);
+    const y = await yearSummary(2026);
+    expect(y.total_cents).toBe(18900);
+    expect(y.net_cents).toBe(18900 - p.total_cents - y.charges_cents);
+    expect(y.vatCeiling).toBeLessThan(3750000); // prorated: activity started in 2026
+  });
+});

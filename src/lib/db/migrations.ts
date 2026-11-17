@@ -280,6 +280,19 @@ ALTER TABLE session_registrations ADD COLUMN awaiting_reply_at TEXT;
   /* 10 — case « commande traitée » (tout est fait pour cette famille), cochée à la main. */ `
 ALTER TABLE session_registrations ADD COLUMN done_at TEXT;
 `,
+  /* 11 — compta : déclarations URSSAF (instantané figé à la déclaration) et dépenses générales (hors séance). */ `
+CREATE TABLE urssaf_declarations (
+  id TEXT PRIMARY KEY, period_start TEXT NOT NULL, period_end TEXT NOT NULL,
+  ca_services_cents INTEGER NOT NULL, ca_sales_cents INTEGER NOT NULL,
+  social_cents INTEGER NOT NULL, tax_cents INTEGER NOT NULL, other_cents INTEGER NOT NULL,
+  declared_at TEXT NOT NULL, paid_at TEXT, note TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE general_expenses (
+  id TEXT PRIMARY KEY, date TEXT NOT NULL, category TEXT NOT NULL, label TEXT, supplier TEXT,
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0), method TEXT, note TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX idx_gexp_date ON general_expenses(date);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

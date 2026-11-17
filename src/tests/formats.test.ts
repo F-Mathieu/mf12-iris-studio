@@ -108,3 +108,21 @@ describe('micro-entreprise : cotisations sur le CA', () => {
     expect(microFromSettings({ micro_services_rate: 'abc' }).servicesBp).toBe(2120);
   });
 });
+
+import { dueDateOf, proratedCeiling, suggestPeriod, toEuros } from '../lib/compta';
+describe('compta : périodes URSSAF et seuils', () => {
+  it('1re déclaration : du début d’activité à la fin du mois précédent ; ensuite mois par mois', () => {
+    expect(suggestPeriod(null, '2026-09-15', '2026-12-05', 'mensuelle')).toEqual({ start: '2026-09-15', end: '2026-11-30', due: '2026-12-31' });
+    expect(suggestPeriod('2026-11-30', '2026-09-15', '2027-01-03', 'mensuelle')).toEqual({ start: '2026-12-01', end: '2026-12-31', due: '2027-01-31' });
+    expect(suggestPeriod('2026-12-31', '2026-09-15', '2027-04-02', 'trimestrielle').end).toBe('2027-03-31');
+  });
+  it('échéance = dernier jour du mois suivant ; montants à l’euro', () => {
+    expect(dueDateOf('2027-01-31')).toBe('2027-02-28');
+    expect(toEuros(123449)).toBe(1234);
+    expect(toEuros(123450)).toBe(1235);
+  });
+  it('seuils au prorata l’année de création', () => {
+    expect(proratedCeiling(3750000, 2026, '2026-07-02')).toBe(Math.round(3750000 * 183 / 365));
+    expect(proratedCeiling(3750000, 2027, '2026-07-02')).toBe(3750000);
+  });
+});

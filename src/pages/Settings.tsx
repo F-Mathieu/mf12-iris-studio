@@ -85,6 +85,11 @@ export default function Settings() {
             <Field label="Versement libératoire services (%)" hint="1,7 %"><Input value={v('micro_vl_services_rate') || '1,7'} onChange={(e) => setDraft({ ...draft, micro_vl_services_rate: e.target.value })} /></Field>
             <Field label="Versement libératoire ventes (%)" hint="1 %"><Input value={v('micro_vl_sales_rate') || '1'} onChange={(e) => setDraft({ ...draft, micro_vl_sales_rate: e.target.value })} /></Field>
             <Field label="Autres contributions (%)" hint="Formation professionnelle, taxe chambre consulaire… (voir votre déclaration URSSAF)"><Input value={v('micro_other_rate') || '0'} onChange={(e) => setDraft({ ...draft, micro_other_rate: e.target.value })} /></Field>
+            <Field label="Début d’activité" hint="Date de création de la micro-entreprise (1re période à déclarer, seuils au prorata)"><Input type="date" value={v('activity_start')} onChange={(e) => setDraft({ ...draft, activity_start: e.target.value })} /></Field>
+            <Field label="Déclaration URSSAF"><Select value={v('urssaf_frequency') || 'mensuelle'} onChange={(e) => setDraft({ ...draft, urssaf_frequency: e.target.value })}><option value="mensuelle">Mensuelle</option><option value="trimestrielle">Trimestrielle</option></Select></Field>
+            <Field label="Seuil franchise TVA (€)" hint="Services : 37 500 € (2026)"><Input value={v('ceiling_vat') || '37500'} onChange={(e) => setDraft({ ...draft, ceiling_vat: e.target.value })} /></Field>
+            <Field label="Seuil majoré TVA (€)" hint="Services : 41 250 € (2026)"><Input value={v('ceiling_vat_major') || '41250'} onChange={(e) => setDraft({ ...draft, ceiling_vat_major: e.target.value })} /></Field>
+            <Field label="Plafond micro-entreprise (€)" hint="Services : 83 600 € (2026)"><Input value={v('ceiling_micro_services') || '83600'} onChange={(e) => setDraft({ ...draft, ceiling_micro_services: e.target.value })} /></Field>
           </div>
         </Card>
         <div className="space-y-5">

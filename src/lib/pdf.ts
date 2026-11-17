@@ -341,3 +341,16 @@ export function invoicePdf(d: InvoiceData): Uint8Array {
   }
   return out(doc);
 }
+
+/* ------------------------------------------------------------ livre des recettes (micro-entreprise) */
+export function receiptsBookPdf(brand: Brand, from: string, to: string, rows: { date: string; client: string; invoice: string | null; order_number: string; method: string; amount_cents: number; sales_cents: number }[]): Uint8Array {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  header(doc, brand, 'Livre des recettes', `Du ${fmtDate(from)} au ${fmtDate(to)}`);
+  const total = rows.reduce((s, r) => s + r.amount_cents, 0);
+  autoTable(doc, { ...tableStyle, startY: 40, head: [['Date', 'Client', 'Référence', 'Nature', 'Mode de règlement', 'Montant']],
+    body: [...rows.map((r) => [fmtDate(r.date), r.client, r.invoice ?? `Commande ${r.order_number}`, r.sales_cents ? 'Prestation + vente' : 'Prestation de services', r.method, eur(r.amount_cents)]),
+      [{ content: 'Total encaissé', colSpan: 5, styles: { fontStyle: 'bold' } }, { content: eur(total), styles: { fontStyle: 'bold' } }]] as RowInput[],
+    columnStyles: { 5: { halign: 'right', cellWidth: 26 } } });
+  footer(doc, brand);
+  return out(doc);
+}

@@ -31,6 +31,8 @@
 
 - **Étape 0 — MF12 Studio 2.0.0** : nouvelle app (nom, identifiant `fr.mf12.studio`, icône platine, base `studio.db`) à côté de MF12 Iris Studio (branche `iris`, 1.1.13 figée). Import d’une copie des données d’Iris Studio : commandes Rust `iris_source` / `import_iris` (lecture seule de la source, API backup SQLite → inclut le WAL, sauvegarde de sécurité avant). Test Rust dédié. **Non vérifié sur Mac réel** (chemin ~/Library/Application Support/fr.mf12.irisstudio).
 
+- **Étape 1 — Compta** (`services/compta.ts`, `lib/compta.ts`, page `Compta`, migration 11 : `urssaf_declarations`, `general_expenses`) : livre des recettes (paiements, CSV/PDF), déclaration URSSAF (période proposée, échéance, montant à l’euro, instantané figé, contrôle d’écart, payé), frais généraux + registre des achats, bilan annuel et seuils au prorata, rappel tableau de bord. Limites : la suppression d’une commande supprime ses encaissements du livre (écart signalé si période déclarée) ; factures d’acompte prévues avec les mariages.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

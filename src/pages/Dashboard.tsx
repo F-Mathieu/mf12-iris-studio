@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { irisSource } from '../services/backup';
+import { nextDeclaration } from '../services/compta';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Camera } from 'lucide-react';
 import { Button, Card, CardHeader, Empty, Input, Loading, PageHeader, Select, Stat, useAsync } from '../components/ui';
@@ -9,12 +10,14 @@ import { dashboard } from '../services/finance';
 import { listSessions } from '../services/sessions';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
+import { todayIso } from '../lib/ids';
 
 export default function Dashboard() {
   const nav = useNavigate();
   const [f, setF] = useState({ from: '', to: '', sessionId: '' });
   const sessions = useAsync(() => listSessions({ includeArchived: true }), []);
   const iris = useAsync(() => irisSource(), []);
+  const decl = useAsync(() => nextDeclaration(todayIso()), []);
   const { data } = useAsync(() => dashboard(f), [f.from, f.to, f.sessionId]);
   const upcoming = (sessions.data ?? []).filter((s) => s.status === 'preparation' || s.status === 'active').slice(0, 5);
   return (
@@ -29,6 +32,12 @@ export default function Dashboard() {
         <Card><Empty icon={<Camera className="size-5" />} title="Bienvenue dans MF/1.2 Studio" text={iris.data ? 'Vos données de MF12 Iris Studio ont été trouvées sur ce Mac : importez-en une copie pour retrouver séances, clients, catalogue et tarifs (Iris Studio reste intacte).' : 'Commencez par compléter votre catalogue et vos tarifs, puis créez votre première séance.'} action={<div className="flex gap-2">{iris.data && <Button variant="gold" onClick={() => nav('/parametres')}>Importer les données d’Iris Studio</Button>}<Button onClick={() => nav('/catalogue')}>Catalogue</Button><Button onClick={() => nav('/tarifs')}>Tarifs</Button><Button variant="gold" onClick={() => nav('/seances')}>Créer une séance</Button></div>} /></Card>
       ) : (
         <div className="space-y-5">
+          {decl.data?.configured && decl.data.ready && (
+            <Card className="flex items-center justify-between gap-4 border-gold-500/40 px-5 py-3 text-[13.5px]">
+              <span>Déclaration URSSAF du <b>{fmtDate(decl.data.start)}</b> au <b>{fmtDate(decl.data.end)}</b> à faire avant le <b className="text-gold-300">{fmtDate(decl.data.due)}</b>.</span>
+              <Button size="sm" variant="gold" onClick={() => nav('/compta')}>Préparer la déclaration</Button>
+            </Card>
+          )}
           <div className="grid grid-cols-4 gap-4">
             <Stat label="Ventes validées" value={eur(data.sales)} accent sub={`${data.orders} commande(s) · panier moyen ${eur(data.avgBasket)}`} />
             <Stat label="Encaissé" value={eur(data.collected)} sub={`Reste à encaisser ${eur(data.balance)}`} />

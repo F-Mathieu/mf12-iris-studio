@@ -6,6 +6,7 @@ import { ConfirmProvider, Loading } from './components/ui';
 import { Layout } from './components/Layout';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Compta = lazy(() => import('./pages/Compta'));
 const Sessions = lazy(() => import('./pages/Sessions'));
 const SessionDetail = lazy(() => import('./pages/SessionDetail'));
 const PlanningPage = lazy(() => import('./pages/PlanningPage'));
@@ -46,6 +47,7 @@ function Shell() {
             <Route path="/tarifs/:id" element={<Templates />} />
             <Route path="/fournisseurs" element={<Suppliers />} />
             <Route path="/rentabilite" element={<Profitability />} />
+            <Route path="/compta" element={<Compta />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/parametres" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" />} />
