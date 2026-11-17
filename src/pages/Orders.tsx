@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Trash2 } from 'lucide-react';
+import { FilePlus2, ShoppingBag, Trash2 } from 'lucide-react';
+import { PrestationDialog } from '../components/PrestationDialog';
 import { Button, Card, DataTable, Empty, IconButton, Input, PageHeader, SearchInput, Select, useAsync, useConfirm, useDebounced } from '../components/ui';
 import { OrderBadge, PayBadge } from '../components/badges';
 import { deleteDrafts, listOrders, type OrderRow } from '../services/orders';
@@ -11,7 +12,13 @@ import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
 
 export default function Orders() {
-  return (<><PageHeader title="Commandes" subtitle="Toutes les commandes, brouillons et règlements." /><OrdersTable /></>);
+  const [open, setOpen] = useState(false);
+  const nav = useNavigate();
+  return (<>
+    <PageHeader title="Commandes" subtitle="Toutes les commandes, brouillons et règlements." actions={<Button icon={<FilePlus2 className="size-4" />} onClick={() => setOpen(true)}>Prestation déjà signée</Button>} />
+    <OrdersTable />
+    {open && <PrestationDialog onClose={() => setOpen(false)} onDone={(r) => { setOpen(false); nav(`/commandes/${r.orderId}`); }} />}
+  </>);
 }
 
 export function OrdersTable({ sessionId }: { sessionId?: string }) {

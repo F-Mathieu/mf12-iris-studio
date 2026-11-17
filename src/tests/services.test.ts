@@ -650,3 +650,28 @@ describe('compta', () => {
     expect(y.vatCeiling).toBeLessThan(3750000); // prorated: activity started in 2026
   });
 });
+
+describe('prestation déjà signée', () => {
+  it('client + lignes libres + acompte daté → commande validée, livre des recettes, suivi ; numérotation des factures reprise', async () => {
+    const { createPrestation } = await import('../services/prestations');
+    const { receipts } = await import('../services/compta');
+    const { setSetting } = await import('../services/base');
+    await expect(createPrestation({ family: { name: 'Dupont' }, kind: 'mariage', title: '', date: null, signedAt: null, delivered: false,
+      lines: [{ label: 'Forfait', qty: 1, unit_cents: 10000 }], payments: [{ date: '2026-09-01', amount_cents: 20000, method: 'virement' }] })).rejects.toThrow('dépassent');
+    const r = await createPrestation({ family: { name: 'Martin', first: 'Julie & Tom', email: 'jt@example.fr' }, kind: 'mariage', title: '', date: '2027-06-12', signedAt: '2026-08-20', delivered: false,
+      lines: [{ label: 'Forfait mariage journée', qty: 1, unit_cents: 200000 }, { label: 'Album 30 × 30', qty: 1, unit_cents: 30000 }],
+      payments: [{ date: '2026-09-20', amount_cents: 69000, method: 'virement' }] });
+    const d = (await getOrderDetail(r.orderId))!;
+    expect(d.order).toMatchObject({ status: 'validee', total_cents: 230000, paid_cents: 69000, session_name: 'Mariage Julie & Tom Martin' });
+    expect(d.order.validated_at?.slice(0, 10)).toBe('2026-08-20');
+    expect((await receipts('2026-09-01', '2026-09-30')).map((x) => x.amount_cents)).toEqual([69000]);
+    const reg = (await sel<{ quote_signed_at: string; appt_status: string }>('SELECT quote_signed_at, appt_status FROM session_registrations'))[0];
+    expect(reg).toMatchObject({ quote_signed_at: '2026-08-20', appt_status: 'a_venir' });
+    // invoices already issued outside the software: numbering continues after them
+    await setSetting('legal_name', 'Mathieu Exemple'); await setSetting('legal_address', '1 rue des Iris'); await setSetting('siret', '123');
+    const y = new Date().getFullYear();
+    await setSetting(`invoice_external_last_${y}`, '4');
+    const { issueInvoice } = await import('../services/invoices');
+    expect((await issueInvoice(r.orderId)).row.number).toBe(`F${y}-0005`);
+  });
+});

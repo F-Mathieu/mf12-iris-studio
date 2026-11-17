@@ -93,12 +93,12 @@ export default function OrderDetail() {
                   {c.orientation && <div className="mt-1 text-[12.5px] text-mist-300">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>}
                   {c.instructions && <div className="mt-1 text-[12.5px] text-mist-400 italic">« {c.instructions} »</div>}
                   {cart.items.filter((i) => i.compositionKey === c.key).map((i) => (
-                    <div key={i.key} className="mt-1.5 flex justify-between pl-4 text-[13px] text-mist-200"><span>{i.productName} — {i.variantName} × {i.qty} <span className="text-mist-400">({eur(i.unitPriceCents)})</span></span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
+                    <div key={i.key} className="mt-1.5 flex justify-between pl-4 text-[13px] text-mist-200"><span>{i.productName}{i.variantName ? ` — ${i.variantName}` : ''} × {i.qty} <span className="text-mist-400">({eur(i.unitPriceCents)})</span></span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
                   ))}
                 </div>
               ))}
               {cart.items.filter((i) => !i.compositionKey).map((i) => (
-                <div key={i.key} className="flex justify-between px-5 py-3 text-[13.5px]"><span>{i.productName} — {i.variantName} × {i.qty}</span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
+                <div key={i.key} className="flex justify-between px-5 py-3 text-[13.5px]"><span>{i.productName}{i.variantName ? ` — ${i.variantName}` : ''} × {i.qty}</span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
               ))}
             </div>
             <div className="space-y-1.5 border-t border-ink-700 px-5 py-4 text-[13.5px]">

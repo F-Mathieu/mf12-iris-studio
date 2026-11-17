@@ -33,6 +33,8 @@
 
 - **Étape 1 — Compta** (`services/compta.ts`, `lib/compta.ts`, page `Compta`, migration 11 : `urssaf_declarations`, `general_expenses`) : livre des recettes (paiements, CSV/PDF), déclaration URSSAF (période proposée, échéance, montant à l’euro, instantané figé, contrôle d’écart, payé), frais généraux + registre des achats, bilan annuel et seuils au prorata, rappel tableau de bord. Limites : la suppression d’une commande supprime ses encaissements du livre (écart signalé si période déclarée) ; factures d’acompte prévues avec les mariages.
 
+- Prestations déjà signées (`services/prestations.ts`, `PrestationDialog`, Commandes) : séance à une famille + commande validée à lignes libres (category 'prestation'), acomptes datés, date de signature (validated_at), suivi coché, livrée ou à venir. Numérotation des factures continuée après les factures externes (`invoice_external_last_{année}`). Testé : unitaires + aperçu.
+
 ## Tests exécutés
 - `npm test` : 23 tests (calculs monétaires, marges, promotions, CSV, séances, import/réimport, commandes, paiements, historique des prix, PDF sans données internes).
 - `cargo test` : sauvegarde en ligne / restauration / intégrité.

@@ -501,3 +501,7 @@ Menu **Compta**. À régler une fois dans **Paramètres → Micro-entreprise** :
 - **Livre des recettes** (obligatoire) : tous les encaissements, rempli automatiquement depuis les règlements des commandes ; export CSV et PDF.
 - **Dépenses** : frais généraux (matériel, logiciels, assurance…) à saisir, plus les achats fournisseurs et frais de séances repris automatiquement.
 - **Année & seuils** : encaissé, dépenses, cotisations, **ce qui vous reste**, et jauges des seuils (franchise de TVA, plafond micro), au prorata l’année de création.
+
+### Prestations déjà signées (avant le logiciel ou hors catalogue)
+**Commandes → Prestation déjà signée** : client (existant ou nouveau), type (mariage, séance…), date de la prestation, date de signature, lignes libres (désignation, quantité, prix) et **acomptes déjà reçus avec leur vraie date** (ils entrent dans le livre des recettes et la déclaration URSSAF du bon mois). Option « déjà réalisée et livrée ». La prestation devient une commande validée : les règlements suivants, la facture, le devis s’y font comme d’habitude.
+**Factures déjà émises hors logiciel** : Paramètres → Facturation → « Dernière facture émise avant le logiciel » (ex. 4) : la première facture de l’app sera F…-0005.

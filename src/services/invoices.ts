@@ -5,7 +5,7 @@
  * - a validated order that is corrected, cancelled or deleted gets a credit note cancelling its invoice;
  *   the next print then issues a new invoice.
  */
-import { batch, getSettings, insertStmt, nowIso, one, sel, uid } from './base';
+import { batch, getSetting, getSettings, insertStmt, nowIso, one, sel, uid } from './base';
 import { getOrderDetail, PAYMENT_METHODS } from './orders';
 import { discountLabel, instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
@@ -49,7 +49,9 @@ const year = () => new Date().getFullYear();
 async function nextNumber(kind: 'facture' | 'avoir'): Promise<string> {
   const prefix = `${kind === 'facture' ? 'F' : 'AV'}${year()}-`;
   const r = await one<{ n: number }>('SELECT COALESCE(max(CAST(substr(number, ?) AS INTEGER)), 0) + 1 n FROM invoices WHERE number LIKE ?', [prefix.length + 1, `${prefix}%`]);
-  return `${prefix}${String(r?.n ?? 1).padStart(4, '0')}`;
+  // Invoices already issued outside the software this year: numbering continues after them.
+  const external = kind === 'facture' ? Number(await getSetting(`invoice_external_last_${year()}`)) || 0 : 0;
+  return `${prefix}${String(Math.max(r?.n ?? 1, external + 1)).padStart(4, '0')}`;
 }
 
 export const invoicesOfOrder = (orderId: string) => sel<InvoiceRow>('SELECT * FROM invoices WHERE order_id=? ORDER BY issued_at', [orderId]);
