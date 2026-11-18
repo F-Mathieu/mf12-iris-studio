@@ -160,3 +160,15 @@ describe('export Lightroom', async () => {
     expect(photosText({ qty: 1, photosPerUnit: null, printOrientation: 'horizontal' })).toBe('format horizontal');
   });
 });
+
+describe('filtre des notes', async () => {
+  const { matchRating, ratedFor } = await import('../lib/photos');
+  it('note exacte, « Notées » = toutes les photos notées', () => {
+    const r = [0, 1, 2, 2, 5];
+    expect(r.filter((x) => matchRating(x, 2))).toEqual([2, 2]); // ★★ : pas les ★ ni les ★★★★★
+    expect(r.filter((x) => matchRating(x, 1))).toEqual([1]);
+    expect(r.filter((x) => matchRating(x, 'rated'))).toEqual([1, 2, 2, 5]);
+    expect(r.filter((x) => matchRating(x, 0)).length).toBe(5);
+    expect(r.filter((x) => ratedFor(x, 0))).toEqual([1, 2, 2, 5]); // « Toutes » → les actions prennent les notées
+  });
+});

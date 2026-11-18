@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, Field, Input, Modal, Select, useAsync } from './ui';
 import { PhotoGallery } from './PhotoGallery';
 import { familyPhotoSessions, listPhotos } from '../services/photos';
-import { fmtPhoto, parsePhotoNumbers, photosNeeded } from '../lib/photos';
+import { fmtPhoto, parsePhotoNumbers, photosNeeded, ratedFor, type RatingFilter } from '../lib/photos';
 
 /**
  * Photos of a cart line: picked in the family's gallery (any of its sessions) or typed (n° from the Lightroom stars,
@@ -17,7 +17,7 @@ export function PhotoPicker({ familyId, sessionId, line, onClose, onSave }: {
   const sessions = useAsync(() => familyPhotoSessions(familyId), [familyId]);
   const [src, setSrc] = useState<string>(line.photoSessionId ?? sessionId);
   const [sel, setSel] = useState<string[]>(line.photos ?? []);
-  const [minR, setMinR] = useState(0);
+  const [filter, setFilter] = useState<RatingFilter>(0);
   const [text, setText] = useState((line.photos ?? []).map(fmtPhoto).join(', '));
   const reg = sessions.data?.find((s) => s.session_id === src);
   const photos = useAsync(() => (reg?.n ? listPhotos(reg.registration_id) : Promise.resolve([])), [reg?.registration_id, reg?.n]);
@@ -37,16 +37,16 @@ export function PhotoPicker({ familyId, sessionId, line, onClose, onSave }: {
           <Input value={text} onChange={(e) => { setText(e.target.value); setSel(parsePhotoNumbers(e.target.value, false)); }} placeholder="ex. 12, 15, 18-20" />
         </Field>
       </div>
-      {!!photos.data?.some((p) => p.rating >= Math.max(1, minR)) && (() => {
+      {!!photos.data?.some((p) => ratedFor(p.rating, filter)) && (() => {
         // best rated first, then by number; « ★★★+ » filter of the gallery applies
-        const best = photos.data!.filter((p) => p.rating >= Math.max(1, minR)).sort((a, b) => b.rating - a.rating || Number(a.number) - Number(b.number));
+        const best = photos.data!.filter((p) => ratedFor(p.rating, filter)).sort((a, b) => b.rating - a.rating || Number(a.number) - Number(b.number));
         return (
           <div className="mb-3"><Button size="sm" variant="subtle" onClick={() => setBoth(best.map((p) => p.number).slice(0, needed || undefined))}>
-            Prendre les photos notées {minR > 1 ? `${'★'.repeat(minR)}+ ` : ''}({best.length}){needed && best.length > needed ? ` — les ${needed} mieux notées` : ''}</Button></div>
+            {typeof filter === 'number' && filter > 0 ? `Prendre les photos ${'★'.repeat(filter)}` : 'Prendre toutes les photos notées'} ({best.length}){needed && best.length > needed ? ` — les ${needed} mieux notées` : ''}</Button></div>
         );
       })()}
       {photos.data?.length
-        ? <PhotoGallery photos={photos.data} selected={sel} onSelect={setBoth} max={needed || undefined} minRating={minR} onMinRating={setMinR} />
+        ? <PhotoGallery photos={photos.data} selected={sel} onSelect={setBoth} max={needed || undefined} filter={filter} onFilter={setFilter} />
         : <div className="rounded-lg bg-ink-800 px-4 py-6 text-center text-[13px] text-mist-400">Aucun aperçu importé pour cette séance : saisissez les n° (étoiles mises dans Lightroom), ou importez les photos dans Séance → Photos.</div>}
     </Modal>
   );

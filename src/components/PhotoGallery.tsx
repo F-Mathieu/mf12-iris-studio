@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, ImageOff, Star, X } from 'lucide-react';
 import { cx } from './ui';
 import { photoUrl, type SessionPhoto } from '../services/photos';
-import { fmtPhoto } from '../lib/photos';
+import { fmtPhoto, matchRating, type RatingFilter } from '../lib/photos';
 
 /** Lazily loaded image of a session photo (thumbnail or preview, files outside the database). */
 export function PhotoImg({ photo, thumb = true, className }: { photo: SessionPhoto; thumb?: boolean; className?: string }) {
@@ -29,18 +29,18 @@ export function Stars({ value, onRate, size = 'size-4' }: { value: number; onRat
 }
 
 /**
- * Grid of a family's photos: ratings 1–5 stars, filter by minimum rating, full-screen viewer (← →, 1–5 / 0 keys),
+ * Grid of a family's photos: ratings 1–5 stars, filter (all / rated / exactly N stars), full-screen viewer (← →, 1–5 / 0 keys),
  * optional selection of numbers (to put photos on a cart line). Thumbnails 400 px, previews 1600 px loaded on demand.
  */
-export function PhotoGallery({ photos, onRate, selected, onSelect, max, big, minRating, onMinRating }: {
+export function PhotoGallery({ photos, onRate, selected, onSelect, max, big, filter: filterProp, onFilter }: {
   photos: SessionPhoto[]; onRate?: (p: SessionPhoto, stars: number) => void;
   selected?: string[]; onSelect?: (numbers: string[]) => void; max?: number; big?: boolean;
-  minRating?: number; onMinRating?: (n: number) => void;
+  filter?: RatingFilter; onFilter?: (f: RatingFilter) => void;
 }) {
   const [view, setView] = useState<number | null>(null);
-  const [ownMin, setOwnMin] = useState(0);
-  const min = minRating ?? ownMin, setMin = onMinRating ?? setOwnMin;
-  const list = photos.filter((p) => p.rating >= min);
+  const [ownFilter, setOwnFilter] = useState<RatingFilter>(0);
+  const filter = filterProp ?? ownFilter, setFilter = onFilter ?? setOwnFilter;
+  const list = photos.filter((p) => matchRating(p.rating, filter));
   const toggleSel = (n: string) => {
     if (!onSelect || !selected) return;
     if (selected.includes(n)) onSelect(selected.filter((x) => x !== n));
@@ -52,12 +52,12 @@ export function PhotoGallery({ photos, onRate, selected, onSelect, max, big, min
     <div>
       {rated && (
         <div className="mb-3 flex flex-wrap gap-2 text-[12.5px]">
-          {[0, 1, 2, 3, 4, 5].map((n) => {
-            const c = photos.filter((p) => p.rating >= n).length;
-            if (n > 0 && !c) return null;
+          {([0, 'rated', 1, 2, 3, 4, 5] as RatingFilter[]).map((f) => {
+            const c = photos.filter((p) => matchRating(p.rating, f)).length;
+            if (typeof f === 'number' && f > 0 && !c) return null;
             return (
-              <button key={n} type="button" onClick={() => setMin(n)} className={cx('flex items-center gap-1 rounded-full border px-3 py-1', min === n ? 'border-gold-500/70 text-gold-200' : 'border-ink-600 text-mist-400')}>
-                {n === 0 ? 'Toutes' : <>{'★'.repeat(n)}{n < 5 && <span className="text-mist-500">+</span>}</>} ({c})
+              <button key={String(f)} type="button" onClick={() => setFilter(f)} className={cx('flex items-center gap-1 rounded-full border px-3 py-1', filter === f ? 'border-gold-500/70 text-gold-200' : 'border-ink-600 text-mist-400')}>
+                {f === 0 ? 'Toutes' : f === 'rated' ? 'Notées' : '★'.repeat(f)} ({c})
               </button>
             );
           })}

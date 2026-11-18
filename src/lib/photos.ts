@@ -52,5 +52,11 @@ export function photosText(line: { qty: number; photosPerUnit?: number | null; p
 export const lightroomText = (photos: { number: string; file_name?: string | null }[]) =>
   photos.map((p) => (p.file_name ? p.file_name.replace(/\.[a-z0-9]+$/i, '') : fmtPhoto(p.number))).join(', ');
 
+/** Rating filter: 0 = all photos, 'rated' = every rated photo, 1–5 = exactly that many stars. */
+export type RatingFilter = 0 | 'rated' | 1 | 2 | 3 | 4 | 5;
+export const matchRating = (rating: number, f: RatingFilter) => (f === 0 ? true : f === 'rated' ? rating > 0 : rating === f);
+/** Photos to take for « rated » actions: the filter's photos, or every rated photo when the filter is « all ». */
+export const ratedFor = (rating: number, f: RatingFilter) => rating > 0 && matchRating(rating, f === 0 ? 'rated' : f);
+
 /** Folder name ↔ family: case, accents and separators ignored. */
 export const normName = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
