@@ -9,6 +9,7 @@ import { invoicePdfOf, orderInvoicePdf, orderRecapPdf } from '../services/docume
 import { activeInvoice, invoicesOfOrder, type InvoiceRow } from '../services/invoices';
 import { emailInvoice, emailOrderRecap } from '../services/mail';
 import { QuoteDialog } from '../components/QuoteDialog';
+import { OrderAttachments } from '../components/OrderAttachments';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -17,7 +18,7 @@ import { instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { act } from '../lib/act';
 
-const ACTIONS: Record<string, string> = { delete_order: 'Commande supprimée', save_draft: 'Brouillon enregistré', validate: 'Commande validée', correction: 'Correction', cancel: 'Annulation', payment_add: 'Règlement ajouté', payment_delete: 'Règlement supprimé', delete_draft: 'Brouillon supprimé' };
+const ACTIONS: Record<string, string> = { delete_order: 'Commande supprimée', save_draft: 'Brouillon enregistré', validate: 'Commande validée', correction: 'Correction', cancel: 'Annulation', payment_add: 'Règlement ajouté', payment_delete: 'Règlement supprimé', delete_draft: 'Brouillon supprimé', attachment_add: 'Pièce jointe ajoutée', attachment_delete: 'Pièce jointe supprimée' };
 
 export default function OrderDetail() {
   const { id = '' } = useParams();
@@ -108,6 +109,7 @@ export default function OrderDetail() {
             </div>
           </Card>
           {o.notes && <Card className="px-5 py-4 text-[13.5px] text-mist-200">{o.notes}</Card>}
+          <OrderAttachments orderId={id} onChange={d.reload} />
           <Card>
             <CardHeader title={<span className="flex items-center gap-2"><History className="size-4 text-mist-400" />Historique</span>} />
             <div className="divide-y divide-ink-700/50">

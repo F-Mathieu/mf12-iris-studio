@@ -417,7 +417,7 @@ describe('orders', () => {
     const lines = await listPrintLines(x.sid);
     const sup = (await sel<{ id: string }>("SELECT id FROM suppliers WHERE name='Onelab Pro'"))[0].id;
     const soId = await createSupplierOrder(sup, lines, x.sid);
-    expect(await orderDeletionImpact(id)).toEqual({ payments: 1, paid: 5000, tasks: 1, supplier_lines: 1 });
+    expect(await orderDeletionImpact(id)).toEqual({ payments: 1, paid: 5000, tasks: 1, supplier_lines: 1, attachments: 0 });
     await deleteOrder(id, 'erreur de saisie');
     for (const t of ['orders', 'payments', 'production_tasks', 'order_items', 'supplier_order_items'])
       expect((await sel(`SELECT * FROM ${t}`)).length, t).toBe(0);
@@ -737,5 +737,30 @@ describe('univers de séance', () => {
     const dup = await getSession(await duplicateSession(sid));
     expect(dup?.universe_id).toBe(u);
     expect((await listSessions({ universeId: u })).length).toBe(3);
+  });
+});
+
+describe('pièces jointes de commande', () => {
+  it('ajout (base64 fidèle), type deviné, note, suppression ; supprimées avec la commande', async () => {
+    const { createPrestation } = await import('../services/prestations');
+    const { addAttachment, listAttachments, getAttachmentBytes, updateAttachment, deleteAttachment, guessKind } = await import('../services/attachments');
+    const { deleteOrder } = await import('../services/orders');
+    const r = await createPrestation({ family: { name: 'Martin' }, kind: 'mariage', title: '', date: null, signedAt: null, delivered: false,
+      lines: [{ label: 'Forfait', qty: 1, unit_cents: 10000 }], payments: [] });
+    const bytes = new Uint8Array(70000).map((_, i) => (i * 7) % 256);
+    const id = await addAttachment(r.orderId, { name: 'Devis D2026-0003 signé.pdf', bytes });
+    await addAttachment(r.orderId, { name: 'capture.png', bytes: new Uint8Array([137, 80, 78, 71]) });
+    await expect(addAttachment(r.orderId, { name: 'vide.txt', bytes: new Uint8Array() })).rejects.toThrow('vide');
+    const list = await listAttachments(r.orderId);
+    expect(list.map((a) => [a.name, a.kind, a.mime])).toEqual(expect.arrayContaining([
+      ['Devis D2026-0003 signé.pdf', 'devis_signe', 'application/pdf'], ['capture.png', 'mail', 'image/png']]));
+    expect((await getAttachmentBytes(id))!.bytes).toEqual(bytes);
+    expect(guessKind('virement mars.jpg', 'image/jpeg')).toBe('paiement');
+    await updateAttachment(id, { note: 'signé le 12/11', kind: 'autre' });
+    expect((await listAttachments(r.orderId)).find((a) => a.id === id)).toMatchObject({ note: 'signé le 12/11', kind: 'autre' });
+    await deleteAttachment(id);
+    expect((await listAttachments(r.orderId)).length).toBe(1);
+    await deleteOrder(r.orderId, 'test');
+    expect((await sel('SELECT * FROM order_attachments')).length).toBe(0);
   });
 });

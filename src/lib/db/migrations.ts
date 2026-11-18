@@ -317,6 +317,15 @@ CREATE INDEX idx_cu_universe ON catalog_universes(universe_id);
 INSERT OR IGNORE INTO catalog_universes (kind, ref_id, universe_id) SELECT 'product', id, universe_id FROM products WHERE universe_id IS NOT NULL;
 UPDATE products SET universe_id=NULL;
 `,
+  /* 14 — pièces jointes d’une commande (devis signé, capture d’e-mail, bon de commande…) : fichier en base64
+        dans la base → inclus dans les sauvegardes. Supprimées avec la commande (sauvegarde faite juste avant). */ `
+CREATE TABLE order_attachments (
+  id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'autre', name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL,
+  data TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX idx_attach_order ON order_attachments(order_id);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

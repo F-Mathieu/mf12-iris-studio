@@ -4,6 +4,7 @@
 
 ## Non publié (branche claude/gracious-gates-xu2t2t, après v2.1.0)
 - Produits et variantes dans **plusieurs univers** (cases à cocher ; aucun = commun ; variante sans univers = comme son produit). Produits existants → Iris. Migration 13 (`catalog_universes`).
+- **Pièces jointes de commande** (devis signé, captures d’e-mails, bons de commande, justificatifs) : ajout de fichiers ou collage ⌘V d’une capture, type, note, aperçu, copie. Migration 14 (`order_attachments`). À vérifier sur Mac : collage ⌘V et aperçu PDF.
 
 ## Publié en v2.1.0 (à tester sur Mac)
 - Étape 1 Compta (livre des recettes, déclaration URSSAF, dépenses, année & seuils) + prestations déjà signées + numérotation factures externes → publié en **v2.1.0**.

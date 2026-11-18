@@ -18,6 +18,7 @@ export async function confirmAndDeleteOrder(confirm: Confirm, o: { id: string; n
     imp.payments ? `${imp.payments} règlement(s) pour ${eur(imp.paid)} (ils disparaîtront de vos encaissements)` : null,
     imp.tasks ? `${imp.tasks} tâche(s) de postproduction` : null,
     imp.supplier_lines ? `${imp.supplier_lines} ligne(s) de commande fournisseur` : null,
+    imp.attachments ? `${imp.attachments} pièce(s) jointe(s)` : null,
   ].filter(Boolean);
   const r = await confirm({
     title: `Supprimer définitivement la commande ${o.number} — ${o.family_name} ?`, danger: true, confirm: 'Supprimer définitivement',
