@@ -351,6 +351,22 @@ ALTER TABLE orders ADD COLUMN delivered_at TEXT;
 -- photos à choisir par unité vendue (NULL = aucune, 1 = photo à l’unité / tirage, 5 = pack 5 photos, 0 = toutes les photos)
 ALTER TABLE products ADD COLUMN photos_per_unit INTEGER;
 `,
+  /* 17 — mariages : projet par couple (séance de l’univers Mariage + devis/commande), photo et/ou vidéo, acompte et solde,
+        fiche de renseignements du jour J (JSON), livrables (teaser / premières photos, film et galerie), album. */ `
+CREATE TABLE weddings (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  order_id TEXT REFERENCES orders(id) ON DELETE SET NULL,
+  partner1 TEXT NOT NULL, partner2 TEXT, date TEXT,
+  services TEXT NOT NULL DEFAULT 'photo' CHECK (services IN ('photo','video','photo_video')),
+  status TEXT NOT NULL DEFAULT 'devis' CHECK (status IN ('devis','signe','livre','annule')),
+  deposit_bp INTEGER NOT NULL DEFAULT 3000, balance_count INTEGER NOT NULL DEFAULT 1,
+  signed_at TEXT, info TEXT, info_sent_at TEXT, info_received_at TEXT,
+  teaser_delivered_at TEXT, final_delivered_at TEXT, teaser_link TEXT, final_link TEXT,
+  album_supplier_id TEXT REFERENCES suppliers(id) ON DELETE SET NULL, album_status TEXT NOT NULL DEFAULT 'aucun', album_dates TEXT, album_note TEXT,
+  notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX idx_weddings_date ON weddings(date);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

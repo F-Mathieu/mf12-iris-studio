@@ -7,7 +7,7 @@ import { getOrderDetail, PAYMENT_METHODS, PAYMENT_STATUS, ORDER_STATUS } from '.
 import { listStyles, listProducts, listVariants } from './catalog';
 import { getPriceItems, listPromotions } from './pricing';
 import { listTasks, TASK_STATUS } from './production';
-import { findPrice, instalmentStatus, paymentStatus, schedule } from '../lib/pricing';
+import { hasPlan, findPrice, instalmentStatus, paymentStatus, schedule } from '../lib/pricing';
 import { todayIso } from '../lib/ids';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { clientName, issueInvoice, type InvoiceRow } from './invoices';
@@ -42,7 +42,7 @@ export async function orderRecapPdf(orderId: string) {
     subtotal: o.subtotal_cents, discounts: discounts.map((x) => ({ label: x.label, amount: x.amount_cents })), total: o.total_cents, paid: o.paid_cents,
     paymentStatus: PAYMENT_STATUS[paymentStatus(o.total_cents, o.paid_cents)], payments: payments.map((p) => ({ date: p.paid_at, method: PAYMENT_METHODS[p.method], amount: p.amount_cents })),
     dueDate: o.payment_due_date, notes: o.notes,
-    instalments: cart.paymentPlan && cart.paymentPlan.count > 1
+    instalments: hasPlan(cart.paymentPlan)
       ? instalmentStatus(schedule(o.total_cents, cart.paymentPlan), o.paid_cents, todayIso()).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: x.state === 'paye' }))
       : undefined,
   });

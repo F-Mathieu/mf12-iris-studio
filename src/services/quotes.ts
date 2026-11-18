@@ -5,7 +5,7 @@
 import { batch, getSettings, insertStmt, nowIso, one, sel, uid, updateStmt } from './base';
 import { buildInvoiceData, REQUIRED_SELLER, sellerInfo, type InvoiceData } from './invoices';
 import { getOrderDetail } from './orders';
-import { schedule } from '../lib/pricing';
+import { hasPlan, schedule } from '../lib/pricing';
 import { compositionSketches } from './sketches';
 import type { Stmt } from '../lib/db/types';
 
@@ -39,7 +39,7 @@ export async function buildQuoteData(orderId: string, number: string): Promise<I
     ...base, kind: 'devis', validUntil: addDays(base.date, days), quoteTerms: s.quote_terms || null,
     sketches: d ? compositionSketches(d.cart) : [],
     paid: 0, balance: base.total, payments: [],
-    instalments: plan && plan.count > 1 ? schedule(base.total, plan).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: false })) : undefined,
+    instalments: hasPlan(plan) ? schedule(base.total, plan).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: false })) : undefined,
   };
 }
 

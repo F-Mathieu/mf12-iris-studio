@@ -8,7 +8,7 @@
 import { photosText } from '../lib/photos';
 import { batch, getSetting, getSettings, insertStmt, nowIso, one, sel, uid } from './base';
 import { getOrderDetail, PAYMENT_METHODS } from './orders';
-import { discountLabel, instalmentStatus, schedule } from '../lib/pricing';
+import { hasPlan, discountLabel, instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import type { Stmt } from '../lib/db/types';
 import type { CompositionSketch } from '../lib/pdfSketch';
@@ -87,7 +87,7 @@ export async function buildInvoiceData(orderId: string, number: string): Promise
     subtotal: o.subtotal_cents, discount: o.discount_cents, total: o.total_cents,
     paid: o.paid_cents, balance: o.total_cents - o.paid_cents,
     payments: payments.map((p) => ({ date: p.paid_at, method: PAYMENT_METHODS[p.method], amount: p.amount_cents })),
-    instalments: cart.paymentPlan && cart.paymentPlan.count > 1
+    instalments: hasPlan(cart.paymentPlan)
       ? instalmentStatus(schedule(o.total_cents, cart.paymentPlan), o.paid_cents, today).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: x.state === 'paye' }))
       : undefined,
   };

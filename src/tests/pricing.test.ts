@@ -188,6 +188,17 @@ describe('computeCart', () => {
     expect(computeCart([], [item('p', { unitPriceCents: 10000 })], [p]).discount_cents).toBe(1000);
   });
 
+  it('wedding: 30 % deposit at signature, balance on the wedding day or in several instalments ending that day', () => {
+    expect(schedule(250000, { count: 1, first_date: '2026-12-01', deposit_bp: 3000, last_date: '2027-06-12' }))
+      .toEqual([{ n: 1, date: '2026-12-01', amount_cents: 75000 }, { n: 2, date: '2027-06-12', amount_cents: 175000 }]);
+    const s3 = schedule(250000, { count: 3, first_date: '2026-12-01', deposit_bp: 3000, last_date: '2027-06-12' });
+    expect(s3.map((x) => x.date)).toEqual(['2026-12-01', '2027-04-12', '2027-05-12', '2027-06-12']);
+    expect(s3.map((x) => x.amount_cents)).toEqual([75000, 58334, 58333, 58333]);
+    expect(s3.reduce((t, x) => t + x.amount_cents, 0)).toBe(250000);
+    // signed late: instalments are never dated before the signature
+    expect(schedule(100000, { count: 3, first_date: '2027-05-20', deposit_bp: 3000, last_date: '2027-06-12' }).map((x) => x.date)).toEqual(['2027-05-20', '2027-05-20', '2027-05-20', '2027-06-12']);
+  });
+
   it('payment in instalments: exact sum, monthly dates, statuses', () => {
     expect(addMonths('2026-01-31', 1)).toBe('2026-02-28');
     expect(addMonths('2026-11-21', 2)).toBe('2027-01-21');

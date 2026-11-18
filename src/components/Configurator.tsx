@@ -13,7 +13,7 @@ import { getFamily } from '../services/families';
 import { getSession } from '../services/sessions';
 import { variantCosts } from '../services/suppliers';
 import { emptyCart, loadCart, pricingContext, saveCart, totalsOf, type Cart, type CartComp } from '../services/orders';
-import { findPrice, schedule, type ManualDiscount, type PaymentPlan } from '../lib/pricing';
+import { hasPlan, findPrice, schedule, type ManualDiscount, type PaymentPlan } from '../lib/pricing';
 import { fmtDate } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { eur, pctToBp } from '../lib/money';
@@ -377,7 +377,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
             <span className="text-[12px] font-semibold tracking-[0.2em] text-mist-400">TOTAL</span>
             <span className={cx('font-semibold text-gold-400 tabular', big ? 'text-[38px]' : 'text-[32px]')}>{eur(totals.total_cents)}</span>
           </div>
-          {cart.paymentPlan && cart.paymentPlan.count > 1 && totals.total_cents > 0 && (() => {
+          {hasPlan(cart.paymentPlan) && totals.total_cents > 0 && (() => {
             const sch = schedule(totals.total_cents, cart.paymentPlan);
             const same = sch.every((x) => x.amount_cents === sch[0].amount_cents);
             return (

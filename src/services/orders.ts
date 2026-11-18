@@ -1,5 +1,5 @@
 import { auditStmt, batch, insertStmt, like, nowIso, one, sel, uid, updateStmt } from './base';
-import { computeCart, discountLabel, findPrice, paymentStatus, schedule, type CartComposition, type CartItem, type CartTotals, type ManualDiscount, type PaymentPlan } from '../lib/pricing';
+import { hasPlan, computeCart, discountLabel, findPrice, paymentStatus, schedule, type CartComposition, type CartItem, type CartTotals, type ManualDiscount, type PaymentPlan } from '../lib/pricing';
 import { getPriceItems, listPromotions, toPromotion } from './pricing';
 import type { Stmt } from '../lib/db/types';
 import type { Orientation } from '../lib/formatsGuide';
@@ -125,7 +125,7 @@ export async function saveCart(cart: Cart, target: 'brouillon' | 'validee', corr
     status: target === 'validee' || prev?.status === 'validee' ? 'validee' : 'brouillon',
     subtotal_cents: t.subtotal_cents, discount_cents: t.discount_cents, total_cents: t.total_cents, cost_estimate_cents: cost,
     notes: cart.notes || null, desired_delivery: cart.desiredDelivery || null, updated_at: now,
-    payment_plan: cart.paymentPlan && cart.paymentPlan.count > 1 ? JSON.stringify({ ...cart.paymentPlan, schedule: schedule(t.total_cents, cart.paymentPlan) }) : null,
+    payment_plan: hasPlan(cart.paymentPlan) ? JSON.stringify({ ...cart.paymentPlan, schedule: schedule(t.total_cents, cart.paymentPlan) }) : null,
   };
   if (prev) stmts.push(updateStmt('orders', id, { ...head, validated_at: prev.status !== 'validee' && target === 'validee' ? now : undefined }));
   else stmts.push(insertStmt('orders', { id, number, ...head, created_at: now, validated_at: target === 'validee' ? now : null }));

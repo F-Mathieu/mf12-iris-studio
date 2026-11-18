@@ -18,7 +18,7 @@ import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
 import { todayIso } from '../lib/ids';
-import { instalmentStatus, schedule } from '../lib/pricing';
+import { hasPlan, instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { act } from '../lib/act';
 
@@ -40,7 +40,7 @@ export default function OrderDetail() {
   if (!d.data) return <Loading />;
   const { order: o, cart, payments, discounts, history } = d.data;
   const balance = o.total_cents - o.paid_cents;
-  const plan = cart.paymentPlan && cart.paymentPlan.count > 1 ? instalmentStatus(schedule(o.total_cents, cart.paymentPlan), o.paid_cents, todayIso()) : null;
+  const plan = hasPlan(cart.paymentPlan) ? instalmentStatus(schedule(o.total_cents, cart.paymentPlan), o.paid_cents, todayIso()) : null;
   const nextDue = plan?.find((x) => x.remaining_cents > 0) ?? null;
   const m = margin(o.total_cents, o.cost_estimate_cents);
   const pdf = () => act(async () => saveFile(`commande-${o.number}-${slug(o.family_name)}.pdf`, await orderRecapPdf(id), PDF_FILTER), 'Récapitulatif PDF enregistré');

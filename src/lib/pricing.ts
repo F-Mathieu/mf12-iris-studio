@@ -271,7 +271,12 @@ export function allocate(amount: number, weights: number[]): number[] {
 }
 
 /* ---------------------------------------------------------------- payment in instalments */
-export interface PaymentPlan { count: number; first_date: string }
+/**
+ * count instalments, monthly from first_date. With deposit_bp (weddings): a deposit (e.g. 30 % = 3000) on first_date,
+ * then the balance in `count` instalments, monthly, the last one on last_date (the wedding day).
+ */
+export interface PaymentPlan { count: number; first_date: string; deposit_bp?: number | null; last_date?: string | null }
+export const hasPlan = (p: PaymentPlan | null | undefined): p is PaymentPlan => !!p && (p.count > 1 || !!p.deposit_bp);
 export interface Instalment { n: number; date: string; amount_cents: number }
 
 /** Adds months to an ISO date, clamping to the end of the month (31/01 + 1 month = 28/02). */
@@ -285,6 +290,14 @@ export function addMonths(iso: string, months: number): string {
 
 /** Monthly schedule; the first instalment absorbs the rounding so the sum is exact. */
 export function schedule(total: number, plan: PaymentPlan): Instalment[] {
+  if (plan.deposit_bp) {
+    const deposit = Math.min(total, divRound(total * plan.deposit_bp, 10000));
+    const n = Math.max(1, Math.floor(plan.count));
+    const last = plan.last_date || plan.first_date;
+    const rest = total - deposit, base = Math.floor(rest / n);
+    return [{ n: 1, date: plan.first_date, amount_cents: deposit },
+      ...Array.from({ length: n }, (_, i) => ({ n: i + 2, date: addMonths(last, i - (n - 1)) < plan.first_date ? plan.first_date : addMonths(last, i - (n - 1)), amount_cents: i === 0 ? rest - base * (n - 1) : base }))];
+  }
   const count = Math.max(1, Math.floor(plan.count));
   const base = Math.floor(total / count);
   const first = total - base * (count - 1);

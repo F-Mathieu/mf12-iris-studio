@@ -861,3 +861,51 @@ describe('photos de séance', () => {
     });
   });
 });
+
+describe('mariages', () => {
+  it('projet → devis modifiable → signature (acompte 30 %, solde le jour J) → album, livrables ; suppression avant signature', async () => {
+    const W = await import('../services/weddings');
+    const { issueQuote, listQuotes } = await import('../services/quotes');
+    const { setSetting } = await import('../services/base');
+    await setSetting('legal_name', 'Mathieu Exemple'); await setSetting('legal_address', '1 rue des Iris, 75000 Paris'); await setSetting('siret', '123 456 789 00012'); await setSetting('mediator', 'CNPM Médiation');
+    const id = await W.createWedding({ partner1: 'Julie', partner2: 'Tom Martin', email: 'jt@example.fr', date: '2027-06-12', location: 'Château X', services: 'photo_video' });
+    let w = (await W.getWedding(id))!;
+    expect(w).toMatchObject({ status: 'devis', deposit_bp: 3000, location: 'Château X', email: 'jt@example.fr', order_id: null });
+    expect((await sel<{ name: string }>('SELECT u.name FROM sessions s JOIN universes u ON u.id=s.universe_id WHERE s.id=?', [w.session_id]))[0].name).toBe('Mariage');
+    expect((await W.deadlines(w))).toMatchObject({ teaser: '2027-06-27', final: '2027-07-12' });
+    // quote lines: free lines with prices typed (photo + video)
+    const line = (label: string, cents: number) => ({ key: uid(), variantId: null, productId: null, category: 'prestation', productName: label, variantName: null, compositionKey: null, qty: 1, unitPriceCents: cents, unitCostCents: 0 });
+    await W.saveWeddingLines(id, [line('Forfait photo journée', 180000), line('Film 10 min', 120000)], 'option drone à confirmer');
+    w = (await W.getWedding(id))!;
+    expect(w).toMatchObject({ order_status: 'brouillon', total_cents: 300000 });
+    const q = await issueQuote(w.order_id!);
+    expect(q.data.instalments?.map((x) => x.amount)).toEqual([90000, 210000]);
+    expect(q.data.instalments?.[1].date).toBe('2027-06-12');
+    // balance in 3 instalments
+    await W.updateWedding(id, { balance_count: 3 });
+    await W.refreshSchedule(id);
+    await W.signWedding(id, '2026-12-01');
+    w = (await W.getWedding(id))!;
+    expect(w).toMatchObject({ status: 'signe', signed_at: '2026-12-01', order_status: 'validee' });
+    expect((await listQuotes())[0].status).toBe('signe');
+    const plan = JSON.parse((await one<{ p: string }>('SELECT payment_plan p FROM orders WHERE id=?', [w.order_id]))!.p);
+    expect(plan.schedule.map((x: { date: string; amount_cents: number }) => [x.date, x.amount_cents])).toEqual([['2026-12-01', 90000], ['2027-04-12', 70000], ['2027-05-12', 70000], ['2027-06-12', 70000]]);
+    expect((await sel<{ appt_status: string }>('SELECT appt_status FROM session_registrations WHERE id=?', [w.registration_id]))[0].appt_status).toBe('a_venir');
+    // signed: changing prices needs a reason
+    await expect(W.saveWeddingLines(id, [line('Forfait photo journée', 150000)], '')).rejects.toThrow('motif');
+    // album + deliverables + info sheet + couple renamed
+    await W.updateWedding(id, { album_status: 'maquette', teaser_delivered_at: '2027-06-20', partner2: 'Thomas Martin', location: 'Domaine Y' });
+    w = (await W.getWedding(id))!;
+    expect(JSON.parse(w.album_dates!)).toHaveProperty('maquette');
+    expect(w.location).toBe('Domaine Y');
+    expect((await one<{ name: string }>('SELECT name FROM families WHERE id=?', [w.family_id]))!.name).toBe('Julie & Thomas Martin');
+    await W.setWeddingInfo(id, { civile: 'Mairie, 14 h' });
+    expect(JSON.parse((await W.getWedding(id))!.info!)).toEqual({ civile: 'Mairie, 14 h' });
+    await expect(W.deleteWedding(id)).rejects.toThrow('signé');
+    // a wedding still at quote stage can be deleted
+    const id2 = await W.createWedding({ partner1: 'Anne', services: 'photo' });
+    await W.saveWeddingLines(id2, [line('Forfait', 1000)], '');
+    await W.deleteWedding(id2);
+    expect((await W.listWeddings()).map((x) => x.id)).toEqual([id]);
+  });
+});
