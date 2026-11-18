@@ -37,12 +37,20 @@ export const photosNeeded = (line: { qty: number; photosPerUnit?: number | null 
 export const photosMissing = (line: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }) => Math.max(0, photosNeeded(line) - (line.photos?.length ?? 0));
 
 /** Text for documents: « Photos 002, 015 » + « 3 à choisir » / « toutes les photos » (empty if the line has no photos). */
-export function photosText(line: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }): string {
-  if (line.photosPerUnit == null) return '';
-  if (line.photosPerUnit === 0) return 'toutes les photos';
+export function photosText(line: { qty: number; photosPerUnit?: number | null; photos?: string[] | null; printOrientation?: string | null }): string {
+  const o = line.printOrientation ? `format ${line.printOrientation}` : '';
+  if (line.photosPerUnit == null) return o;
+  if (line.photosPerUnit === 0) return ['toutes les photos', o].filter(Boolean).join(' · ');
   const m = photosMissing(line);
-  return [line.photos?.length ? `photos ${line.photos.map(fmtPhoto).join(', ')}` : '', m ? `${m} à choisir` : ''].filter(Boolean).join(' · ');
+  return [line.photos?.length ? `photos ${line.photos.map(fmtPhoto).join(', ')}` : '', m ? `${m} à choisir` : '', o].filter(Boolean).join(' · ');
 }
+
+/**
+ * Text to paste in Lightroom Classic (Bibliothèque → filtre Texte → Nom de fichier → Contient) : file names without
+ * extension, separated by commas (Lightroom finds any of them). Without a file name: the number on 3 digits.
+ */
+export const lightroomText = (photos: { number: string; file_name?: string | null }[]) =>
+  photos.map((p) => (p.file_name ? p.file_name.replace(/\.[a-z0-9]+$/i, '') : fmtPhoto(p.number))).join(', ');
 
 /** Folder name ↔ family: case, accents and separators ignored. */
 export const normName = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();

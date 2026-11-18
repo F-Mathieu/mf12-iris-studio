@@ -52,6 +52,8 @@ export interface CartItem {
   photoSessionId?: string | null;
   /** From the product: photos per unit (null = none, 0 = all the photos). Not stored on the line. */
   photosPerUnit?: number | null;
+  /** Photo print: vertical or horizontal (3:2). */
+  printOrientation?: 'vertical' | 'horizontal' | null;
   qty: number;
   unitPriceCents: number;
 }

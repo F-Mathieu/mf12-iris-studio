@@ -5,6 +5,7 @@ import { PhotoGallery, Stars } from './PhotoGallery';
 import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, previewsUsage, setRating, type PhotoFile } from '../services/photos';
 import type { RegistrationRow } from '../services/registrations';
 import { decodeCsvBytes } from '../lib/csv';
+import { lightroomText } from '../lib/photos';
 import { pickFiles, pickPhotoFolder } from '../lib/files';
 import { act } from '../lib/act';
 
@@ -104,9 +105,13 @@ export function SessionPhotos({ sessionId, regs }: { sessionId: string; regs: Re
 
 function GalleryDialog({ reg, onClose }: { reg: RegistrationRow; onClose: () => void }) {
   const p = useAsync(() => listPhotos(reg.id), [reg.id]);
+  const [min, setMin] = useState(0);
+  const rated = (p.data ?? []).filter((x) => x.rating >= Math.max(1, min));
   return (
-    <Modal open onClose={onClose} size="xl" title={`Photos — ${famName(reg)}`} subtitle="1 à 5 étoiles comme dans Lightroom (touches 1–5, 0 pour retirer, dans la visionneuse). Double-clic pour agrandir, flèches pour naviguer.">
-      <PhotoGallery photos={p.data ?? []} onRate={(x, n) => act(() => setRating(x.id, n).then(p.reload))} />
+    <Modal open onClose={onClose} size="xl" title={`Photos — ${famName(reg)}`} subtitle="1 à 5 étoiles comme dans Lightroom (touches 1–5, 0 pour retirer, dans la visionneuse). Double-clic pour agrandir, flèches pour naviguer."
+      footer={<><span className="mr-auto text-[12px] text-mist-400">Lightroom Classic : Bibliothèque → filtre Texte → « Nom de fichier » « Contient » → coller, puis tout sélectionner et noter.</span>
+        <Button disabled={!rated.length} onClick={() => act(() => navigator.clipboard.writeText(lightroomText(rated)), `${rated.length} nom(s) de fichier copiés pour Lightroom`)}>Copier pour Lightroom ({rated.length} notée{rated.length > 1 ? 's' : ''}{min > 1 ? ` ${'★'.repeat(min)}+` : ''})</Button></>}>
+      <PhotoGallery photos={p.data ?? []} minRating={min} onMinRating={setMin} onRate={(x, n) => act(() => setRating(x.id, n).then(p.reload))} />
     </Modal>
   );
 }

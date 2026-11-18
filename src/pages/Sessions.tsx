@@ -6,6 +6,7 @@ import { SessionBadge } from '../components/badges';
 import { createSession, listSessions, type SessionInput, type SessionRow } from '../services/sessions';
 import { listTemplates } from '../services/pricing';
 import { listUniverses } from '../services/universes';
+import { bookedOn } from '../services/agenda';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
 import { act } from '../lib/act';
@@ -52,6 +53,7 @@ export function SessionForm({ open, onClose, onSaved, initial, onSubmit }: { ope
   const universes = useAsync(() => listUniverses(), [open]);
   const universeId = d.universe_id === undefined ? (onSubmit ? null : universes.data?.[0]?.id ?? null) : d.universe_id;
   const tpls = useAsync(() => listTemplates(false, universeId), [open, universeId]);
+  const booked = useAsync(() => (d.date && !onSubmit ? bookedOn(d.date) : Promise.resolve([])), [d.date]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof SessionInput, v: string | number | null) => setD((x) => ({ ...x, [k]: v }));
   const defaultTpl = universes.data?.find((u) => u.id === universeId)?.default_template_id;
@@ -96,6 +98,7 @@ export function SessionForm({ open, onClose, onSaved, initial, onSubmit }: { ope
           </Field>
         )}
         <Field label="Description" className="col-span-6"><Textarea value={d.description ?? ''} onChange={(e) => set('description', e.target.value)} /></Field>
+        {!!booked.data?.length && <div className="col-span-6 rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-200">⚠ Date déjà réservée : {booked.data.map((x) => x.title).join(', ')}</div>}
       </div>
     </Modal>
   );

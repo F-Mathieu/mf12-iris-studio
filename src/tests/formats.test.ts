@@ -149,3 +149,14 @@ describe('numéros de photos', async () => {
     expect(normName('Dupont-Martin Élodie')).toBe('dupont martin elodie');
   });
 });
+
+describe('export Lightroom', async () => {
+  const { lightroomText, photosText } = await import('../lib/photos');
+  it('noms de fichiers sans extension, séparés par des virgules', () => {
+    expect(lightroomText([{ number: '1234', file_name: '_DSC1234.jpg' }, { number: '7', file_name: null }])).toBe('_DSC1234, 007');
+  });
+  it('orientation du tirage dans le texte des documents', () => {
+    expect(photosText({ qty: 1, photosPerUnit: 1, photos: ['12'], printOrientation: 'vertical' })).toBe('photos 012 · format vertical');
+    expect(photosText({ qty: 1, photosPerUnit: null, printOrientation: 'horizontal' })).toBe('format horizontal');
+  });
+});

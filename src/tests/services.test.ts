@@ -842,6 +842,10 @@ describe('photos de séance', () => {
     expect(it.photos).toEqual(['2', '10']);
     await setItemPhotos(it.key, ['2', '10', '1']);
     expect((await loadCart(saved.id)).items[0].photos).toEqual(['2', '10', '1']);
+    const { setItemOrientation } = await import('../services/orders');
+    await setItemOrientation(it.key, 'vertical');
+    expect((await loadCart(saved.id)).items[0].printOrientation).toBe('vertical');
+    expect(await ph.lightroomList(x.reg.family_id, x.sid, ['2', '99'])).toBe('002, 099');
     await setDelivery(saved.id, ' https://www.transfernow.net/dl/abc ', '2026-11-20');
     expect(await one('SELECT delivery_link, delivered_at FROM orders WHERE id=?', [saved.id])).toEqual({ delivery_link: 'https://www.transfernow.net/dl/abc', delivered_at: '2026-11-20' });
     // previews removed: files and rows gone, the order keeps its numbers

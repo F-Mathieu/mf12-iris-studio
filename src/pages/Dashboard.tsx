@@ -11,6 +11,8 @@ import { listSessions } from '../services/sessions';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
 import { todayIso } from '../lib/ids';
+import { reminders, type Reminder } from '../services/agenda';
+import { cx } from '../components/ui';
 
 export default function Dashboard() {
   const nav = useNavigate();
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const sessions = useAsync(() => listSessions({ includeArchived: true }), []);
   const iris = useAsync(() => irisSource(), []);
   const decl = useAsync(() => nextDeclaration(todayIso()), []);
+  const rem = useAsync(() => reminders(), []);
   const { data } = useAsync(() => dashboard(f), [f.from, f.to, f.sessionId]);
   const upcoming = (sessions.data ?? []).filter((s) => s.status === 'preparation' || s.status === 'active').slice(0, 5);
   return (
@@ -38,6 +41,7 @@ export default function Dashboard() {
               <Button size="sm" variant="gold" onClick={() => nav('/compta')}>Préparer la déclaration</Button>
             </Card>
           )}
+          {!!rem.data?.length && <RemindersCard list={rem.data} onOpen={(l) => nav(l)} onAgenda={() => nav('/agenda')} />}
           <div className="grid grid-cols-4 gap-4">
             <Stat label="Ventes validées" value={eur(data.sales)} accent sub={`${data.orders} commande(s) · panier moyen ${eur(data.avgBasket)}`} />
             <Stat label="Encaissé" value={eur(data.collected)} sub={`Reste à encaisser ${eur(data.balance)}`} />
@@ -65,5 +69,32 @@ export default function Dashboard() {
         </div>
       )}
     </>
+  );
+}
+
+const GROUPS: Record<Reminder['group'], string> = { livraison: 'Livraisons', fiche: 'Fiches jour J', echeance: 'Échéances de paiement', devis: 'Devis expirés', rappel: 'Rappels d’agenda' };
+
+/** « À faire » : overdue first (amber), then what is coming soon. */
+function RemindersCard({ list, onOpen, onAgenda }: { list: Reminder[]; onOpen: (link: string) => void; onAgenda: () => void }) {
+  const late = list.filter((r) => r.late).length;
+  return (
+    <Card className={cx(late > 0 && 'border-amber-400/40')}>
+      <CardHeader title={`À faire${late ? ` — ${late} en retard` : ''}`} subtitle="Livraisons, fiches du jour J, échéances de paiement, devis expirés, rappels de l’agenda."
+        actions={<Button size="sm" variant="ghost" onClick={onAgenda}>Agenda<ArrowRight className="size-3.5" /></Button>} />
+      <div className="grid grid-cols-2 gap-x-6 px-5 py-3">
+        {(Object.keys(GROUPS) as Reminder['group'][]).filter((g) => list.some((r) => r.group === g)).map((g) => (
+          <div key={g} className="py-2">
+            <div className="mb-1 text-[11.5px] font-medium tracking-wider text-mist-400 uppercase">{GROUPS[g]}</div>
+            {list.filter((r) => r.group === g).slice(0, 6).map((r) => (
+              <button key={r.key} type="button" disabled={!r.link} onClick={() => r.link && onOpen(r.link)}
+                className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-[13px] hover:bg-ink-800 disabled:cursor-default disabled:hover:bg-transparent">
+                <span className={cx('w-20 shrink-0 tabular', r.late ? 'text-amber-300' : 'text-mist-400')}>{fmtDate(r.date)}</span>
+                <span className="min-w-0 flex-1 truncate">{r.title}{r.detail && <span className="text-mist-500"> · {r.detail}</span>}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }

@@ -12,8 +12,9 @@ import { emailInvoice, emailOrderRecap } from '../services/mail';
 import { QuoteDialog } from '../components/QuoteDialog';
 import { OrderAttachments } from '../components/OrderAttachments';
 import { PhotoPicker } from '../components/PhotoPicker';
+import { lightroomList } from '../services/photos';
 import { PhotoLineInfo } from '../components/Configurator';
-import { setDelivery, setItemPhotos } from '../services/orders';
+import { setDelivery, setItemOrientation, setItemPhotos } from '../services/orders';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -106,7 +107,10 @@ export default function OrderDetail() {
               {cart.items.filter((i) => !i.compositionKey).map((i) => (
                 <div key={i.key} className="px-5 py-3 text-[13.5px]">
                   <div className="flex justify-between"><span>{i.productName}{i.variantName ? ` — ${i.variantName}` : ''} × {i.qty}</span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
-                  {i.photosPerUnit != null && <PhotoLineInfo i={i} onPhotos={o.status !== 'annulee' ? () => setPhotoLine(i.key) : undefined} />}
+                  {!!i.photos?.length && <button type="button" className="mt-0.5 text-[11.5px] text-mist-400 hover:text-gold-300" title="Noms de fichiers à coller dans le filtre de Lightroom Classic (Nom de fichier → Contient)"
+                    onClick={() => act(async () => navigator.clipboard.writeText(await lightroomList(o.family_id, i.photoSessionId ?? o.session_id, i.photos)), 'Liste copiée pour Lightroom')}>Copier pour Lightroom</button>}
+                  {(i.photosPerUnit != null || i.category === 'impression') && <PhotoLineInfo i={i} onPhotos={o.status !== 'annulee' && i.photosPerUnit != null ? () => setPhotoLine(i.key) : undefined}
+                    onOrientation={o.status !== 'annulee' ? (x) => act(() => setItemOrientation(i.key, x).then(d.reload)) : undefined} />}
                 </div>
               ))}
             </div>

@@ -51,6 +51,8 @@
 
 - **Étape 5 — Mariages** (`services/weddings.ts`, `services/weddingDocs.ts`, `lib/weddingTexts.ts`, `lib/weddingPdf.ts`, `pages/Weddings.tsx`, migration 17 `weddings`) : un mariage = séance de l’univers « Mariage » (créé au besoin) + couple inscrit + commande (devis brouillon, validée à la signature, `loadCart(…, false)` : pas de re-tarification). `PaymentPlan.deposit_bp/last_date` : acompte puis solde en N fois finissant le jour J (`schedule`, `hasPlan`). Contrat + CGV + fiche de renseignements / jour J en PDF ; e-mails dans Mail. Livrables (délais réglables), album (étapes datées dans `album_dates`). Testé : unitaires (règles + PDF) + aperçu navigateur. Pas de facture d’acompte distincte. CGV / contrat : modèles par défaut à faire relire.
 
+- Agenda / rappels (`services/agenda.ts`, `pages/Agenda.tsx`, migration 18) : `agenda(from,to)` agrège événements + données de l’app ; `bookedOn` (journées réservées) ; `reminders()` pour le tableau de bord. Orientation des tirages (`order_items.orientation`, `setItemOrientation`). Export Lightroom (`lightroomText`, `lightroomList`). Testé : unitaires + aperçu navigateur.
+
 ## Limites connues / non vérifié
 - **Build macOS (.dmg) non produit ici** (environnement Linux) : à lancer sur le Mac (`npm run tauri build`). Application non signée (clic droit → Ouvrir).
 - Aperçu PDF dans l'app : iframe WebKit — non vérifié visuellement sur macOS (l'enregistrement du fichier fonctionne).

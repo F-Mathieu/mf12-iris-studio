@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, IconButton, I
 import { OrderAttachments } from '../components/OrderAttachments';
 import { ALBUM_STEPS, createWedding, coupleName, deadlines, deleteWedding, getWedding, listWeddings, refreshSchedule, saveWeddingLines, setWeddingInfo, signWedding, updateWedding, weddingCart,
   WEDDING_SERVICES, WEDDING_STATUS, type AlbumStep, type WeddingInput, type WeddingRow, type WeddingServices, type WeddingStatus } from '../services/weddings';
+import { bookedOn } from '../services/agenda';
 import { emailWeddingInfo, emailWeddingQuote, weddingContract, weddingSheet } from '../services/weddingDocs';
 import { listProducts, listVariants } from '../services/catalog';
 import { listSuppliers } from '../services/suppliers';
@@ -69,8 +70,9 @@ function NextStep({ w }: { w: WeddingRow }) {
   return <div className="flex flex-wrap gap-1">{items.map(([l, d, late]) => <Badge key={l} tone={late ? 'amber' : 'neutral'}>{l}{d ? ` · ${fmtDate(d)}` : ''}</Badge>)}</div>;
 }
 
-function WeddingForm({ initial, onClose, onSave }: { initial?: Partial<WeddingInput>; onClose: () => void; onSave: (d: WeddingInput) => Promise<void> }) {
+function WeddingForm({ initial, weddingId, onClose, onSave }: { initial?: Partial<WeddingInput>; weddingId?: string; onClose: () => void; onSave: (d: WeddingInput) => Promise<void> }) {
   const [d, setD] = useState<WeddingInput>({ partner1: '', partner2: '', services: 'photo', ...initial });
+  const booked = useAsync(() => (d.date ? bookedOn(d.date, weddingId) : Promise.resolve([])), [d.date]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof WeddingInput, v: string | null) => setD((x) => ({ ...x, [k]: v }));
   return (
@@ -85,6 +87,7 @@ function WeddingForm({ initial, onClose, onSave }: { initial?: Partial<WeddingIn
         <Field label="Prestation"><Select value={d.services} onChange={(e) => set('services', e.target.value as WeddingServices)}>{Object.entries(WEDDING_SERVICES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></Field>
         <Field label="Lieu (réception)" className="col-span-2"><Input value={d.location ?? ''} onChange={(e) => set('location', e.target.value)} /></Field>
         <Field label="Notes" className="col-span-2"><Textarea rows={2} value={d.notes ?? ''} onChange={(e) => set('notes', e.target.value)} /></Field>
+        {!!booked.data?.length && <div className="col-span-2 rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-200">⚠ Date déjà réservée : {booked.data.map((x) => x.title).join(', ')}</div>}
       </div>
     </Modal>
   );
@@ -117,7 +120,7 @@ function WeddingDetail({ id }: { id: string }) {
       {tab === 'jourj' && <InfoTab w={x} reload={reload} />}
       {tab === 'livraisons' && <DeliveryTab w={x} reload={reload} />}
       {tab === 'album' && <AlbumTab w={x} reload={reload} />}
-      {edit && <WeddingForm initial={{ partner1: x.partner1, partner2: x.partner2, email: x.email, phone: x.phone, date: x.date, location: x.location, services: x.services, notes: x.notes }}
+      {edit && <WeddingForm weddingId={x.id} initial={{ partner1: x.partner1, partner2: x.partner2, email: x.email, phone: x.phone, date: x.date, location: x.location, services: x.services, notes: x.notes }}
         onClose={() => setEdit(false)} onSave={async (d) => { if (await act(() => updateWedding(id, d), 'Mariage mis à jour') !== undefined) { setEdit(false); reload(); } }} />}
     </>
   );

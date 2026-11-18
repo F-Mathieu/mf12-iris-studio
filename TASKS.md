@@ -2,6 +2,12 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.2.0)
+- **Agenda** (menu Agenda, migration 18 `calendar_events`) : vue mois / à venir ; événements (prestation, livraison, RDV, perso) avec rappel N jours avant et « journée réservée » ; affiche aussi séances, RDV des inscrits, mariages (option si non signé), livrables J+15/J+30, échéances de paiement, fin de validité des devis ; alerte « date déjà réservée » à la création d’un mariage, d’une séance, d’un événement.
+- **Rappels du tableau de bord** (« À faire ») : livraisons en retard / sous 7 jours, fiches jour J non reçues (mariage sous 45 jours), échéances impayées / sous 14 jours, devis expirés, rappels d’agenda.
+- **Orientation des tirages** (vertical / horizontal) choisie sur la ligne (vente et commande validée), sur documents et postproduction.
+- **Copier pour Lightroom** : noms de fichiers des photos notées (galerie) ou d’une ligne de commande, à coller dans le filtre Lightroom Classic.
+
 ## Publié en v2.2.0 (à tester sur Mac)
 - **Étape 3 Photos de séance** (migration 16) : Séance → Photos (import du dossier de séance = un sous-dossier par famille, ou par famille ; aperçus 1600/400 px hors base dans « apercus » ; notes 1 à 5 étoiles comme Lightroom ; CSV Pic-Time ; suppression des aperçus sans toucher aux commandes). Produit : « photos à choisir » (aucune / 1 par unité / pack de N / toutes). Vente : onglet Photos (galerie + favoris), choix des photos par ligne (galerie ou n° saisis depuis les étoiles Lightroom), « N à choisir » ; photos d’une autre séance de la famille. Commande validée : n° complétables sans avoir. Livraison : lien TransferNow + date. N° sur récap, devis, facture, postproduction.
   - À vérifier sur Mac : import d’un dossier (permissions lecture de dossier / suppression), fluidité avec 30 photos.

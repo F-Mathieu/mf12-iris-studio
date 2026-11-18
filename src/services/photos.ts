@@ -4,7 +4,7 @@
  */
 import { auditStmt, batch, nowIso, one, run, sel, uid } from './base';
 import { makePreviews, photoStore } from '../lib/photoStore';
-import { normName, parsePhotoNumbers, photoNumber } from '../lib/photos';
+import { lightroomText, normName, parsePhotoNumbers, photoNumber } from '../lib/photos';
 
 export interface SessionPhoto { id: string; session_id: string; registration_id: string; number: string; file_name: string | null; width: number | null; height: number | null; rating: number }
 export const PHOTO_EXT = ['jpg', 'jpeg', 'png', 'webp'];
@@ -76,6 +76,14 @@ export const previewsUsage = () =>
      FROM session_photos p JOIN sessions s ON s.id=p.session_id GROUP BY s.id ORDER BY bytes DESC`);
 
 /** Rating 0 (none) to 5 stars, as in Lightroom. */
+/** Lightroom list for photos of a family in a session (numbers of an order line, or photos rated ≥ minRating). */
+export async function lightroomList(familyId: string, sessionId: string, numbers?: string[] | null, minRating = 1): Promise<string> {
+  const reg = await one<{ id: string }>('SELECT id FROM session_registrations WHERE family_id=? AND session_id=?', [familyId, sessionId]);
+  const photos = reg ? await listPhotos(reg.id) : [];
+  const list = numbers ? numbers.map((n) => photos.find((p) => p.number === n) ?? { number: n, file_name: null }) : photos.filter((p) => p.rating >= minRating);
+  return lightroomText(list);
+}
+
 export const setRating = (id: string, stars: number) => run('UPDATE session_photos SET rating=? WHERE id=?', [Math.max(0, Math.min(5, Math.round(stars))), id]);
 
 /**

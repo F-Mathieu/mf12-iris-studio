@@ -64,7 +64,7 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
   if (!o) throw new Error('Commande introuvable');
   const comps = await sel<{ id: string; style_id: string | null; style_name: string; iris_count: number; participant_ids: string; participant_names: string | null; instructions: string | null; fee_cents: number; orientation: string | null }>(
     'SELECT * FROM order_compositions WHERE order_id=? ORDER BY sort', [orderId]);
-  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number; parent_item_id: string | null; photos: string | null; photo_session_id: string | null; ppu: number | null }>(
+  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number; parent_item_id: string | null; photos: string | null; photo_session_id: string | null; ppu: number | null; orientation: string | null }>(
     'SELECT i.*, (SELECT photos_per_unit FROM products p WHERE p.id=i.product_id) ppu FROM order_items i WHERE i.order_id=? ORDER BY i.sort', [orderId]);
   const disc = await sel<{ label: string; amount_cents: number; reason: string | null }>("SELECT * FROM order_discounts WHERE order_id=? AND kind='manual'", [orderId]);
   const cart: Cart = {
@@ -73,7 +73,8 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
       participantIds: JSON.parse(c.participant_ids), participantNames: c.participant_names ?? '', instructions: c.instructions ?? '', orientation: (c.orientation as Orientation | null) ?? null })),
     items: items.map((i) => ({ key: i.id, variantId: i.variant_id, productId: i.product_id, category: i.category, productName: i.product_name,
       variantName: i.variant_name, compositionKey: i.composition_id, parentKey: i.parent_item_id, qty: i.qty, unitPriceCents: i.unit_price_cents, unitCostCents: i.unit_cost_cents,
-      photos: i.photos ? JSON.parse(i.photos) : null, photoSessionId: i.photo_session_id, photosPerUnit: i.ppu })),
+      photos: i.photos ? JSON.parse(i.photos) : null, photoSessionId: i.photo_session_id, photosPerUnit: i.ppu,
+      printOrientation: (i.orientation as 'vertical' | 'horizontal' | null) ?? null })),
     manual: disc.map((d) => ({ label: d.label, amount_cents: d.amount_cents, reason: d.reason })),
     notes: o.notes ?? '', desiredDelivery: o.desired_delivery, paymentPlan: o.payment_plan ? JSON.parse(o.payment_plan) : null,
   };
@@ -143,12 +144,12 @@ export async function saveCart(cart: Cart, target: 'brouillon' | 'validee', corr
     params: [c.key, id, c.styleId, c.styleName, c.irisCount, JSON.stringify(c.participantIds), c.participantNames, c.instructions || null, c.feeCents, n, c.orientation ?? null],
   }));
   cart.items.forEach((i, n) => stmts.push({
-    sql: `INSERT INTO order_items (id, order_id, composition_id, variant_id, product_id, category, product_name, variant_name, qty, unit_price_cents, line_total_cents, unit_cost_cents, sort, parent_item_id, photos, photo_session_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, parent_item_id=excluded.parent_item_id, qty=excluded.qty,
+    sql: `INSERT INTO order_items (id, order_id, composition_id, variant_id, product_id, category, product_name, variant_name, qty, unit_price_cents, line_total_cents, unit_cost_cents, sort, parent_item_id, photos, photo_session_id, orientation)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, parent_item_id=excluded.parent_item_id, qty=excluded.qty,
           unit_price_cents=excluded.unit_price_cents, line_total_cents=excluded.line_total_cents, unit_cost_cents=excluded.unit_cost_cents, sort=excluded.sort,
-          photos=excluded.photos, photo_session_id=excluded.photo_session_id`,
+          photos=excluded.photos, photo_session_id=excluded.photo_session_id, orientation=excluded.orientation`,
     params: [i.key, id, i.compositionKey ?? null, i.variantId, i.productId, i.category, i.productName, i.variantName ?? null, i.qty, i.unitPriceCents, i.qty * i.unitPriceCents, i.unitCostCents, n, i.parentKey ?? null,
-      i.photos?.length ? JSON.stringify(i.photos) : null, i.photoSessionId ?? null],
+      i.photos?.length ? JSON.stringify(i.photos) : null, i.photoSessionId ?? null, i.printOrientation ?? null],
   }));
   stmts.push({ sql: 'DELETE FROM order_discounts WHERE order_id=?', params: [id] });
   for (const d of t.discounts)
@@ -229,6 +230,13 @@ export async function setItemPhotos(orderItemId: string, photos: string[]) {
     { sql: 'UPDATE order_items SET photos=? WHERE id=?', params: [photos.length ? JSON.stringify(photos) : null, orderItemId] },
     auditStmt('order', it.order_id, 'photos', { line: it.product_name, photos }),
   ]);
+}
+
+/** Orientation of a photo print (vertical / horizontal), also after validation: no price change. */
+export async function setItemOrientation(orderItemId: string, orientation: 'vertical' | 'horizontal' | null) {
+  const it = await one<{ order_id: string; product_name: string }>('SELECT order_id, product_name FROM order_items WHERE id=?', [orderItemId]);
+  if (!it) throw new Error('Ligne introuvable');
+  await batch([{ sql: 'UPDATE order_items SET orientation=? WHERE id=?', params: [orientation, orderItemId] }, auditStmt('order', it.order_id, 'orientation', { line: it.product_name, orientation })]);
 }
 
 /** Delivery of the files: TransferNow (or Pic-Time) link and date sent. */

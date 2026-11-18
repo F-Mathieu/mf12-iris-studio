@@ -493,19 +493,30 @@ function ItemLine({ i, locked, update, child, onPhotos }: { i: Cart['items'][num
       <span className="w-[72px] text-right font-medium tabular">{eur(i.qty * i.unitPriceCents)}</span>
       {!locked && <IconButton title="Retirer" className="size-7" onClick={() => update((c) => ({ ...c, items: c.items.filter((x) => x.key !== i.key && x.parentKey !== i.key) }))}><Minus className="size-3.5" /></IconButton>}
     </div>
-    {i.photosPerUnit != null && <PhotoLineInfo i={i} onPhotos={onPhotos} />}
+    {(i.photosPerUnit != null || (i.category === 'impression' && !i.compositionKey)) && <PhotoLineInfo i={i} onPhotos={onPhotos}
+      onOrientation={locked ? undefined : (o) => update((c) => ({ ...c, items: c.items.map((x) => (x.key === i.key ? { ...x, printOrientation: o } : x)) }))} />}
     </>
   );
 }
 
 /** Photos of a cart line: numbers chosen, how many are still « à choisir ». */
-export function PhotoLineInfo({ i, onPhotos }: { i: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }; onPhotos?: () => void }) {
-  if (i.photosPerUnit === 0) return <div className="pl-1 text-[11.5px] text-mist-400">Toutes les photos</div>;
+export function PhotoLineInfo({ i, onPhotos, onOrientation }: { i: { qty: number; category: string; photosPerUnit?: number | null; photos?: string[] | null; printOrientation?: string | null }; onPhotos?: () => void; onOrientation?: (o: 'vertical' | 'horizontal' | null) => void }) {
+  const orient = i.category === 'impression' && (
+    <span className="flex shrink-0 gap-0.5" title="Format du tirage (3:2)">
+      {(['vertical', 'horizontal'] as const).map((o) => (
+        <button key={o} type="button" disabled={!onOrientation} onClick={() => onOrientation?.(i.printOrientation === o ? null : o)}
+          className={cx('rounded border px-1.5 py-px text-[11px]', i.printOrientation === o ? 'border-gold-400 bg-gold-400/20 text-gold-100' : 'border-ink-600 text-mist-400', !onOrientation && i.printOrientation !== o && 'hidden')}>
+          {o === 'vertical' ? '▯ Vertical' : '▭ Horizontal'}</button>
+      ))}
+    </span>
+  );
+  if (i.photosPerUnit === 0) return <div className="flex items-center gap-2 pl-1 text-[11.5px] text-mist-400"><span className="flex-1">Toutes les photos</span>{orient}</div>;
   const missing = photosMissing(i);
   return (
     <div className="flex items-center gap-2 pl-1 text-[11.5px]" onClick={(e) => e.stopPropagation()}>
       <span className="min-w-0 flex-1 truncate text-mist-300">{i.photos?.length ? `Photos ${i.photos.map(fmtPhoto).join(', ')}` : 'Photos'}
         {missing > 0 && <span className="text-amber-300"> · {missing} à choisir</span>}</span>
+      {orient}
       {onPhotos && <button type="button" className="text-gold-300 hover:text-gold-200" onClick={onPhotos}>{i.photos?.length ? 'Modifier' : 'Choisir'}</button>}
     </div>
   );
