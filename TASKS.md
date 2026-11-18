@@ -2,7 +2,7 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
-## Non publié (branche claude/gracious-gates-xu2t2t, après v2.1.0)
+## Publié en v2.1.1 (à tester sur Mac)
 - Produits et variantes dans **plusieurs univers** (cases à cocher ; aucun = commun ; variante sans univers = comme son produit). Produits existants → Iris. Migration 13 (`catalog_universes`).
 - **Pièces jointes de commande** (devis signé, captures d’e-mails, bons de commande, justificatifs) : ajout de fichiers ou collage ⌘V d’une capture, type, note, aperçu, copie. Migration 14 (`order_attachments`). À vérifier sur Mac : collage ⌘V et aperçu PDF.
 
