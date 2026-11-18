@@ -824,8 +824,14 @@ describe('photos de séance', () => {
     expect(store.files.size).toBe(6); // preview + thumbnail, outside the database
     await ph.importPhotos(x.sid, x.reg.id, [{ name: '002.jpg', bytes: b(9) }]); // re-import replaces
     expect((await ph.listPhotos(x.reg.id)).length).toBe(3);
-    const fav = await ph.importFavorites(x.reg.id, 'Filename\n"002.jpg"\n"010.jpg"\n"099.jpg"');
+    const p1 = (await ph.listPhotos(x.reg.id))[0];
+    await ph.setRating(p1.id, 4);
+    await ph.setRating((await ph.listPhotos(x.reg.id))[2].id, 3);
+    const fav = await ph.importFavorites(x.reg.id, 'Filename\n"002.jpg"\n"010.jpg"\n"099.jpg"', 2);
     expect(fav).toEqual({ marked: 2, unknown: ['99'] });
+    expect((await ph.listPhotos(x.reg.id)).map((p) => [p.number, p.rating])).toEqual([['1', 4], ['2', 2], ['10', 3]]); // higher app rating kept
+    await ph.setRating(p1.id, 9); expect((await ph.listPhotos(x.reg.id))[0].rating).toBe(5);
+    await ph.setRating(p1.id, 0);
     expect((await ph.photoCounts(x.sid))[0]).toMatchObject({ n: 3, fav: 2 });
     expect(await ph.previewsUsage()).toEqual([expect.objectContaining({ session_id: x.sid, photos: 3, bytes: 6 })]); // preview + thumbnail sizes
     // sale: pack of 5 digital files, 2 photos chosen now, the others later (validated order)

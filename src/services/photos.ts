@@ -6,7 +6,7 @@ import { auditStmt, batch, nowIso, one, run, sel, uid } from './base';
 import { makePreviews, photoStore } from '../lib/photoStore';
 import { normName, parsePhotoNumbers, photoNumber } from '../lib/photos';
 
-export interface SessionPhoto { id: string; session_id: string; registration_id: string; number: string; file_name: string | null; width: number | null; height: number | null; favorite: number }
+export interface SessionPhoto { id: string; session_id: string; registration_id: string; number: string; file_name: string | null; width: number | null; height: number | null; rating: number }
 export const PHOTO_EXT = ['jpg', 'jpeg', 'png', 'webp'];
 
 const dir = (sessionId: string, registrationId?: string) => `${sessionId}/${registrationId ? registrationId + '/' : ''}`;
@@ -15,9 +15,9 @@ const filePath = (p: Pick<SessionPhoto, 'session_id' | 'registration_id' | 'numb
 export const listPhotos = (registrationId: string) =>
   sel<SessionPhoto>('SELECT * FROM session_photos WHERE registration_id=? ORDER BY CAST(number AS INTEGER), number', [registrationId]);
 
-/** Photo count / favorites per registration of a session. */
+/** Photo count / rated photos (≥ 1 star) per registration of a session. */
 export const photoCounts = (sessionId: string) =>
-  sel<{ registration_id: string; n: number; fav: number }>('SELECT registration_id, count(*) n, sum(favorite) fav FROM session_photos WHERE session_id=? GROUP BY registration_id', [sessionId]);
+  sel<{ registration_id: string; n: number; fav: number }>('SELECT registration_id, count(*) n, sum(rating > 0) fav FROM session_photos WHERE session_id=? GROUP BY registration_id', [sessionId]);
 
 /** Sessions where this family has a registration (current first), with their photo count: photos of another session can go on a line. */
 export const familyPhotoSessions = (familyId: string) =>
@@ -26,7 +26,7 @@ export const familyPhotoSessions = (familyId: string) =>
      FROM session_registrations r JOIN sessions s ON s.id=r.session_id WHERE r.family_id=? ORDER BY COALESCE(s.date, s.created_at) DESC`, [familyId]);
 
 /**
- * Imports the exported files of one family (re-importing a number replaces its preview, favorite kept).
+ * Imports the exported files of one family (re-importing a number replaces its preview, rating kept).
  * Files without a number in their name are skipped.
  */
 export interface PhotoFile { name: string; bytes?: Uint8Array; read?: () => Promise<Uint8Array> }
@@ -75,18 +75,19 @@ export const previewsUsage = () =>
     `SELECT s.id session_id, s.name session_name, s.date, s.status, count(*) photos, COALESCE(sum(p.size),0) bytes
      FROM session_photos p JOIN sessions s ON s.id=p.session_id GROUP BY s.id ORDER BY bytes DESC`);
 
-export const setFavorite = (id: string, on: boolean) => run('UPDATE session_photos SET favorite=? WHERE id=?', [on ? 1 : 0, id]);
+/** Rating 0 (none) to 5 stars, as in Lightroom. */
+export const setRating = (id: string, stars: number) => run('UPDATE session_photos SET rating=? WHERE id=?', [Math.max(0, Math.min(5, Math.round(stars))), id]);
 
-/** Favorites from a Pic-Time CSV (or any list of file names / numbers): marks them, returns the numbers not found. */
-export async function importFavorites(registrationId: string, text: string, replace = true): Promise<{ marked: number; unknown: string[] }> {
+/**
+ * Favorites from a Pic-Time CSV (or any list of file names / numbers): the listed photos get at least `stars` stars
+ * (ratings given in the app are kept if higher). Returns the numbers not found.
+ */
+export async function importFavorites(registrationId: string, text: string, stars = 1): Promise<{ marked: number; unknown: string[] }> {
   const nums = parsePhotoNumbers(text);
-  const photos = await listPhotos(registrationId);
-  const known = new Set(photos.map((p) => p.number));
-  await batch([
-    ...(replace ? [{ sql: 'UPDATE session_photos SET favorite=0 WHERE registration_id=?', params: [registrationId] }] : []),
-    ...nums.filter((n) => known.has(n)).map((n) => ({ sql: 'UPDATE session_photos SET favorite=1 WHERE registration_id=? AND number=?', params: [registrationId, n] })),
-  ]);
-  return { marked: nums.filter((n) => known.has(n)).length, unknown: nums.filter((n) => !known.has(n)) };
+  const known = new Set((await listPhotos(registrationId)).map((p) => p.number));
+  const ok = nums.filter((n) => known.has(n)), r = Math.max(1, Math.min(5, stars));
+  await batch(ok.map((n) => ({ sql: 'UPDATE session_photos SET rating=max(rating, ?) WHERE registration_id=? AND number=?', params: [r, registrationId, n] })));
+  return { marked: ok.length, unknown: nums.filter((n) => !known.has(n)) };
 }
 
 const urls = new Map<string, string>();

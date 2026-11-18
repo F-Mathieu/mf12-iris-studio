@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { FolderOpen, HardDrive, Images, ImagePlus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, DataTable, Empty, IconButton, Input, Modal, Textarea, useAsync, useConfirm, cx } from './ui';
-import { PhotoGallery } from './PhotoGallery';
-import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, previewsUsage, setFavorite, type PhotoFile } from '../services/photos';
+import { PhotoGallery, Stars } from './PhotoGallery';
+import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, previewsUsage, setRating, type PhotoFile } from '../services/photos';
 import type { RegistrationRow } from '../services/registrations';
 import { decodeCsvBytes } from '../lib/csv';
 import { pickFiles, pickPhotoFolder } from '../lib/files';
@@ -77,7 +77,7 @@ export function SessionPhotos({ sessionId, regs }: { sessionId: string; regs: Re
           columns={[
             { key: 'f', header: 'Famille', sort: (r) => r.family_name, cell: (r) => <span className="font-medium">{famName(r)}</span> },
             { key: 'n', header: 'Photos', align: 'right', sort: (r) => count(r.id)?.n ?? 0, cell: (r) => count(r.id)?.n ?? <span className="text-mist-500">—</span> },
-            { key: 'fav', header: 'Favoris', align: 'right', sort: (r) => count(r.id)?.fav ?? 0, cell: (r) => (count(r.id)?.fav ? <Badge tone="gold"><Star className="size-3" />{count(r.id)!.fav}</Badge> : '') },
+            { key: 'fav', header: 'Notées', align: 'right', sort: (r) => count(r.id)?.fav ?? 0, cell: (r) => (count(r.id)?.fav ? <Badge tone="gold"><Star className="size-3" />{count(r.id)!.fav}</Badge> : '') },
             { key: 'a', header: '', align: 'right', cell: (r) => (
               <div className="flex justify-end gap-1">
                 <Button size="sm" variant="subtle" icon={<Images className="size-3.5" />} disabled={!count(r.id)?.n} onClick={() => setGallery(r)}>Voir</Button>
@@ -105,23 +105,26 @@ export function SessionPhotos({ sessionId, regs }: { sessionId: string; regs: Re
 function GalleryDialog({ reg, onClose }: { reg: RegistrationRow; onClose: () => void }) {
   const p = useAsync(() => listPhotos(reg.id), [reg.id]);
   return (
-    <Modal open onClose={onClose} size="xl" title={`Photos — ${famName(reg)}`} subtitle="Étoile = favori (espace dans la visionneuse). Double-clic pour agrandir, flèches pour naviguer.">
-      <PhotoGallery photos={p.data ?? []} onFavorite={(x, on) => act(() => setFavorite(x.id, on).then(p.reload))} />
+    <Modal open onClose={onClose} size="xl" title={`Photos — ${famName(reg)}`} subtitle="1 à 5 étoiles comme dans Lightroom (touches 1–5, 0 pour retirer, dans la visionneuse). Double-clic pour agrandir, flèches pour naviguer.">
+      <PhotoGallery photos={p.data ?? []} onRate={(x, n) => act(() => setRating(x.id, n).then(p.reload))} />
     </Modal>
   );
 }
 
 function FavoritesDialog({ reg, onClose }: { reg: RegistrationRow; onClose: () => void }) {
   const [text, setText] = useState('');
+  const [stars, setStars] = useState(1);
   return (
     <Modal open onClose={onClose} title={`Favoris — ${famName(reg)}`} subtitle="Pic-Time : Favoris du client → télécharger la liste CSV. Ou collez les n° / noms de fichiers (12, 15, 18-20…)."
       footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant="gold" disabled={!text.trim()} onClick={async () => {
-        const r = await act(() => importFavorites(reg.id, text), (x) => `${x.marked} favori(s)${x.unknown.length ? ` — introuvables : ${x.unknown.join(', ')}` : ''}`);
+        const r = await act(() => importFavorites(reg.id, text, stars), (x) => `${x.marked} photo(s) notée(s)${x.unknown.length ? ` — introuvables : ${x.unknown.join(', ')}` : ''}`);
         if (r) onClose();
-      }}>Remplacer les favoris</Button></>}>
+      }}>Appliquer</Button></>}>
       <div className="space-y-3">
         <Button size="sm" variant="subtle" onClick={async () => { const [f] = await pickFiles([{ name: 'CSV', extensions: ['csv', 'txt'] }]); if (f) setText(decodeCsvBytes(f.bytes)); }}>Choisir le fichier CSV Pic-Time…</Button>
         <Textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'012.jpg, 015.jpg\nou : 12 15 18-20'} />
+        <div className="flex items-center gap-3 text-[13px]">Note donnée à ces photos : <Stars value={stars} onRate={(n) => setStars(Math.max(1, n))} size="size-5" />
+          <span className="text-[12px] text-mist-400">(une note plus haute déjà donnée est gardée)</span></div>
       </div>
     </Modal>
   );

@@ -21,7 +21,7 @@ import { uid } from '../lib/ids';
 import { act } from '../lib/act';
 import { PhotoGallery } from './PhotoGallery';
 import { PhotoPicker } from './PhotoPicker';
-import { listPhotos, setFavorite } from '../services/photos';
+import { listPhotos, setRating } from '../services/photos';
 import { fmtPhoto, photosMissing } from '../lib/photos';
 
 type Mode = 'admin' | 'client';
@@ -209,7 +209,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
         )}
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {tab === 'photos' && (
-            <PhotoGallery photos={photosList} big={big} onFavorite={(p, on) => act(async () => { await setFavorite(p.id, on); setPhotosList((l) => l.map((x) => (x.id === p.id ? { ...x, favorite: on ? 1 : 0 } : x))); })} />
+            <PhotoGallery photos={photosList} big={big} onRate={(p, n) => act(async () => { await setRating(p.id, n); setPhotosList((l) => l.map((x) => (x.id === p.id ? { ...x, rating: n } : x))); })} />
           )}
           {tab === 'impression' && data.data?.hasCreations && (() => {
             const adv = adviceFor(comp?.irisCount);
