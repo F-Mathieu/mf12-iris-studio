@@ -11,6 +11,7 @@ import { fmtDateTime } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { act } from '../lib/act';
 import { PreviewsUsageCard } from '../components/SessionPhotos';
+import { DEFAULT_PROOF_MAIL } from '../services/proofs';
 import { DEFAULT_PAYMENT_FOLLOWUP, DEFAULT_QUOTE_FOLLOWUP, DEFAULT_REVIEW_MAIL, FOLLOWUP_VARS } from '../lib/followUpMail';
 import { DEFAULT_WEDDING_CGV, DEFAULT_WEDDING_CONTRACT, DEFAULT_WEDDING_INFO_MAIL, DEFAULT_WEDDING_QUOTE_MAIL, WEDDING_VARS } from '../lib/weddingTexts';
 import { useNavigate } from 'react-router-dom';
@@ -116,7 +117,7 @@ export default function Settings() {
           </Card>
         </div>
         <Card className="col-span-2">
-          <CardHeader title="Relances & avis" subtitle={`E-mails préparés en un clic depuis le tableau de bord. Variables : ${FOLLOWUP_VARS}.`} />
+          <CardHeader title="Relances, avis & BAT" subtitle={`E-mails préparés en un clic depuis le tableau de bord. Variables : ${FOLLOWUP_VARS}.`} />
           <div className="grid grid-cols-3 gap-4 p-5">
             <Field label="Lien vers votre fiche d’avis Google" hint="Google Business Profile → « Demander des avis » → copier le lien" className="col-span-3"><Input value={v('google_review_url')} placeholder="https://g.page/r/…/review" onChange={(e) => setDraft({ ...draft, google_review_url: e.target.value })} /></Field>
             <Field label="Relancer un devis après (jours)"><Input type="number" min={1} value={v('quote_followup_days') || '7'} onChange={(e) => setDraft({ ...draft, quote_followup_days: e.target.value })} /></Field>
@@ -125,6 +126,7 @@ export default function Settings() {
             <Field label="Relance d’un devis"><Textarea rows={10} value={v('quote_followup_mail') || DEFAULT_QUOTE_FOLLOWUP} onChange={(e) => setDraft({ ...draft, quote_followup_mail: e.target.value })} /></Field>
             <Field label="Relance d’une échéance"><Textarea rows={10} value={v('payment_followup_mail') || DEFAULT_PAYMENT_FOLLOWUP} onChange={(e) => setDraft({ ...draft, payment_followup_mail: e.target.value })} /></Field>
             <Field label="Demande d’avis (questionnaire + lien Google)"><Textarea rows={10} value={v('review_mail') || DEFAULT_REVIEW_MAIL} onChange={(e) => setDraft({ ...draft, review_mail: e.target.value })} /></Field>
+            <Field label="Envoi d’un BAT (bon à tirer)" hint="Variables : {bonjour} {numero} {seance} {liste} {signature}" className="col-span-3"><Textarea rows={9} value={v('proof_mail') || DEFAULT_PROOF_MAIL} onChange={(e) => setDraft({ ...draft, proof_mail: e.target.value })} /></Field>
           </div>
         </Card>
         <Card className="col-span-2">

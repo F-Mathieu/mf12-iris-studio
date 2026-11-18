@@ -1027,3 +1027,29 @@ describe('relances, avis, statistiques par univers', () => {
     expect(mariage.share_bp + iris.share_bp).toBe(10000);
   });
 });
+
+describe('BAT', () => {
+  it('copie filigranée, versions (la précédente est remplacée), validé / corrections, rappel sans réponse', async () => {
+    const P = await import('../services/proofs');
+    const { reminders } = await import('../services/agenda');
+    const { todayIso } = await import('../lib/ids');
+    const { addDays } = await import('../lib/weddingTexts');
+    const x = await setupSale();
+    const o = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), items: [{ key: uid(), variantId: x.acry40.id, productId: x.acry.id, category: 'impression', productName: 'Acrylique', variantName: '40 × 40 cm', qty: 1, unitPriceCents: 18900, unitCostCents: 6000 }] }, 'validee');
+    await expect(P.addProofs(o.id, [{ name: 'montage.tif', bytes: new Uint8Array([1]) }])).rejects.toThrow('JPEG');
+    expect(await P.addProofs(o.id, [{ name: 'Acrylique 40x40.jpg', bytes: new Uint8Array([1, 2]) }, { name: 'Tirage 13x18.jpg', bytes: new Uint8Array([3]) }])).toBe(2);
+    let l = await P.listProofs(o.id);
+    expect(l.map((p) => [p.label, p.version, p.status])).toEqual([['Acrylique 40x40', 1, 'a_envoyer'], ['Tirage 13x18', 1, 'a_envoyer']]);
+    expect(await P.proofImage(l[0].id)).toEqual(new Uint8Array([1, 2]));
+    // sent 5 days ago (as emailProofs would do), corrections, new version
+    await run("UPDATE proofs SET status='envoye', sent_at=?", [addDays(todayIso(), -5)]);
+    expect((await reminders()).filter((r) => r.group === 'bat').map((r) => r.late)).toEqual([false, false]);
+    await P.setProofStatus(l[0].id, 'corrections', 'recadrer un peu à gauche');
+    await P.addProofs(o.id, [{ name: 'acry-v2.jpg', bytes: new Uint8Array([9]) }], 'Acrylique 40x40');
+    await P.setProofStatus(l[1].id, 'valide');
+    l = await P.listProofs(o.id);
+    expect(l.map((p) => [p.label, p.version, p.status])).toEqual([['Acrylique 40x40', 2, 'a_envoyer'], ['Acrylique 40x40', 1, 'remplace'], ['Tirage 13x18', 1, 'valide']]);
+    expect((await reminders()).filter((r) => r.group === 'bat').length).toBe(0);
+    expect((await sel<{ action: string }>("SELECT action FROM audit_logs WHERE entity='order' AND entity_id=? AND action LIKE 'bat%'", [o.id])).length).toBe(5);
+  });
+});

@@ -77,7 +77,7 @@ export default function Dashboard() {
   );
 }
 
-const GROUPS: Record<Reminder['group'], string> = { livraison: 'Livraisons', fiche: 'Fiches jour J', echeance: 'Échéances de paiement', devis: 'Devis expirés', rappel: 'Rappels d’agenda' };
+const GROUPS: Record<Reminder['group'], string> = { livraison: 'Livraisons', fiche: 'Fiches jour J', echeance: 'Échéances de paiement', devis: 'Devis expirés', bat: 'BAT en attente de validation', rappel: 'Rappels d’agenda' };
 
 /** « À faire » : overdue first (amber), then what is coming soon. */
 function RemindersCard({ list, onOpen, onAgenda }: { list: Reminder[]; onOpen: (link: string) => void; onAgenda: () => void }) {

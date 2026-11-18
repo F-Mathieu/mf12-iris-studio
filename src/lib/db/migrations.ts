@@ -379,6 +379,16 @@ CREATE TABLE calendar_events (
 CREATE INDEX idx_events_date ON calendar_events(date);
 ALTER TABLE order_items ADD COLUMN orientation TEXT;
 `,
+  /* 19 — BAT (bons à tirer) d’une commande : copie basse définition filigranée (base64, dans la base → sauvegardes),
+        versions, suivi envoyé / validé / corrections demandées. L’original reste dans Lightroom. */ `
+CREATE TABLE proofs (
+  id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  label TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, file_name TEXT, data TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'a_envoyer' CHECK (status IN ('a_envoyer','envoye','valide','corrections','remplace')),
+  sent_at TEXT, answered_at TEXT, comment TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX idx_proofs_order ON proofs(order_id);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

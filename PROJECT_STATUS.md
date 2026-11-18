@@ -55,6 +55,8 @@
 
 - Statistiques par univers (`universeStats`, somme de `profitability` par séance). Relances & avis (`services/followups.ts`, `lib/followUpMail.ts`) : candidats calculés, envoi = `composeMail` + audit_logs (`relance_devis`, `relance_paiement`, `demande_avis`). Testé : unitaires (sauf l’ouverture de Mail) + aperçu navigateur.
 
+- BAT (`services/proofs.ts`, `lib/proof.ts`, `components/OrderProofs.tsx`, migration 19) : copie filigranée seule stockée (base64), pas l’original. Protection minimale : une capture d’écran reste possible. Testé : unitaires + aperçu navigateur (filigrane vérifié à l’image).
+
 ## Limites connues / non vérifié
 - **Build macOS (.dmg) non produit ici** (environnement Linux) : à lancer sur le Mac (`npm run tauri build`). Application non signée (clic droit → Ouvrir).
 - Aperçu PDF dans l'app : iframe WebKit — non vérifié visuellement sur macOS (l'enregistrement du fichier fonctionne).

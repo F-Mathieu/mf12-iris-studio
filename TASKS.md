@@ -8,6 +8,8 @@
 - **Statistiques par univers** (Rentabilité → « Par univers », par année) : CA, part du CA, panier moyen, marge et taux, frais, cotisations, bénéfice net estimé.
 - **Relances & avis** (tableau de bord) : devis sans réponse (après N jours), échéances impayées, demande d’avis N jours après la livraison (questionnaire + lien Google) ; un clic prépare l’e-mail dans Mail, noté dans l’historique ; ✕ = ne pas relancer. Textes et délais dans Paramètres → Relances & avis.
 
+- **BAT** (commande validée, migration 19 `proofs`) : import du fichier final JPEG/PNG → copie 1400 px, JPEG compressé, filigrane diagonal répété + bandeau « BAT — ne pas imprimer » ; envoi par Mail ; Validé / Corrections (commentaire) / Nouvelle version (l’ancienne passe « remplacé ») ; historique ; rappel « BAT sans réponse » (3 jours, en retard à 7). Texte de l’e-mail dans Paramètres → Relances, avis & BAT.
+
 ## Publié en v2.3.0 (à tester sur Mac)
 - **Agenda** (menu Agenda, migration 18 `calendar_events`) : vue mois / à venir ; événements (prestation, livraison, RDV, perso) avec rappel N jours avant et « journée réservée » ; affiche aussi séances, RDV des inscrits, mariages (option si non signé), livrables J+15/J+30, échéances de paiement, fin de validité des devis ; alerte « date déjà réservée » à la création d’un mariage, d’une séance, d’un événement.
 - **Rappels du tableau de bord** (« À faire ») : livraisons en retard / sous 7 jours, fiches jour J non reçues (mariage sous 45 jours), échéances impayées / sous 14 jours, devis expirés, rappels d’agenda.

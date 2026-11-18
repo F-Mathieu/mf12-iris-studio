@@ -98,7 +98,7 @@ export async function bookedOn(date: string, exceptWeddingId?: string): Promise<
   return (await agenda(date, date)).filter((x) => x.blocks && !(exceptWeddingId && x.key === `w:${exceptWeddingId}`));
 }
 
-export interface Reminder { key: string; group: 'livraison' | 'fiche' | 'echeance' | 'devis' | 'rappel'; title: string; date: string; late: boolean; link?: string | null; detail?: string | null }
+export interface Reminder { key: string; group: 'livraison' | 'fiche' | 'echeance' | 'devis' | 'bat' | 'rappel'; title: string; date: string; late: boolean; link?: string | null; detail?: string | null }
 
 /** Dashboard reminders: overdue or soon (deliveries, information sheets, instalments, quotes, agenda reminders). */
 export async function reminders(today = nowIso().slice(0, 10)): Promise<Reminder[]> {
@@ -119,6 +119,9 @@ export async function reminders(today = nowIso().slice(0, 10)): Promise<Reminder
   for (const w of await sel<{ id: string; partner1: string; partner2: string | null; date: string }>(
     `SELECT id, partner1, partner2, date FROM weddings WHERE status='signe' AND info_received_at IS NULL AND date BETWEEN ? AND ?`, [today, addDays(today, 45)]))
     out.push({ key: `fi:${w.id}`, group: 'fiche', title: `Fiche jour J à recevoir — ${[w.partner1, w.partner2].filter(Boolean).join(' & ')}`, date: w.date, late: w.date <= addDays(today, 30), link: `/mariages/${w.id}` });
+  // BAT sent 3 days ago or more, still without answer (late after 7 days)
+  for (const p of await (await import('./proofs')).pendingProofs())
+    if (p.sent_at <= addDays(today, -3)) out.push({ key: `bat:${p.order_id}:${p.label}`, group: 'bat', title: `BAT sans réponse — ${p.family} (${p.label})`, date: p.sent_at, late: p.sent_at <= addDays(today, -7), link: `/commandes/${p.order_id}`, detail: `envoyé, commande ${p.number}` });
   return out.sort((a, b) => Number(b.late) - Number(a.late) || a.date.localeCompare(b.date));
 }
 
