@@ -5,6 +5,9 @@
 ## Non publié (branche claude/gracious-gates-xu2t2t, après v2.1.2)
 - **Étape 3 Photos de séance** (migration 16) : Séance → Photos (import du dossier de séance = un sous-dossier par famille, ou par famille ; aperçus 1600/400 px hors base dans « apercus » ; notes 1 à 5 étoiles comme Lightroom ; CSV Pic-Time ; suppression des aperçus sans toucher aux commandes). Produit : « photos à choisir » (aucune / 1 par unité / pack de N / toutes). Vente : onglet Photos (galerie + favoris), choix des photos par ligne (galerie ou n° saisis depuis les étoiles Lightroom), « N à choisir » ; photos d’une autre séance de la famille. Commande validée : n° complétables sans avoir. Livraison : lien TransferNow + date. N° sur récap, devis, facture, postproduction.
   - À vérifier sur Mac : import d’un dossier (permissions lecture de dossier / suppression), fluidité avec 30 photos.
+- Jauge des aperçus (Paramètres) ; notes 1 à 5 étoiles.
+- **Étape 5 Mariages** (migration 17, menu Mariages) : projet par couple (séance univers « Mariage »), devis à lignes catalogue / libres modifiables, acompte 30 % + solde au jour J en 1 à 12 fois, envoi « devis + contrat + CGV » dans Mail, contrat PDF (tableau, échéancier, signatures, CGV, formulaire de rétractation), « Marquer signé » (prix figés, devis signé), fiche de renseignements à envoyer plus tard + saisie + fiche du jour J (PDF), livrables J+15 / J+30 avec liens, album (fournisseur, 6 étapes datées), pièces jointes. Textes CGV / contrat / e-mails / délais / acompte dans Paramètres → Mariages.
+  - CGV et contrat = modèles à faire relire par un juriste (dit à l’utilisateur).
 
 ## Publié en v2.1.2 (à tester sur Mac)
 - Registre des devis (Documents PDF) : statut envoyé / signé / refusé modifiable, validité / expiré, lien commande, e-mail, PDF, export CSV.
@@ -28,7 +31,7 @@
 | 2 | **Univers de séance** (Iris, Back to school, Noël, Halloween, Fête des mères…) : catalogue par univers (+ « commun »), template par défaut, textes brochure / e-mails ; données actuelles = univers Iris | Fait, publié v2.1.0 — à tester sur Mac |
 | 3 | Photos de séance : aperçus Lightroom dans un dossier (nom de fichier = n°), présentation + favoris, panier par photo, packs numériques / numériques + tirages / unité | Fait (non publié) |
 | 4 | Montages photo → **pas de montage hors iris** (réponse 18/11) : photo à l’unité (taille, 3:2 vertical / horizontal), packs, numérique et/ou impression ; goodies, petits livres… par univers ; fournisseurs et templates par univers | Couvert par l’étape 3 + univers ; reste : produits / fournisseurs à saisir par l’utilisateur |
-| 5 | Mariages : projet par couple, forfaits + options, contrat + devis, factures d’acompte / solde, échéancier, fiche jour J, livrables (galerie, album) | En attente |
+| 5 | Mariages : projet par couple, forfaits + options, contrat + devis, acompte / solde, échéancier, fiche jour J, livrables (galerie, album) | Fait (non publié) — pas de facture d’acompte séparée (acompte = règlement, facture finale avec règlements) |
 
 ## Étape 3 — réponses de l’utilisateur (18/11/2026)
 - Vente : sur certaines séances (ex. Back to school en magasin) vente **avant** les photos, sur photos d’illustration ; sinon rendez-vous après la séance pour montrer les photos.
@@ -40,7 +43,6 @@
 - Une commande peut mêler deux séances (ex. iris + photos de Noël dernier).
 
 ## Questions ouvertes à l’utilisateur
-3. Mariages : % d’acompte, échéance du solde, contrat en plus du devis, forfaits, fournisseur d’albums ?
 
 ## Divers
 | P | Tâche | État |

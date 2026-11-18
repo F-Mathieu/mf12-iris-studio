@@ -20,6 +20,7 @@ const Suppliers = lazy(() => import('./pages/Suppliers'));
 const Profitability = lazy(() => import('./pages/Profitability'));
 const Documents = lazy(() => import('./pages/Documents'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Weddings = lazy(() => import('./pages/Weddings'));
 const Sale = lazy(() => import('./pages/Sale'));
 const ClientApp = lazy(() => import('./client/ClientApp'));
 
@@ -36,6 +37,8 @@ function Shell() {
             <Route path="/seances" element={<Sessions />} />
             <Route path="/seances/:id" element={<SessionDetail />} />
             <Route path="/planning" element={<PlanningPage />} />
+            <Route path="/mariages" element={<Weddings />} />
+            <Route path="/mariages/:id" element={<Weddings />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/commandes" element={<Orders />} />
             <Route path="/commandes/:id" element={<OrderDetail />} />
