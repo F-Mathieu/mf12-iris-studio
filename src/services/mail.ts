@@ -70,6 +70,13 @@ export async function emailQuote(row: { number: string; data: string }, opts: { 
   });
 }
 
+/** Same, from the quote register: current e-mail and first name of the order's family. */
+export async function emailQuoteRow(row: { number: string; data: string; order_id: string | null; client?: string }) {
+  const { getOrderDetail } = await import('./orders');
+  const o = row.order_id ? (await getOrderDetail(row.order_id))?.order : null;
+  return emailQuote(row, { to: o?.family_email, firstName: o?.contact_first_name, familyName: o?.family_name ?? row.client ?? '' });
+}
+
 /** The session brochure (all offers), prepared for one family, so they can choose and come back for a quote. */
 export async function emailSessionOffers(r: { sessionId: string; sessionName: string; familyName: string; firstName?: string | null; email?: string | null }): Promise<MailResult> {
   const client = clientName(r.firstName, r.familyName);

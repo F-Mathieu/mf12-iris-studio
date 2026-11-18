@@ -52,7 +52,7 @@ export function OrderAttachments({ orderId, onChange }: { orderId: string; onCha
   return (
     <Card>
       <CardHeader title={<span className="flex items-center gap-2"><Paperclip className="size-4 text-mist-400" />Pièces jointes</span>}
-        subtitle="Devis signé, captures d’e-mails, bons de commande… Collez une capture avec ⌘V."
+        subtitle="Devis signé (le devis passe alors en « signé »), captures d’e-mails, bons de commande… Collez une capture avec ⌘V."
         actions={<Button size="sm" icon={<Plus className="size-3.5" />} onClick={async () => add(await pickFiles([], true))}>Ajouter</Button>} />
       {!list.data?.length
         ? <div className="flex items-center gap-2 px-5 py-4 text-[12.5px] text-mist-400"><ClipboardPaste className="size-4" />Aucune pièce jointe.</div>

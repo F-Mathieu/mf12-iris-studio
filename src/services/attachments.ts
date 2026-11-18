@@ -4,7 +4,7 @@
  */
 import { auditStmt, batch, insertStmt, nowIso, one, sel, uid, updateStmt } from './base';
 
-export const ATTACHMENT_KINDS = { devis_signe: 'Devis signé', mail: 'Échange e-mail', bon_commande: 'Bon de commande', paiement: 'Justificatif de paiement', autre: 'Autre' } as const;
+export const ATTACHMENT_KINDS = { devis_signe: 'Devis signé', devis: 'Devis (non signé)', mail: 'Échange e-mail', bon_commande: 'Bon de commande', paiement: 'Justificatif de paiement', autre: 'Autre' } as const;
 export type AttachmentKind = keyof typeof ATTACHMENT_KINDS;
 export interface Attachment { id: string; order_id: string; kind: AttachmentKind; name: string; mime: string; size: number; note: string | null; created_at: string }
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
@@ -14,10 +14,11 @@ const MIME: Record<string, string> = {
   eml: 'message/rfc822', txt: 'text/plain', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 export const mimeOfName = (name: string) => MIME[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
-/** Guess the kind from the file name (« devis… signé » → devis signé, image / .eml → e-mail). */
+/** Guess the kind from the file name (« …signé… » → devis signé, « devis » → devis non signé, image / .eml → e-mail). */
 export function guessKind(name: string, mime: string): AttachmentKind {
   const n = name.toLowerCase();
-  if (/devis|sign/.test(n)) return 'devis_signe';
+  if (/sign/.test(n)) return 'devis_signe'; // signé, signed, signature : marks the quote as signed
+  if (/devis|quote/.test(n)) return 'devis';
   if (/bon.?de.?commande|\bbdc\b/.test(n)) return 'bon_commande';
   if (/virement|paiement|recu|reçu|cheque|chèque/.test(n)) return 'paiement';
   if (mime === 'message/rfc822' || /mail|capture|screenshot|screen/.test(n)) return 'mail';
@@ -46,14 +47,21 @@ export async function addAttachment(orderId: string, f: { name: string; bytes: U
   const mime = f.mime || mimeOfName(name);
   const kind = f.kind ?? guessKind(name, mime);
   const id = uid();
+  const signed = kind === 'devis_signe' ? await (await import('./quotes')).signedQuoteStmts(orderId) : [];
   await batch([
+    ...signed,
     insertStmt('order_attachments', { id, order_id: orderId, kind, name, mime, size: f.bytes.length, data: toBase64(f.bytes), note: f.note ?? null, created_at: nowIso() }),
     auditStmt('order', orderId, 'attachment_add', { name, kind }),
   ]);
   return id;
 }
 
-export const updateAttachment = (id: string, d: { kind?: AttachmentKind; note?: string | null; name?: string }) => batch([updateStmt('order_attachments', id, d)]);
+/** Changing the kind to « devis signé » marks the order's quote as signed (as when adding one). */
+export async function updateAttachment(id: string, d: { kind?: AttachmentKind; note?: string | null; name?: string }) {
+  const a = await one<{ order_id: string; kind: string }>('SELECT order_id, kind FROM order_attachments WHERE id=?', [id]);
+  const signed = a && d.kind === 'devis_signe' && a.kind !== 'devis_signe' ? await (await import('./quotes')).signedQuoteStmts(a.order_id) : [];
+  await batch([...signed, updateStmt('order_attachments', id, d)]);
+}
 
 export async function getAttachmentBytes(id: string): Promise<{ name: string; mime: string; bytes: Uint8Array } | null> {
   const r = await one<{ name: string; mime: string; data: string }>('SELECT name, mime, data FROM order_attachments WHERE id=?', [id]);

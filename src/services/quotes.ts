@@ -14,7 +14,9 @@ export const QUOTE_STATUS: Record<QuoteStatus, string> = { envoye: 'Envoyé', si
 export interface QuoteRow { id: string; number: string; order_id: string | null; issued_at: string; valid_until: string; total_cents: number; data: string; status: QuoteStatus; signed_at: string | null }
 
 export const quotesOfOrder = (orderId: string) => sel<QuoteRow>('SELECT * FROM quotes WHERE order_id=? ORDER BY issued_at DESC', [orderId]);
-export const listQuotes = () => sel<QuoteRow & { client: string }>("SELECT q.*, json_extract(q.data, '$.client.name') client FROM quotes q ORDER BY q.issued_at DESC, q.number DESC");
+export const listQuotes = () => sel<QuoteRow & { client: string; order_number: string | null; order_status: string | null }>(
+  `SELECT q.*, json_extract(q.data, '$.client.name') client, o.number order_number, o.status order_status
+   FROM quotes q LEFT JOIN orders o ON o.id=q.order_id ORDER BY q.issued_at DESC, q.number DESC`);
 
 const addDays = (iso: string, n: number) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 /** What the client agrees to: lines, discounts, total, payment schedule. */
@@ -72,6 +74,18 @@ export const markQuoteOnRegistration = (orderId: string, what: 'sent' | 'signed'
   const col = what === 'sent' ? 'quote_sent_at' : 'quote_signed_at';
   return { sql: `UPDATE session_registrations SET ${col}=${on ? `COALESCE(${col}, ?)` : '?'} WHERE id=${REG_OF_ORDER}`, params: [on ? date || nowIso().slice(0, 10) : null, orderId, orderId] };
 };
+
+/**
+ * A signed quote was attached to the order: the latest quote still « envoyé » becomes « signé » (signature date = today),
+ * and « devis envoyé / validé » are ticked on the registration (even when the quote was made outside the app).
+ */
+export async function signedQuoteStmts(orderId: string, date = nowIso().slice(0, 10)): Promise<Stmt[]> {
+  const q = await one<{ id: string; status: QuoteStatus }>('SELECT id, status FROM quotes WHERE order_id=? ORDER BY issued_at DESC, number DESC LIMIT 1', [orderId]);
+  return [
+    ...(q?.status === 'envoye' ? [updateStmt('quotes', q.id, { status: 'signe', signed_at: date })] : []),
+    markQuoteOnRegistration(orderId, 'sent', true, date), markQuoteOnRegistration(orderId, 'signed', true, date),
+  ];
+}
 
 export async function setQuoteStatus(id: string, status: QuoteStatus, signedAt?: string | null) {
   const q = await one<{ order_id: string | null }>('SELECT order_id FROM quotes WHERE id=?', [id]);

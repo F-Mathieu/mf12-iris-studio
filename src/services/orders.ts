@@ -189,6 +189,7 @@ export async function deleteOrder(id: string, reason?: string | null) {
   const [cart, payments] = await Promise.all([loadCart(id, false), sel('SELECT * FROM payments WHERE order_id=?', [id])]);
   await batch([
     ...(await (await import('./invoices')).creditNoteStmts(id, `Suppression de la commande${reason ? ' : ' + reason : ''}`)),
+    ...(await (await import('./compta')).archiveReceiptsStmts(id)),
     { sql: 'DELETE FROM orders WHERE id=?', params: [id] },
     auditStmt('order', id, 'delete_order', { reason: reason ?? null, order: o, cart, payments }),
   ]);

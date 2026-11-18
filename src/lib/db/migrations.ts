@@ -326,6 +326,14 @@ CREATE TABLE order_attachments (
 );
 CREATE INDEX idx_attach_order ON order_attachments(order_id);
 `,
+  /* 15 — encaissements d’une commande supprimée : conservés dans le livre des recettes (instantané à la suppression). */ `
+CREATE TABLE archived_receipts (
+  id TEXT PRIMARY KEY, paid_at TEXT NOT NULL, amount_cents INTEGER NOT NULL, method TEXT NOT NULL,
+  order_number TEXT, client TEXT, session TEXT, invoice TEXT, sales_cents INTEGER NOT NULL DEFAULT 0,
+  note TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX idx_arch_receipts_date ON archived_receipts(paid_at);
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

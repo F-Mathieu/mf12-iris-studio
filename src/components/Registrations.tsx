@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Download, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
+import { BookOpen, Download, Send, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { Badge, Button, Card, DataTable, Empty, Field, IconButton, Input, Modal, SearchInput, Select, Textarea, cx, useConfirm, useDebounced, useAsync } from './ui';
 import { ApptBadge, OrderBadge, PayBadge } from './badges';
 import { FamilyForm } from './FamilyForm';
@@ -21,6 +21,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
   const [importOpen, setImportOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editReg, setEditReg] = useState<RegistrationRow | null>(null);
   const [editFamily, setEditFamily] = useState<string | null>(null);
   const rows = useMemo(() => {
@@ -37,6 +38,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
         <div className="flex-1" />
         <Button variant="ghost" icon={<Download className="size-4" />} onClick={downloadTemplate}>Télécharger le modèle CSV</Button>
         <Button variant="outline" icon={<Upload className="size-4" />} onClick={() => setImportOpen(true)}>Importer les clients CSV</Button>
+        <Button variant="outline" icon={<Send className="size-4" />} disabled={!regs.length} onClick={() => setBulkOpen(true)}>Offres à toutes les familles</Button>
         <Button variant="outline" icon={<Users className="size-4" />} onClick={() => setExistingOpen(true)}>Famille existante</Button>
         <Button variant="gold" icon={<UserPlus className="size-4" />} onClick={() => setAddOpen(true)}>Ajouter une famille</Button>
       </div>
@@ -70,6 +72,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
               </div>) },
           ]} />
       </Card>
+      {bulkOpen && <BulkOffersDialog sessionId={sessionId} sessionName={sessionName} regs={regs} onClose={() => setBulkOpen(false)} />}
       <ImportDialog open={importOpen} sessionId={sessionId} onClose={() => setImportOpen(false)} onDone={reload} />
       <FamilyForm open={addOpen} title="Ajouter une famille à la séance" submitLabel="Ajouter" onClose={() => setAddOpen(false)}
         onSubmitNew={async (input) => { await addRegistration(sessionId, { input }); setAddOpen(false); reload(); }} />
@@ -77,6 +80,55 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
       <ExistingFamilyDialog open={existingOpen} onClose={() => setExistingOpen(false)} onPick={async (id) => { if (await act(() => addRegistration(sessionId, { id }), 'Famille ajoutée')) { setExistingOpen(false); reload(); } }} />
       <AppointmentDialog reg={editReg} onClose={() => setEditReg(null)} onSaved={() => { setEditReg(null); reload(); }} />
     </>
+  );
+}
+
+/** Prepares the « offres de la séance » e-mail (personalised brochure) for several families at once: one message each in Mail. */
+function BulkOffersDialog({ sessionId, sessionName, regs, onClose }: { sessionId: string; sessionName: string; regs: RegistrationRow[]; onClose: () => void }) {
+  const [sel, setSel] = useState<Set<string>>(() => new Set(regs.filter((r) => r.email && r.order_status !== 'validee').map((r) => r.id)));
+  const [progress, setProgress] = useState<{ done: number; total: number; failed: string[] } | null>(null);
+  const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const send = async () => {
+    const list = regs.filter((r) => sel.has(r.id));
+    const failed: string[] = [];
+    setProgress({ done: 0, total: list.length, failed });
+    for (const [i, r] of list.entries()) {
+      try { await emailSessionOffers({ sessionId, sessionName, familyName: r.family_name, firstName: r.contact_first_name, email: r.email }); }
+      catch { failed.push(r.family_name); }
+      setProgress({ done: i + 1, total: list.length, failed: [...failed] });
+    }
+  };
+  const finished = progress && progress.done === progress.total;
+  return (
+    <Modal open onClose={onClose} size="lg" title="Envoyer les offres à plusieurs familles"
+      subtitle="Un e-mail personnalisé (brochure à son nom) est préparé dans Mail pour chaque famille cochée ; vous cliquez Envoyer sur chacun."
+      footer={finished ? <Button variant="gold" onClick={onClose}>Fermer</Button> : <><Button variant="ghost" onClick={onClose} disabled={!!progress}>Annuler</Button>
+        <Button variant="gold" icon={<Send className="size-4" />} loading={!!progress} disabled={!sel.size} onClick={send}>Préparer {sel.size} e-mail(s)</Button></>}>
+      {progress ? (
+        <div className="space-y-2 py-4 text-[13.5px]">
+          <div>{progress.done} / {progress.total} e-mail(s) préparé(s){finished ? ' — vérifiez-les dans Mail puis envoyez-les.' : '…'}</div>
+          {progress.failed.length > 0 && <div className="text-red-300">Échec pour : {progress.failed.join(', ')}</div>}
+        </div>
+      ) : (
+        <>
+          <div className="mb-2 flex gap-3 text-[12.5px]">
+            <button type="button" className="text-gold-300 hover:underline" onClick={() => setSel(new Set(regs.filter((r) => r.email).map((r) => r.id)))}>Toutes avec e-mail</button>
+            <button type="button" className="text-gold-300 hover:underline" onClick={() => setSel(new Set())}>Aucune</button>
+            <span className="text-mist-400">Cochées par défaut : familles avec e-mail et sans commande validée.</span>
+          </div>
+          <div className="max-h-[55vh] divide-y divide-ink-700/50 overflow-y-auto rounded-lg border border-ink-700/60">
+            {regs.map((r) => (
+              <label key={r.id} className={cx('flex cursor-pointer items-center gap-3 px-3 py-2 text-[13px]', !r.email && 'opacity-60')}>
+                <input type="checkbox" className="size-4 accent-[rgb(212,175,105)]" checked={sel.has(r.id)} onChange={() => toggle(r.id)} />
+                <span className="flex-1">{[r.contact_first_name, r.family_name].filter(Boolean).join(' ')}</span>
+                <span className="text-[12px] text-mist-400">{r.email ?? 'pas d’e-mail (à saisir dans Mail)'}</span>
+                {r.order_status === 'validee' && <Badge tone="green">Commande validée</Badge>}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 

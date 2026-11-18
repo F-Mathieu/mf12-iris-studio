@@ -5,7 +5,10 @@ import { listSessions } from '../services/sessions';
 import { listOrders } from '../services/orders';
 import { invoicePdfOf, orderRecapPdf, productionPdf, sessionCatalogPdf } from '../services/documents';
 import { listInvoices } from '../services/invoices';
-import { emailInvoiceRow } from '../services/mail';
+import { emailInvoiceRow, emailQuoteRow } from '../services/mail';
+import { listQuotes, setQuoteStatus, QUOTE_STATUS, type QuoteStatus } from '../services/quotes';
+import { invoicePdf } from '../lib/pdf';
+import { useNavigate } from 'react-router-dom';
 import { toCsv } from '../lib/csv';
 import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
@@ -67,7 +70,46 @@ export default function Documents() {
         </Card>
       </div>
       <InvoiceRegister />
+      <QuoteRegister />
     </>
+  );
+}
+
+/** Register of issued quotes: follow-up (envoyé / signé / refusé), validity, re-download / re-send. */
+function QuoteRegister() {
+  const nav = useNavigate();
+  const { data, reload } = useAsync(() => listQuotes(), []);
+  if (!data?.length) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const exportCsv = () => act(() => saveFile(`registre-devis-${today}.csv`, toCsv(['Numéro', 'Date', 'Valable jusqu’au', 'Client', 'Commande', 'Montant €', 'Statut', 'Signé le'],
+    data.map((r) => [r.number, r.issued_at.slice(0, 10), r.valid_until, r.client, r.order_number ?? '', (r.total_cents / 100).toFixed(2).replace('.', ','), QUOTE_STATUS[r.status], r.signed_at ?? ''])),
+    [{ name: 'CSV', extensions: ['csv'] }]), 'Registre exporté');
+  const counts = (s: QuoteStatus) => data.filter((r) => r.status === s).length;
+  return (
+    <Card className="mt-6">
+      <CardHeader title="Registre des devis" subtitle={`${counts('envoye')} envoyé(s) · ${counts('signe')} signé(s) · ${counts('refuse')} refusé(s). Le statut se met à jour ici, depuis la commande ou en joignant le devis signé.`}
+        actions={<Button size="sm" variant="ghost" icon={<Download className="size-3.5" />} onClick={exportCsv}>Export CSV</Button>} />
+      <div className="max-h-96 divide-y divide-ink-700/50 overflow-y-auto">
+        {data.map((r) => {
+          const expired = r.status === 'envoye' && r.valid_until < today;
+          return (
+            <div key={r.id} className="flex items-center gap-3 px-5 py-2.5 text-[13px]">
+              <span className="w-28 font-mono">{r.number}</span>
+              <Select className="h-8 w-28 text-[12px]" value={r.status} onChange={(e) => act(() => setQuoteStatus(r.id, e.target.value as QuoteStatus).then(reload), 'Statut du devis mis à jour')}>
+                {Object.entries(QUOTE_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </Select>
+              <span className="w-24 text-mist-400 tabular">{fmtDate(r.issued_at)}</span>
+              <span className={cx('w-36 text-[12px]', expired ? 'text-amber-300' : 'text-mist-400')}>{r.status === 'signe' ? `signé le ${fmtDate(r.signed_at)}` : expired ? `expiré le ${fmtDate(r.valid_until)}` : `valable → ${fmtDate(r.valid_until)}`}</span>
+              <span className="flex-1 truncate">{r.client}</span>
+              {r.order_id && r.order_number && <button type="button" className="font-mono text-[12px] text-mist-400 hover:text-gold-300" title="Ouvrir la commande" onClick={() => nav(r.order_status === 'validee' ? `/commandes/${r.order_id}` : `/vente/commande/${r.order_id}`)}>{r.order_number}</button>}
+              <span className="w-24 text-right tabular">{eur(r.total_cents)}</span>
+              <IconButton title="Envoyer par e-mail" onClick={() => act(() => emailQuoteRow(r), (how) => (how === 'mail' ? `E-mail prêt dans Mail (${r.number})` : `PDF ${r.number} enregistré — joignez-le au message ouvert`))}><Mail className="size-4" /></IconButton>
+              <IconButton title="Télécharger le PDF" onClick={() => act(() => saveFile(`devis-${r.number}.pdf`, invoicePdf(JSON.parse(r.data)), PDF_FILTER), 'PDF enregistré')}><FileDown className="size-4" /></IconButton>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

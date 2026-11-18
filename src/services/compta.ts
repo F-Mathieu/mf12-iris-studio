@@ -3,13 +3,15 @@
  * general expenses, purchases, yearly summary and ceilings. Estimates only — not a certified accounting.
  */
 import { batch, getSettings, insertStmt, nowIso, one, run, sel, uid } from './base';
+import type { Stmt } from '../lib/db/types';
 import { PAYMENT_METHODS, type PaymentMethod } from './orders';
 import { clientName } from './invoices';
 import { microCharges, microFromSettings } from '../lib/micro';
 import { proratedCeiling, suggestPeriod } from '../lib/compta';
 
 export interface Receipt {
-  id: string; date: string; amount_cents: number; method: string; order_id: string; order_number: string;
+  /** order_id null: payment of a deleted order (kept in the book). */
+  id: string; date: string; amount_cents: number; method: string; order_id: string | null; order_number: string;
   client: string; session: string; invoice: string | null;
   /** Part of the amount that is resale of goods (only in « mixte » mode), the rest is services. */
   sales_cents: number; services_cents: number;
@@ -17,12 +19,32 @@ export interface Receipt {
 
 /** Livre des recettes: every payment received between two dates (inclusive), oldest first. */
 export async function receipts(from: string, to: string): Promise<Receipt[]> {
+  const live = await liveReceipts('substr(p.paid_at,1,10) BETWEEN ? AND ?', [from, to]);
+  const archived = (await sel<{ id: string; paid_at: string; amount_cents: number; method: PaymentMethod; order_number: string | null; client: string | null; session: string | null; invoice: string | null; sales_cents: number }>(
+    'SELECT * FROM archived_receipts WHERE substr(paid_at,1,10) BETWEEN ? AND ?', [from, to]))
+    .map((r): Receipt => ({ id: r.id, date: r.paid_at.slice(0, 10), amount_cents: r.amount_cents, method: PAYMENT_METHODS[r.method] ?? r.method, order_id: null,
+      order_number: `${r.order_number ?? '?'} (supprimée)`, client: r.client ?? '', session: r.session ?? '', invoice: r.invoice, sales_cents: r.sales_cents, services_cents: r.amount_cents - r.sales_cents }));
+  return [...live, ...archived].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Statements keeping the payments of an order in the book before it is deleted. */
+export async function archiveReceiptsStmts(orderId: string): Promise<Stmt[]> {
+  const rows = await liveReceipts('p.order_id=?', [orderId]);
+  const raw = await sel<{ id: string; method: string; paid_at: string; note: string | null }>('SELECT id, method, paid_at, note FROM payments WHERE order_id=?', [orderId]);
+  return rows.map((r) => {
+    const p = raw.find((x) => x.id === r.id)!;
+    return insertStmt('archived_receipts', { id: uid(), paid_at: p.paid_at, amount_cents: r.amount_cents, method: p.method, order_number: r.order_number, client: r.client,
+      session: r.session, invoice: r.invoice, sales_cents: r.sales_cents, note: p.note, created_at: nowIso() });
+  });
+}
+
+async function liveReceipts(where: string, params: string[]): Promise<Receipt[]> {
   const rows = await sel<{ id: string; date: string; amount_cents: number; method: PaymentMethod; order_id: string; order_number: string; family: string; first: string | null; session: string; sub: number; goods: number; invoice: string | null }>(
     `SELECT p.id, p.paid_at date, p.amount_cents, p.method, o.id order_id, o.number order_number, f.name family, f.contact_first_name first, s.name session, o.subtotal_cents sub,
        (SELECT COALESCE(sum(i.line_total_cents),0) FROM order_items i WHERE i.order_id=o.id AND i.unit_cost_cents > 0) goods,
        (SELECT number FROM invoices v WHERE v.order_id=o.id AND v.kind='facture' ORDER BY v.issued_at DESC LIMIT 1) invoice
      FROM payments p JOIN orders o ON o.id=p.order_id JOIN families f ON f.id=o.family_id JOIN sessions s ON s.id=o.session_id
-     WHERE substr(p.paid_at,1,10) BETWEEN ? AND ? ORDER BY p.paid_at, p.created_at`, [from, to]);
+     WHERE ${where} ORDER BY p.paid_at, p.created_at`, params);
   const m = microFromSettings(await getSettings());
   return rows.map((r) => {
     const sales = m.mode === 'mixte' && r.sub > 0 ? Math.round((r.amount_cents * Math.min(r.goods, r.sub)) / r.sub) : 0;

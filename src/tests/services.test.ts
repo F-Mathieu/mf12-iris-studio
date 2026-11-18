@@ -764,3 +764,48 @@ describe('pièces jointes de commande', () => {
     expect((await sel('SELECT * FROM order_attachments')).length).toBe(0);
   });
 });
+
+describe('suivi : recettes conservées, devis signé joint, registre des devis', () => {
+  const legal = async () => {
+    const { setSetting } = await import('../services/base');
+    await setSetting('legal_name', 'Mathieu Exemple'); await setSetting('legal_address', '1 rue des Iris, 75000 Paris'); await setSetting('siret', '123 456 789 00012'); await setSetting('mediator', 'CNPM Médiation');
+  };
+  const prest = async (name: string, paid = 0) => (await import('../services/prestations')).createPrestation({ family: { name }, kind: 'mariage', title: '', date: null, signedAt: null, delivered: false,
+    lines: [{ label: 'Forfait', qty: 1, unit_cents: 50000 }], payments: paid ? [{ date: '2026-10-05', amount_cents: paid, method: 'virement' }] : [] });
+
+  it('supprimer une commande réglée garde ses encaissements dans le livre des recettes', async () => {
+    const { receipts, declarationFor } = await import('../services/compta');
+    const { deleteOrder } = await import('../services/orders');
+    await legal();
+    const r = await prest('Durand', 20000);
+    await deleteOrder(r.orderId, 'erreur');
+    const book = await receipts('2026-10-01', '2026-10-31');
+    expect(book).toHaveLength(1);
+    expect(book[0]).toMatchObject({ amount_cents: 20000, order_id: null, date: '2026-10-05', method: 'Virement' });
+    expect(book[0].order_number).toContain('supprimée');
+    expect((await declarationFor('2026-10-01', '2026-10-31')).total_cents).toBe(20000);
+  });
+
+  it('joindre un devis signé passe le devis en signé et coche l’inscription ; registre des devis', async () => {
+    const { issueQuote, listQuotes } = await import('../services/quotes');
+    const { addAttachment, updateAttachment } = await import('../services/attachments');
+    await legal();
+    const r = await prest('Petit');
+    const q = await issueQuote(r.orderId);
+    expect(q.row.status).toBe('envoye');
+    // an unsigned quote file does not change anything
+    const a = await addAttachment(r.orderId, { name: 'devis-Petit.pdf', bytes: new Uint8Array([1]) });
+    expect((await listQuotes())[0]).toMatchObject({ status: 'envoye', client: expect.stringContaining('Petit'), order_number: expect.any(String) });
+    await updateAttachment(a, { kind: 'devis_signe' });
+    const [l] = await listQuotes();
+    expect(l.status).toBe('signe');
+    expect(l.signed_at).toBe(new Date().toISOString().slice(0, 10));
+    const reg = (await sel<{ quote_sent_at: string | null; quote_signed_at: string | null }>('SELECT quote_sent_at, quote_signed_at FROM session_registrations WHERE id=(SELECT registration_id FROM orders WHERE id=?)', [r.orderId]))[0];
+    expect(reg.quote_signed_at).toBeTruthy();
+    expect(reg.quote_sent_at).toBeTruthy();
+    // signed quote file on an order without app quote: registration ticked anyway
+    const r2 = await prest('Grand');
+    await addAttachment(r2.orderId, { name: 'Devis signé Grand.pdf', bytes: new Uint8Array([1]) });
+    expect((await sel<{ s: string | null }>('SELECT quote_signed_at s FROM session_registrations WHERE id=(SELECT registration_id FROM orders WHERE id=?)', [r2.orderId]))[0].s).toBeTruthy();
+  });
+});

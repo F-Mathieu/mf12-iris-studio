@@ -15,7 +15,7 @@ export async function confirmAndDeleteOrder(confirm: Confirm, o: { id: string; n
   }
   const imp = await orderDeletionImpact(o.id);
   const lost = [
-    imp.payments ? `${imp.payments} règlement(s) pour ${eur(imp.paid)} (ils disparaîtront de vos encaissements)` : null,
+    imp.payments ? `${imp.payments} règlement(s) pour ${eur(imp.paid)} (conservés dans le livre des recettes)` : null,
     imp.tasks ? `${imp.tasks} tâche(s) de postproduction` : null,
     imp.supplier_lines ? `${imp.supplier_lines} ligne(s) de commande fournisseur` : null,
     imp.attachments ? `${imp.attachments} pièce(s) jointe(s)` : null,
