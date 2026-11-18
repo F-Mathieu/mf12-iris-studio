@@ -290,6 +290,18 @@ fn prune_backups(app: tauri::AppHandle, prefix: String, keep: usize) -> Result<u
     Ok(removed)
 }
 
+/// Opens a folder of the app data (root, previews, backups) in the Finder, creating it if needed.
+#[tauri::command]
+fn open_data_folder(app: tauri::AppHandle, sub: String) -> Result<(), String> {
+    if !["", "apercus", "backups"].contains(&sub.as_str()) {
+        return Err("Dossier inconnu".into());
+    }
+    let d = if sub.is_empty() { data_dir(&app)? } else { data_dir(&app)?.join(&sub) };
+    fs::create_dir_all(&d).map_err(err)?;
+    std::process::Command::new("open").arg(&d).status().map_err(err)?;
+    Ok(())
+}
+
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
@@ -384,7 +396,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             db_select, db_execute, db_batch, db_backup, db_integrity, db_restore,
-            app_paths, list_backups, prune_backups, path_exists, compose_mail, iris_source, import_iris
+            app_paths, list_backups, prune_backups, path_exists, compose_mail, iris_source, import_iris, open_data_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running MF/1.2 Iris Studio");

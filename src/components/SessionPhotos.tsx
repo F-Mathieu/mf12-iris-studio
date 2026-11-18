@@ -5,6 +5,7 @@ import { PhotoGallery, Stars } from './PhotoGallery';
 import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, previewsUsage, setRating, type PhotoFile } from '../services/photos';
 import type { RegistrationRow } from '../services/registrations';
 import { decodeCsvBytes } from '../lib/csv';
+import { openDataFolder } from '../services/backup';
 import { lightroomText } from '../lib/photos';
 import { pickFiles, pickPhotoFolder } from '../lib/files';
 import { act } from '../lib/act';
@@ -147,7 +148,8 @@ export function PreviewsUsageCard({ limitGb, onLimit, onOpenSession }: { limitGb
   return (
     <Card className="col-span-2">
       <CardHeader title={<span className="flex items-center gap-2"><HardDrive className="size-4 text-gold-400" />Aperçus des photos de séance</span>}
-        subtitle="Dossier « apercus » à côté de la base (hors sauvegardes). Supprimez les aperçus des séances terminées : les commandes gardent les n° des photos." />
+        subtitle="Copies réduites dans le dossier « apercus » à côté de la base (hors sauvegardes) ; vos originaux ne sont jamais touchés. Supprimez les aperçus des séances terminées : les commandes gardent les n° des photos."
+        actions={<Button size="sm" icon={<FolderOpen className="size-3.5" />} onClick={() => act(() => openDataFolder('apercus'))}>Ouvrir le dossier</Button>} />
       <div className="space-y-3 px-5 py-4">
         <div className="flex items-end justify-between text-[13px]">
           <span><span className="text-[20px] font-semibold tabular">{fmtBytes(total)}</span> <span className="text-mist-400">· {photos} photo(s) · {u.data?.length ?? 0} séance(s)</span></span>

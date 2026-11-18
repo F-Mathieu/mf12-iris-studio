@@ -64,3 +64,6 @@ export async function exportCsv(kind: 'familles' | 'commandes' | 'lignes' | 'pai
   }
 }
 const frNum = (v: unknown) => (typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(2).replace('.', ',') : v);
+
+/** Opens a folder of the app data in the Finder ('apercus' = photo previews, 'backups', '' = data folder). */
+export const openDataFolder = (sub: '' | 'apercus' | 'backups') => { need(); return invoke<void>('open_data_folder', { sub }); };
