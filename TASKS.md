@@ -2,7 +2,7 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
-## Non publié (branche claude/gracious-gates-xu2t2t, après v2.1.1)
+## Publié en v2.1.2 (à tester sur Mac)
 - Registre des devis (Documents PDF) : statut envoyé / signé / refusé modifiable, validité / expiré, lien commande, e-mail, PDF, export CSV.
 - Envoi groupé des offres (Séance → Inscrits → « Offres à toutes les familles ») : un e-mail personnalisé par famille cochée dans Mail.
 - Suppression d’une commande réglée : encaissements conservés dans le livre des recettes (migration 15 `archived_receipts`).
@@ -35,6 +35,6 @@
 | P | Tâche | État |
 |---|---|---|
 | P1 | Vérifier sur Mac : Mail (pièces jointes multiples), import Iris (fait ✓ par l’utilisateur) | Mail à confirmer |
-| P2 | Suppression d’une commande avec règlements : conserver les recettes dans le livre | Fait (non publié) |
-| P2 | Envoi groupé des offres à toutes les familles d’une séance | Fait (non publié) |
-| P2 | Devis dans le registre Documents PDF | Fait (non publié) |
+| P2 | Suppression d’une commande avec règlements : conserver les recettes dans le livre | Fait, publié v2.1.2 |
+| P2 | Envoi groupé des offres à toutes les familles d’une séance | Fait, publié v2.1.2 |
+| P2 | Devis dans le registre Documents PDF | Fait, publié v2.1.2 |
