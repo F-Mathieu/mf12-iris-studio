@@ -2,7 +2,7 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
-## Non publié (branche claude/gracious-gates-xu2t2t, après v2.2.0)
+## Publié en v2.3.0 (à tester sur Mac)
 - **Agenda** (menu Agenda, migration 18 `calendar_events`) : vue mois / à venir ; événements (prestation, livraison, RDV, perso) avec rappel N jours avant et « journée réservée » ; affiche aussi séances, RDV des inscrits, mariages (option si non signé), livrables J+15/J+30, échéances de paiement, fin de validité des devis ; alerte « date déjà réservée » à la création d’un mariage, d’une séance, d’un événement.
 - **Rappels du tableau de bord** (« À faire ») : livraisons en retard / sous 7 jours, fiches jour J non reçues (mariage sous 45 jours), échéances impayées / sous 14 jours, devis expirés, rappels d’agenda.
 - **Orientation des tirages** (vertical / horizontal) choisie sur la ligne (vente et commande validée), sur documents et postproduction.
