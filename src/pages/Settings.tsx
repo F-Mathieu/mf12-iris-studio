@@ -11,6 +11,7 @@ import { fmtDateTime } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { act } from '../lib/act';
 import { PreviewsUsageCard } from '../components/SessionPhotos';
+import { DEFAULT_WEDDING_CGV, DEFAULT_WEDDING_CONTRACT, DEFAULT_WEDDING_INFO_MAIL, DEFAULT_WEDDING_QUOTE_MAIL, WEDDING_VARS } from '../lib/weddingTexts';
 import { useNavigate } from 'react-router-dom';
 
 const BUSINESS = [
@@ -113,6 +114,19 @@ export default function Settings() {
             <div className="p-5 text-[13px] text-mist-300">Seul le nom de famille est obligatoire. Depuis la fiche d’une famille : correction, export CSV, suppression (si aucune commande) ou anonymisation (commandes conservées). Aucune donnée bancaire n’est stockée.</div>
           </Card>
         </div>
+        <Card className="col-span-2">
+          <CardHeader title="Mariages — contrat, CGV, délais" subtitle={`Modèles à faire relire par un juriste avant usage. Variables remplacées dans le contrat et les CGV : ${WEDDING_VARS}.`} />
+          <div className="grid grid-cols-4 gap-4 p-5">
+            <Field label="Acompte à la signature (%)"><Input type="number" min={0} max={100} value={v('wedding_deposit_pct') || '30'} onChange={(e) => setDraft({ ...draft, wedding_deposit_pct: e.target.value })} /></Field>
+            <Field label="Teaser / premières photos (jours)" hint="Après le mariage"><Input type="number" min={1} value={v('wedding_teaser_days') || '15'} onChange={(e) => setDraft({ ...draft, wedding_teaser_days: e.target.value })} /></Field>
+            <Field label="Film + galerie complète (jours)" hint="Après le mariage"><Input type="number" min={1} value={v('wedding_final_days') || '30'} onChange={(e) => setDraft({ ...draft, wedding_final_days: e.target.value })} /></Field>
+            <div />
+            <Field label="Contrat d’engagement (articles)" hint="« 1. Titre » sur une ligne = titre d’article. Le tableau du devis, l’échéancier et les signatures sont ajoutés automatiquement." className="col-span-4"><Textarea rows={12} value={v('wedding_contract') || DEFAULT_WEDDING_CONTRACT} onChange={(e) => setDraft({ ...draft, wedding_contract: e.target.value })} /></Field>
+            <Field label="Conditions générales de vente" className="col-span-4"><Textarea rows={12} value={v('wedding_cgv') || DEFAULT_WEDDING_CGV} onChange={(e) => setDraft({ ...draft, wedding_cgv: e.target.value })} /></Field>
+            <Field label="E-mail « devis + contrat »" hint="Variables : {bonjour} {maries} {date} {total} {acompte} {signature}" className="col-span-2"><Textarea rows={8} value={v('wedding_quote_mail') || DEFAULT_WEDDING_QUOTE_MAIL} onChange={(e) => setDraft({ ...draft, wedding_quote_mail: e.target.value })} /></Field>
+            <Field label="E-mail « fiche de renseignements »" hint="Variables : {bonjour} {signature}" className="col-span-2"><Textarea rows={8} value={v('wedding_info_mail') || DEFAULT_WEDDING_INFO_MAIL} onChange={(e) => setDraft({ ...draft, wedding_info_mail: e.target.value })} /></Field>
+          </div>
+        </Card>
         <Card className="col-span-2">
           <CardHeader title={<span className="flex items-center gap-2"><DatabaseBackup className="size-4 text-gold-400" />Sauvegardes</span>}
             subtitle="Sauvegarde SQLite en ligne (API de sauvegarde, sûre même base ouverte) + vérification d’intégrité. Les images d’exemple sont incluses dans la base."

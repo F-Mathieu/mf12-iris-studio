@@ -902,6 +902,14 @@ describe('mariages', () => {
     await W.setWeddingInfo(id, { civile: 'Mairie, 14 h' });
     expect(JSON.parse((await W.getWedding(id))!.info!)).toEqual({ civile: 'Mairie, 14 h' });
     await expect(W.deleteWedding(id)).rejects.toThrow('signé');
+    const D = await import('../services/weddingDocs');
+    const c = await D.weddingContract(id);
+    expect(new TextDecoder().decode(c.bytes.slice(0, 5))).toBe('%PDF-');
+    expect(c.name).toBe('contrat-mariage-julie-thomas-martin.pdf');
+    expect((await D.weddingSheet(id, true)).bytes.length).toBeGreaterThan(1000);
+    expect((await D.weddingSheet(id, false)).name).toContain('fiche-jour-j');
+    const { fillText, DEFAULT_WEDDING_CONTRACT } = await import('../lib/weddingTexts');
+    expect(fillText(DEFAULT_WEDDING_CONTRACT, { total: '3 000,00 €' })).toContain('3 000,00 €');
     // a wedding still at quote stage can be deleted
     const id2 = await W.createWedding({ partner1: 'Anne', services: 'photo' });
     await W.saveWeddingLines(id2, [line('Forfait', 1000)], '');
