@@ -93,3 +93,35 @@ export async function sessionsComparison() {
   const ss = await sel<{ id: string; name: string; date: string | null; status: string }>("SELECT id, name, date, status FROM sessions ORDER BY COALESCE(date,'') DESC LIMIT 50");
   return Promise.all(ss.map(async (s) => ({ ...s, ...(await profitability(s.id)) })));
 }
+
+export interface UniverseStat {
+  universe_id: string | null; name: string; sessions: number; orders: number; sales_cents: number; collected_cents: number;
+  supplier_cents: number; margin_cents: number; expenses_cents: number; charges_cents: number; net_cents: number;
+  avg_basket_cents: number; margin_rate_bp: number | null; share_bp: number;
+}
+
+/** Profitability per universe (Iris, Noël, Mariage…): sum of its sessions (year = session date), best net first. */
+export async function universeStats(year?: number): Promise<UniverseStat[]> {
+  const ss = await sel<{ id: string; universe_id: string | null; uname: string | null }>(
+    `SELECT s.id, s.universe_id, u.name uname FROM sessions s LEFT JOIN universes u ON u.id=s.universe_id
+     ${year ? "WHERE substr(COALESCE(s.date, s.created_at),1,4)=?" : ''}`, year ? [String(year)] : []);
+  const map = new Map<string, UniverseStat>();
+  for (const s of ss) {
+    const p = await profitability(s.id);
+    const k = s.universe_id ?? '';
+    const u = map.get(k) ?? { universe_id: s.universe_id, name: s.uname ?? 'Sans univers', sessions: 0, orders: 0, sales_cents: 0, collected_cents: 0, supplier_cents: 0,
+      margin_cents: 0, expenses_cents: 0, charges_cents: 0, net_cents: 0, avg_basket_cents: 0, margin_rate_bp: null, share_bp: 0 };
+    u.sessions++; u.orders += p.orders; u.sales_cents += p.sales_cents; u.collected_cents += p.collected_cents;
+    u.supplier_cents += p.sales_cents - p.margin_cents; u.margin_cents += p.margin_cents; u.expenses_cents += p.expenses_without_time_cents;
+    u.charges_cents += p.charges_cents; u.net_cents += p.net_cents;
+    map.set(k, u);
+  }
+  const all = [...map.values()];
+  const total = all.reduce((t, u) => t + u.sales_cents, 0);
+  for (const u of all) {
+    u.avg_basket_cents = u.orders ? Math.round(u.sales_cents / u.orders) : 0;
+    u.margin_rate_bp = u.sales_cents ? Math.round((u.margin_cents * 10000) / u.sales_cents) : null;
+    u.share_bp = total ? Math.round((u.sales_cents * 10000) / total) : 0;
+  }
+  return all.filter((u) => u.sessions > 0).sort((a, b) => b.net_cents - a.net_cents || b.sales_cents - a.sales_cents);
+}

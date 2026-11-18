@@ -12,6 +12,9 @@ import { eur } from '../lib/money';
 import { fmtDate } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { reminders, type Reminder } from '../services/agenda';
+import { dismissFollowUp, followUps, sendFollowUp, type FollowUp } from '../services/followups';
+import { act } from '../lib/act';
+import { Mail, X } from 'lucide-react';
 import { cx } from '../components/ui';
 
 export default function Dashboard() {
@@ -21,6 +24,7 @@ export default function Dashboard() {
   const iris = useAsync(() => irisSource(), []);
   const decl = useAsync(() => nextDeclaration(todayIso()), []);
   const rem = useAsync(() => reminders(), []);
+  const fu = useAsync(() => followUps(), []);
   const { data } = useAsync(() => dashboard(f), [f.from, f.to, f.sessionId]);
   const upcoming = (sessions.data ?? []).filter((s) => s.status === 'preparation' || s.status === 'active').slice(0, 5);
   return (
@@ -41,7 +45,8 @@ export default function Dashboard() {
               <Button size="sm" variant="gold" onClick={() => nav('/compta')}>Préparer la déclaration</Button>
             </Card>
           )}
-          {!!rem.data?.length && <RemindersCard list={rem.data} onOpen={(l) => nav(l)} onAgenda={() => nav('/agenda')} />}
+          {!!fu.data?.length && <FollowUpsCard list={fu.data} onOpen={(l) => nav(l)} reload={fu.reload} />}
+          {!!rem.data?.filter((r) => r.group !== 'devis').length && <RemindersCard list={rem.data.filter((r) => r.group !== 'devis')} onOpen={(l) => nav(l)} onAgenda={() => nav('/agenda')} />}
           <div className="grid grid-cols-4 gap-4">
             <Stat label="Ventes validées" value={eur(data.sales)} accent sub={`${data.orders} commande(s) · panier moyen ${eur(data.avgBasket)}`} />
             <Stat label="Encaissé" value={eur(data.collected)} sub={`Reste à encaisser ${eur(data.balance)}`} />
@@ -91,6 +96,36 @@ function RemindersCard({ list, onOpen, onAgenda }: { list: Reminder[]; onOpen: (
                 <span className={cx('w-20 shrink-0 tabular', r.late ? 'text-amber-300' : 'text-mist-400')}>{fmtDate(r.date)}</span>
                 <span className="min-w-0 flex-1 truncate">{r.title}{r.detail && <span className="text-mist-500"> · {r.detail}</span>}</span>
               </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+const FU_LABEL: Record<FollowUp['kind'], { title: string; button: string }> = {
+  quote: { title: 'Devis sans réponse', button: 'Relancer' }, payment: { title: 'Échéances impayées', button: 'Relancer' }, review: { title: 'Demandes d’avis', button: 'Demander un avis' },
+};
+
+/** Follow-ups in one click: the e-mail is prepared in Mail (text in Paramètres → Relances & avis), noted in the history. */
+function FollowUpsCard({ list, onOpen, reload }: { list: FollowUp[]; onOpen: (link: string) => void; reload: () => void }) {
+  return (
+    <Card>
+      <CardHeader title="Relances & avis" subtitle="Un clic prépare l’e-mail dans Mail ; il est noté dans l’historique de la commande. ✕ = ne pas relancer." />
+      <div className="grid grid-cols-3 gap-x-6 px-5 py-3">
+        {(Object.keys(FU_LABEL) as FollowUp['kind'][]).filter((k) => list.some((f) => f.kind === k)).map((k) => (
+          <div key={k} className="py-2">
+            <div className="mb-1 text-[11.5px] font-medium tracking-wider text-mist-400 uppercase">{FU_LABEL[k].title}</div>
+            {list.filter((f) => f.kind === k).slice(0, 8).map((f) => (
+              <div key={f.kind + f.id} className="flex items-center gap-2 py-1 text-[13px]">
+                <button type="button" onClick={() => onOpen(f.link)} className="min-w-0 flex-1 text-left hover:text-gold-300">
+                  <div className="truncate">{f.title}</div>
+                  <div className={cx('truncate text-[11.5px]', f.late ? 'text-amber-300' : 'text-mist-400')}>{f.detail}{f.last && ` · relancé le ${fmtDate(f.last)}`}</div>
+                </button>
+                <Button size="sm" variant="subtle" icon={<Mail className="size-3.5" />} onClick={() => act(() => sendFollowUp(f.kind, f.id).then((h) => { reload(); return h; }), (h) => (h === 'mail' ? 'E-mail prêt dans Mail' : 'Message ouvert dans votre messagerie'))}>{FU_LABEL[k].button}</Button>
+                <button type="button" title={k === 'review' ? 'Ne pas demander d’avis' : 'Ne pas relancer (7 jours)'} className="text-mist-500 hover:text-mist-200" onClick={() => act(() => dismissFollowUp(f.kind, f.id).then(reload))}><X className="size-4" /></button>
+              </div>
             ))}
           </div>
         ))}

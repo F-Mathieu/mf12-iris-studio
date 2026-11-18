@@ -53,6 +53,8 @@
 
 - Agenda / rappels (`services/agenda.ts`, `pages/Agenda.tsx`, migration 18) : `agenda(from,to)` agrège événements + données de l’app ; `bookedOn` (journées réservées) ; `reminders()` pour le tableau de bord. Orientation des tirages (`order_items.orientation`, `setItemOrientation`). Export Lightroom (`lightroomText`, `lightroomList`). Testé : unitaires + aperçu navigateur.
 
+- Statistiques par univers (`universeStats`, somme de `profitability` par séance). Relances & avis (`services/followups.ts`, `lib/followUpMail.ts`) : candidats calculés, envoi = `composeMail` + audit_logs (`relance_devis`, `relance_paiement`, `demande_avis`). Testé : unitaires (sauf l’ouverture de Mail) + aperçu navigateur.
+
 ## Limites connues / non vérifié
 - **Build macOS (.dmg) non produit ici** (environnement Linux) : à lancer sur le Mac (`npm run tauri build`). Application non signée (clic droit → Ouvrir).
 - Aperçu PDF dans l'app : iframe WebKit — non vérifié visuellement sur macOS (l'enregistrement du fichier fonctionne).

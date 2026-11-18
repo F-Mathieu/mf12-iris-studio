@@ -973,3 +973,57 @@ describe('agenda et rappels', () => {
     expect((await A.reminders(today)).filter((x) => x.group === 'livraison').length).toBe(0);
   });
 });
+
+describe('relances, avis, statistiques par univers', () => {
+  it('devis sans réponse, échéance impayée, avis après livraison ; « ne pas relancer » ; CA par univers', async () => {
+    const W = await import('../services/weddings');
+    const F = await import('../services/followups');
+    const { issueQuote } = await import('../services/quotes');
+    const { setSetting } = await import('../services/base');
+    const { setDelivery } = await import('../services/orders');
+    const { todayIso } = await import('../lib/ids');
+    const { addDays } = await import('../lib/weddingTexts');
+    const { fillMail, DEFAULT_REVIEW_MAIL } = await import('../lib/followUpMail');
+    for (const [k, v] of [['legal_name', 'Mathieu Exemple'], ['legal_address', '1 rue X'], ['siret', '123 456 789 00012'], ['mediator', 'CNPM']]) await setSetting(k, v);
+    const today = todayIso();
+    const line = (c: number) => ({ key: uid(), variantId: null, productId: null, category: 'prestation', productName: 'Forfait', variantName: null, compositionKey: null, qty: 1, unitPriceCents: c, unitCostCents: 0 });
+    // quote sent 10 days ago, no answer
+    const w1 = await W.createWedding({ partner1: 'Léa', date: addDays(today, 200), services: 'photo' });
+    await W.saveWeddingLines(w1, [line(150000)], '');
+    const q = await issueQuote((await W.getWedding(w1))!.order_id!);
+    await run('UPDATE quotes SET issued_at=? WHERE id=?', [addDays(today, -10) + 'T10:00:00.000Z', q.row.id]);
+    // signed 100 days ago, deposit unpaid → overdue; delivered 10 days ago → review
+    const w2 = await W.createWedding({ partner1: 'Julie', partner2: 'Tom', date: addDays(today, -30), services: 'photo_video' });
+    await W.saveWeddingLines(w2, [line(200000)], '');
+    await W.signWedding(w2, addDays(today, -100));
+    await W.updateWedding(w2, { final_delivered_at: addDays(today, -10) });
+    // photo order delivered by TransferNow 3 days ago: too early for a review (7 days)
+    const x = await setupSale();
+    const o = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), items: [{ key: uid(), variantId: x.fusionHdV.id, productId: x.fusionHd.id, category: 'numerique', productName: 'Photo', variantName: null, qty: 1, unitPriceCents: 5000, unitCostCents: 1000 }] }, 'validee');
+    await setDelivery(o.id, 'https://transfernow/x', addDays(today, -3));
+
+    let f = await F.followUps(today);
+    const kinds = f.map((x) => x.kind).sort();
+    expect(kinds).toEqual(['payment', 'quote', 'review']);
+    expect(f.find((x) => x.kind === 'payment')!.title).toContain('2 000,00'); // deposit + balance (wedding passed)
+    expect(f.find((x) => x.kind === 'review')!.link).toBe(`/mariages/${w2}`);
+    await setSetting('review_delay_days', '2');
+    expect((await F.followUps(today)).filter((x) => x.kind === 'review').length).toBe(2);
+    // dismissed → gone (review for good, follow-ups for 7 days)
+    await F.dismissFollowUp('quote', f.find((x) => x.kind === 'quote')!.id);
+    await F.dismissFollowUp('review', o.id);
+    f = await F.followUps(today);
+    expect(f.map((x) => x.kind).sort()).toEqual(['payment', 'review']);
+    expect(f.find((x) => x.kind === 'review')!.id).not.toBe(o.id);
+    // review e-mail: link line removed when no Google link
+    expect(fillMail(DEFAULT_REVIEW_MAIL, { bonjour: 'Bonjour,', seance: 'X', lien_avis: '', signature: 'M' })).not.toContain('{lien_avis}');
+    expect(fillMail(DEFAULT_REVIEW_MAIL, { bonjour: 'Bonjour,', seance: 'X', lien_avis: 'https://g.page/r/abc/review', signature: 'M' })).toContain('https://g.page/r/abc/review');
+
+    const { universeStats } = await import('../services/finance');
+    const st = await universeStats();
+    const mariage = st.find((u) => u.name === 'Mariage')!, iris = st.find((u) => u.name === 'Sans univers')!; // séance créée sans univers
+    expect(mariage).toMatchObject({ orders: 1, sales_cents: 200000, avg_basket_cents: 200000 });
+    expect(iris).toMatchObject({ orders: 1, sales_cents: 5000, supplier_cents: 1000, margin_cents: 4000, margin_rate_bp: 8000 });
+    expect(mariage.share_bp + iris.share_bp).toBe(10000);
+  });
+});

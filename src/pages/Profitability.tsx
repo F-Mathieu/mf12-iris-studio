@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button, Card, CardHeader, DataTable, Field, IconButton, Input, Loading, MoneyInput, PageHeader, Select, Stat, useAsync } from '../components/ui';
 import { SessionBadge } from '../components/badges';
-import { addExpense, deleteExpense, EXPENSE_CATEGORIES, listExpenses, profitability, sessionsComparison, type ExpenseCategory } from '../services/finance';
+import { addExpense, deleteExpense, EXPENSE_CATEGORIES, listExpenses, profitability, sessionsComparison, universeStats, type ExpenseCategory } from '../services/finance';
 import { eur, fmtRate } from '../lib/money';
 import { fmtDate } from '../lib/format';
 import { todayIso } from '../lib/ids';
@@ -15,6 +15,7 @@ export default function Profitability() {
   return (
     <>
       <PageHeader title="Rentabilité" subtitle="Ce qu’il vous reste : chiffre d’affaires − achats fournisseurs − frais − cotisations URSSAF (micro-entreprise, taux dans Paramètres). Estimation, pas une comptabilité." />
+      <UniverseCard />
       {data && <YearSummary rows={data} />}
       {!data ? <Loading /> : (
         <Card className="mb-6">
@@ -115,5 +116,32 @@ export function ProfitPanel({ sessionId }: { sessionId: string }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Which kind of session pays best: CA, average basket, margin, net per universe, with the share of CA. */
+function UniverseCard() {
+  const years = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - i);
+  const [year, setYear] = useState<number | 0>(new Date().getFullYear());
+  const { data } = useAsync(() => universeStats(year || undefined), [year]);
+  const max = Math.max(1, ...(data ?? []).map((u) => Math.abs(u.net_cents)));
+  return (
+    <Card className="mb-6">
+      <CardHeader title="Par univers" subtitle="Ce qui rapporte le plus : chiffre d’affaires, panier moyen, marge commerciale et bénéfice net estimé de chaque type de séance."
+        actions={<Select className="w-36" value={year} onChange={(e) => setYear(Number(e.target.value))}><option value={0}>Toutes années</option>{years.map((y) => <option key={y} value={y}>{y}</option>)}</Select>} />
+      {!data ? <Loading /> : !data.length ? <div className="px-5 py-6 text-[13px] text-mist-400">Aucune séance sur cette période.</div> : (
+        <DataTable rows={data} rowKey={(u) => u.universe_id ?? '-'} columns={[
+          { key: 'n', header: 'Univers', sort: (u) => u.name, cell: (u) => <div><div className="font-medium">{u.name}</div><div className="text-[12px] text-mist-400">{u.sessions} séance(s) · {u.orders} commande(s)</div></div> },
+          { key: 'ca', header: 'CA', align: 'right', sort: (u) => u.sales_cents, cell: (u) => <div><div>{eur(u.sales_cents)}</div><div className="text-[11.5px] text-mist-400">{(u.share_bp / 100).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} % du total</div></div> },
+          { key: 'pm', header: 'Panier moyen', align: 'right', sort: (u) => u.avg_basket_cents, cell: (u) => eur(u.avg_basket_cents) },
+          { key: 'm', header: 'Marge', align: 'right', sort: (u) => u.margin_cents, cell: (u) => <div><div>{eur(u.margin_cents)}</div><div className="text-[11.5px] text-mist-400">{u.margin_rate_bp != null ? fmtRate(u.margin_rate_bp / 10000) : '—'}</div></div> },
+          { key: 'fr', header: 'Frais', align: 'right', cell: (u) => eur(u.expenses_cents) },
+          { key: 'urs', header: 'Cotisations', align: 'right', cell: (u) => eur(u.charges_cents) },
+          { key: 'net', header: 'Bénéfice net estimé', align: 'right', sort: (u) => u.net_cents, cell: (u) => (
+            <div className="flex items-center justify-end gap-2"><div className="h-1.5 w-20 overflow-hidden rounded-full bg-ink-800"><div className={u.net_cents < 0 ? 'h-full bg-red-400' : 'h-full bg-gold-400'} style={{ width: `${(100 * Math.abs(u.net_cents)) / max}%` }} /></div>
+              <span className={u.net_cents < 0 ? 'text-red-300' : 'font-medium text-gold-300'}>{eur(u.net_cents)}</span></div>) },
+        ]} />
+      )}
+    </Card>
   );
 }

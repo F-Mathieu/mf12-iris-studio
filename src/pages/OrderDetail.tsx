@@ -23,7 +23,8 @@ import { hasPlan, instalmentStatus, schedule } from '../lib/pricing';
 import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { act } from '../lib/act';
 
-const ACTIONS: Record<string, string> = { delete_order: 'Commande supprimée', save_draft: 'Brouillon enregistré', validate: 'Commande validée', correction: 'Correction', cancel: 'Annulation', payment_add: 'Règlement ajouté', payment_delete: 'Règlement supprimé', delete_draft: 'Brouillon supprimé', attachment_add: 'Pièce jointe ajoutée', attachment_delete: 'Pièce jointe supprimée' };
+const ACTIONS: Record<string, string> = { delete_order: 'Commande supprimée', save_draft: 'Brouillon enregistré', validate: 'Commande validée', correction: 'Correction', cancel: 'Annulation', payment_add: 'Règlement ajouté', payment_delete: 'Règlement supprimé', delete_draft: 'Brouillon supprimé', attachment_add: 'Pièce jointe ajoutée', attachment_delete: 'Pièce jointe supprimée',
+  relance_devis: 'Relance du devis', relance_paiement: 'Relance de paiement', demande_avis: 'Demande d’avis', photos: 'Photos choisies', orientation: 'Orientation du tirage', delivery: 'Livraison' };
 
 export default function OrderDetail() {
   const { id = '' } = useParams();
