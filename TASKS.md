@@ -26,6 +26,15 @@
 | 4 | Montages photo (création à N photos, dispositions numérotées, croquis sur devis) | En attente |
 | 5 | Mariages : projet par couple, forfaits + options, contrat + devis, factures d’acompte / solde, échéancier, fiche jour J, livrables (galerie, album) | En attente |
 
+## Étape 3 — réponses de l’utilisateur (18/11/2026)
+- Vente : sur certaines séances (ex. Back to school en magasin) vente **avant** les photos, sur photos d’illustration ; sinon rendez-vous après la séance pour montrer les photos.
+- Volume : 1 à 30 photos par famille ; aperçus dans l’app, qui doit rester fluide.
+- Lightroom Cloud et Classic (au choix de l’app : elle lit un dossier de JPEG exportés, quel que soit le logiciel).
+- Pic-Time (abonnement, portfolio) ; garder le mode présentation hors ligne. Pic-Time : pas d’API publique documentée ; export CSV des favoris (formules Advanced / Professional) → import des favoris dans l’app.
+- Packs et offres libres, propres à chaque séance.
+- Livraison : toujours TransferNow, option galerie privée Pic-Time.
+- Une commande peut mêler deux séances (ex. iris + photos de Noël dernier).
+
 ## Questions ouvertes à l’utilisateur
 1. Photos : vente sur place après la séance ou rendez-vous ultérieur ? nombre de photos par famille ? galerie en ligne (Pixieset…) ? Lightroom Classic ou cloud ?
 2. Montages photo : fixes ou libres ?
