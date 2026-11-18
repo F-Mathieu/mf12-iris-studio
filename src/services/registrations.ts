@@ -70,6 +70,7 @@ export async function deleteRegistration(id: string) {
   const o = await one<{ n: number }>("SELECT count(*) n FROM orders WHERE session_id=? AND family_id=? AND status<>'annulee'", [r.session_id, r.family_id]);
   if (o && o.n > 0) throw new Error('Cette inscription possède une commande : annulez-la avant de retirer la famille.');
   await batch([{ sql: 'DELETE FROM session_registrations WHERE id=?', params: [id] }, auditStmt('registration', id, 'delete', r)]);
+  await (await import('./photos')).removeFiles(r.session_id, id); // previews of the family (rows removed by cascade)
 }
 
 /* ------------------------------------------------------------------ CSV import */

@@ -126,3 +126,25 @@ describe('compta : périodes URSSAF et seuils', () => {
     expect(proratedCeiling(3750000, 2027, '2026-07-02')).toBe(3750000);
   });
 });
+
+describe('numéros de photos', async () => {
+  const { photoNumber, parsePhotoNumbers, fmtPhoto, photosMissing, normName } = await import('../lib/photos');
+  it('lit le n° dans le nom de fichier Lightroom', () => {
+    expect(photoNumber('012.jpg')).toBe('12');
+    expect(photoNumber('Martin-021.JPG')).toBe('21');
+    expect(photoNumber('/Users/x/Séance 2026/Martin/IMG_0045.jpeg')).toBe('45');
+    expect(photoNumber('couverture.jpg')).toBeNull();
+    expect(fmtPhoto('7')).toBe('007');
+  });
+  it('liste saisie ou copiée depuis Lightroom / Pic-Time', () => {
+    expect(parsePhotoNumbers('12, 15 18-20\n012.jpg;Martin-021.jpg')).toEqual(['12', '15', '18', '19', '20', '21']);
+    expect(parsePhotoNumbers('"001.jpg","002.jpg"')).toEqual(['1', '2']);
+    expect(parsePhotoNumbers('')).toEqual([]);
+  });
+  it('photos à choisir', () => {
+    expect(photosMissing({ category: 'numerique', qty: 5, photos: ['1', '2'] })).toBe(3);
+    expect(photosMissing({ category: 'impression', qty: 2, photos: ['1'] })).toBe(0);
+    expect(photosMissing({ category: 'impression', qty: 1, photos: null })).toBe(1);
+    expect(normName('Dupont-Martin Élodie')).toBe('dupont martin elodie');
+  });
+});

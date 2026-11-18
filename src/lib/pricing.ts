@@ -46,6 +46,10 @@ export interface CartItem {
   /** Option attached to another line of the cart (e.g. a frame under a print): follows its quantity. */
   parentKey?: string | null;
   styleId?: string | null; // style of the linked composition (for pack/promo selectors)
+  /** Photo numbers of the line (session photos); fewer than needed = « à choisir ». */
+  photos?: string[] | null;
+  /** Session the photos come from, when it is not the order's session (e.g. last Christmas photos bought at the iris session). */
+  photoSessionId?: string | null;
   qty: number;
   unitPriceCents: number;
 }

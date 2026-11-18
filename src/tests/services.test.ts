@@ -809,3 +809,47 @@ describe('suivi : recettes conservées, devis signé joint, registre des devis',
     expect((await sel<{ s: string | null }>('SELECT quote_signed_at s FROM session_registrations WHERE id=(SELECT registration_id FROM orders WHERE id=?)', [r2.orderId]))[0].s).toBeTruthy();
   });
 });
+
+describe('photos de séance', () => {
+  it('import par famille, favoris CSV Pic-Time, suppression des aperçus sans toucher aux commandes ; n° sur commande validée', async () => {
+    const { memoryStore, setPhotoStore } = await import('../lib/photoStore');
+    const ph = await import('../services/photos');
+    const { setItemPhotos, setDelivery } = await import('../services/orders');
+    const store = memoryStore(); setPhotoStore(store);
+    const x = await setupSale();
+    const b = (n: number) => new Uint8Array([n]);
+    const r = await ph.importPhotos(x.sid, x.reg.id, [{ name: '001.jpg', bytes: b(1) }, { name: '002.jpg', bytes: b(2) }, { name: '010.jpg', bytes: b(3) }, { name: 'notes.txt', bytes: b(4) }, { name: 'couv.jpg', bytes: b(5) }]);
+    expect(r).toEqual({ imported: 3, skipped: ['notes.txt', 'couv.jpg'] });
+    expect((await ph.listPhotos(x.reg.id)).map((p) => p.number)).toEqual(['1', '2', '10']);
+    expect(store.files.size).toBe(6); // preview + thumbnail, outside the database
+    await ph.importPhotos(x.sid, x.reg.id, [{ name: '002.jpg', bytes: b(9) }]); // re-import replaces
+    expect((await ph.listPhotos(x.reg.id)).length).toBe(3);
+    const fav = await ph.importFavorites(x.reg.id, 'Filename\n"002.jpg"\n"010.jpg"\n"099.jpg"');
+    expect(fav).toEqual({ marked: 2, unknown: ['99'] });
+    expect((await ph.photoCounts(x.sid))[0]).toMatchObject({ n: 3, fav: 2 });
+    // sale: pack of 5 digital files, 2 photos chosen now, the others later (validated order)
+    const c: Cart = { ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
+      items: [{ key: uid(), variantId: x.fusionHdV.id, productId: x.fusionHd.id, category: 'numerique', productName: 'Photo numérique', variantName: 'Fichier HD', qty: 5, unitPriceCents: 1000, unitCostCents: 0, photos: ['2', '10'] }] };
+    const saved = await saveCart(c, 'validee');
+    const it = (await loadCart(saved.id)).items[0];
+    expect(it.photos).toEqual(['2', '10']);
+    await setItemPhotos(it.key, ['2', '10', '1']);
+    expect((await loadCart(saved.id)).items[0].photos).toEqual(['2', '10', '1']);
+    await setDelivery(saved.id, ' https://www.transfernow.net/dl/abc ', '2026-11-20');
+    expect(await one('SELECT delivery_link, delivered_at FROM orders WHERE id=?', [saved.id])).toEqual({ delivery_link: 'https://www.transfernow.net/dl/abc', delivered_at: '2026-11-20' });
+    // previews removed: files and rows gone, the order keeps its numbers
+    expect(await ph.deletePreviews(x.sid)).toBe(3);
+    expect(store.files.size).toBe(0);
+    expect((await loadCart(saved.id)).items[0].photos).toEqual(['2', '10', '1']);
+  });
+
+  it('dossier de séance : un sous-dossier par famille', async () => {
+    const { matchFolders } = await import('../services/photos');
+    const regs = [{ id: 'a', family_name: 'Martin', contact_first_name: 'Julie', external_ref: '12' }, { id: 'b', family_name: 'Dupont', contact_first_name: null, external_ref: null },
+      { id: 'c', family_name: 'Le Gall', contact_first_name: 'Anne', external_ref: null }];
+    expect(matchFolders(['Julie Martin', 'DUPONT', 'Famille Le Gall', '12', 'Inconnu'], regs)).toEqual({
+      matched: [{ folder: 'Julie Martin', registrationId: 'a' }, { folder: 'DUPONT', registrationId: 'b' }, { folder: 'Famille Le Gall', registrationId: 'c' }, { folder: '12', registrationId: 'a' }],
+      unmatched: ['Inconnu'],
+    });
+  });
+});

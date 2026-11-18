@@ -102,4 +102,5 @@ export async function deleteSession(id: string) {
     ...(s?.price_list_id ? [{ sql: 'DELETE FROM price_lists WHERE id=? AND template_id IS NULL', params: [s.price_list_id] }] : []),
     auditStmt('session', id, 'delete', { name: s?.name }),
   ]);
+  await (await import('./photos')).removeFiles(id);
 }
