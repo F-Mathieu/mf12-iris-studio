@@ -42,9 +42,9 @@ export async function importPhotos(sessionId: string, registrationId: string, fi
     const row = { session_id: sessionId, registration_id: registrationId, number };
     await photoStore().put(filePath(row, false), p.preview);
     await photoStore().put(filePath(row, true), p.thumb);
-    await run(`INSERT INTO session_photos (id, session_id, registration_id, number, file_name, width, height, created_at) VALUES (?,?,?,?,?,?,?,?)
-      ON CONFLICT(registration_id, number) DO UPDATE SET file_name=excluded.file_name, width=excluded.width, height=excluded.height`,
-      [uid(), sessionId, registrationId, number, f.name, p.width, p.height, nowIso()]);
+    await run(`INSERT INTO session_photos (id, session_id, registration_id, number, file_name, width, height, size, created_at) VALUES (?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(registration_id, number) DO UPDATE SET file_name=excluded.file_name, width=excluded.width, height=excluded.height, size=excluded.size`,
+      [uid(), sessionId, registrationId, number, f.name, p.width, p.height, p.preview.length + p.thumb.length, nowIso()]);
     imported++;
     onProgress?.(i + 1, files.length);
   }
@@ -68,6 +68,12 @@ export function matchFolders(folders: string[], regs: { id: string; family_name:
   }
   return { matched, unmatched };
 }
+
+/** Disk space of the previews (preview + thumbnail of each photo), per session, largest first. */
+export const previewsUsage = () =>
+  sel<{ session_id: string; session_name: string; date: string | null; status: string; photos: number; bytes: number }>(
+    `SELECT s.id session_id, s.name session_name, s.date, s.status, count(*) photos, COALESCE(sum(p.size),0) bytes
+     FROM session_photos p JOIN sessions s ON s.id=p.session_id GROUP BY s.id ORDER BY bytes DESC`);
 
 export const setFavorite = (id: string, on: boolean) => run('UPDATE session_photos SET favorite=? WHERE id=?', [on ? 1 : 0, id]);
 

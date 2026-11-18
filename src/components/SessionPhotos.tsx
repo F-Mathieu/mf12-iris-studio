@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { FolderOpen, Images, ImagePlus, Star, Trash2 } from 'lucide-react';
-import { Badge, Button, Card, DataTable, Empty, IconButton, Modal, Textarea, useAsync, useConfirm } from './ui';
+import { FolderOpen, HardDrive, Images, ImagePlus, Star, Trash2 } from 'lucide-react';
+import { Badge, Button, Card, CardHeader, DataTable, Empty, IconButton, Input, Modal, Textarea, useAsync, useConfirm, cx } from './ui';
 import { PhotoGallery } from './PhotoGallery';
-import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, setFavorite, type PhotoFile } from '../services/photos';
+import { deletePreviews, importFavorites, importPhotos, listPhotos, matchFolders, photoCounts, PHOTO_EXT, previewsUsage, setFavorite, type PhotoFile } from '../services/photos';
 import type { RegistrationRow } from '../services/registrations';
 import { decodeCsvBytes } from '../lib/csv';
 import { pickFiles, pickPhotoFolder } from '../lib/files';
@@ -124,5 +124,43 @@ function FavoritesDialog({ reg, onClose }: { reg: RegistrationRow; onClose: () =
         <Textarea rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder={'012.jpg, 015.jpg\nou : 12 15 18-20'} />
       </div>
     </Modal>
+  );
+}
+
+export const fmtBytes = (n: number) => (n < 1024 ** 2 ? `${Math.round(n / 1024).toLocaleString('fr-FR')} Ko` : n < 1024 ** 3 ? `${(n / 1024 ** 2).toLocaleString('fr-FR', { maximumFractionDigits: n < 10 * 1024 ** 2 ? 1 : 0 })} Mo` : `${(n / 1024 ** 3).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`);
+
+/** Paramètres : place prise par les aperçus (dossier « apercus »), jauge par rapport au seuil choisi, détail par séance. */
+export function PreviewsUsageCard({ limitGb, onLimit, onOpenSession }: { limitGb: number; onLimit: (gb: number) => void; onOpenSession: (id: string) => void }) {
+  const confirm = useConfirm();
+  const u = useAsync(() => previewsUsage(), []);
+  const total = u.data?.reduce((s, x) => s + x.bytes, 0) ?? 0;
+  const photos = u.data?.reduce((s, x) => s + x.photos, 0) ?? 0;
+  const pct = Math.min(100, (100 * total) / (limitGb * 1024 ** 3));
+  return (
+    <Card className="col-span-2">
+      <CardHeader title={<span className="flex items-center gap-2"><HardDrive className="size-4 text-gold-400" />Aperçus des photos de séance</span>}
+        subtitle="Dossier « apercus » à côté de la base (hors sauvegardes). Supprimez les aperçus des séances terminées : les commandes gardent les n° des photos." />
+      <div className="space-y-3 px-5 py-4">
+        <div className="flex items-end justify-between text-[13px]">
+          <span><span className="text-[20px] font-semibold tabular">{fmtBytes(total)}</span> <span className="text-mist-400">· {photos} photo(s) · {u.data?.length ?? 0} séance(s)</span></span>
+          <span className="flex items-center gap-2 text-mist-400">Seuil d’alerte <Input type="number" min={1} className="h-8 w-20" value={limitGb} onChange={(e) => onLimit(Math.max(1, Number(e.target.value) || 1))} /> Go</span>
+        </div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-ink-800"><div className={cx('h-full transition-all', pct >= 90 ? 'bg-red-400' : pct >= 70 ? 'bg-amber-400' : 'bg-gold-400')} style={{ width: `${Math.max(pct, total ? 1 : 0)}%` }} /></div>
+        {pct >= 90 && <div className="text-[12.5px] text-red-300">Seuil presque atteint : supprimez les aperçus des séances terminées.</div>}
+        {!!u.data?.length && (
+          <div className="divide-y divide-ink-700/50 rounded-lg border border-ink-700/60">
+            {u.data.map((x) => (
+              <div key={x.session_id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
+                <button type="button" className="min-w-0 flex-1 truncate text-left hover:text-gold-300" onClick={() => onOpenSession(x.session_id)}>{x.session_name}</button>
+                {(x.status === 'terminee' || x.status === 'archivee') && <Badge>{x.status === 'terminee' ? 'Terminée' : 'Archivée'}</Badge>}
+                <span className="w-20 text-right text-mist-400 tabular">{x.photos} ph.</span>
+                <span className="w-20 text-right tabular">{fmtBytes(x.bytes)}</span>
+                <IconButton title="Supprimer les aperçus de la séance" onClick={async () => (await confirm({ title: `Supprimer les aperçus de « ${x.session_name} » ?`, text: 'Les commandes gardent les n° des photos ; les aperçus pourront être ré-importés depuis Lightroom.', danger: true, confirm: 'Supprimer' })) && act(() => deletePreviews(x.session_id).then(u.reload), 'Aperçus supprimés')}><Trash2 className="size-4" /></IconButton>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

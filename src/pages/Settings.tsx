@@ -10,6 +10,8 @@ import { pickBackupFile, saveFile } from '../lib/files';
 import { fmtDateTime } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { act } from '../lib/act';
+import { PreviewsUsageCard } from '../components/SessionPhotos';
+import { useNavigate } from 'react-router-dom';
 
 const BUSINESS = [
   ['business_name', 'Nom commercial'], ['tagline', 'Sous-titre'], ['contact_name', 'Nom du contact'], ['contact_email', 'E-mail'],
@@ -18,6 +20,7 @@ const BUSINESS = [
 
 export default function Settings() {
   const { settings, reloadSettings } = useApp();
+  const nav = useNavigate();
   const confirm = useConfirm();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const v = (k: string) => draft[k] ?? settings[k] ?? '';
@@ -146,6 +149,7 @@ export default function Settings() {
             </div>
           </div>
         </Card>
+        <PreviewsUsageCard limitGb={Number(v('previews_limit_gb')) || 20} onLimit={(gb) => act(() => setSetting('previews_limit_gb', String(gb)).then(reloadSettings))} onOpenSession={(id) => nav(`/seances/${id}?tab=photos`)} />
         <Card className="col-span-2">
           <CardHeader title="Exports CSV (Excel)" />
           <div className="flex flex-wrap gap-2 p-5">

@@ -340,7 +340,7 @@ CREATE INDEX idx_arch_receipts_date ON archived_receipts(paid_at);
 CREATE TABLE session_photos (
   id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   registration_id TEXT NOT NULL REFERENCES session_registrations(id) ON DELETE CASCADE,
-  number TEXT NOT NULL, file_name TEXT, width INTEGER, height INTEGER,
+  number TEXT NOT NULL, file_name TEXT, width INTEGER, height INTEGER, size INTEGER NOT NULL DEFAULT 0,
   favorite INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, UNIQUE (registration_id, number)
 );
 CREATE INDEX idx_photos_session ON session_photos(session_id);

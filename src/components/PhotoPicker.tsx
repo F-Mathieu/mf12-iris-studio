@@ -36,6 +36,10 @@ export function PhotoPicker({ familyId, sessionId, line, onClose, onSave }: {
           <Input value={text} onChange={(e) => { setText(e.target.value); setSel(parsePhotoNumbers(e.target.value, false)); }} placeholder="ex. 12, 15, 18-20" />
         </Field>
       </div>
+      {!!photos.data?.some((p) => p.favorite) && (
+        <div className="mb-3"><Button size="sm" variant="subtle" onClick={() => setBoth(photos.data!.filter((p) => p.favorite).map((p) => p.number).slice(0, needed || undefined))}>
+          Prendre les favoris ({photos.data!.filter((p) => p.favorite).length}){needed && photos.data!.filter((p) => p.favorite).length > needed ? ` — les ${needed} premiers` : ''}</Button></div>
+      )}
       {photos.data?.length
         ? <PhotoGallery photos={photos.data} selected={sel} onSelect={setBoth} max={needed || undefined} />
         : <div className="rounded-lg bg-ink-800 px-4 py-6 text-center text-[13px] text-mist-400">Aucun aperçu importé pour cette séance : saisissez les n° (étoiles mises dans Lightroom), ou importez les photos dans Séance → Photos.</div>}

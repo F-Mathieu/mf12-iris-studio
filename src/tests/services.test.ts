@@ -827,6 +827,7 @@ describe('photos de séance', () => {
     const fav = await ph.importFavorites(x.reg.id, 'Filename\n"002.jpg"\n"010.jpg"\n"099.jpg"');
     expect(fav).toEqual({ marked: 2, unknown: ['99'] });
     expect((await ph.photoCounts(x.sid))[0]).toMatchObject({ n: 3, fav: 2 });
+    expect(await ph.previewsUsage()).toEqual([expect.objectContaining({ session_id: x.sid, photos: 3, bytes: 6 })]); // preview + thumbnail sizes
     // sale: pack of 5 digital files, 2 photos chosen now, the others later (validated order)
     const c: Cart = { ...emptyCart(x.sid, x.reg.family_id, x.reg.id),
       items: [{ key: uid(), variantId: x.fusionHdV.id, productId: x.fusionHd.id, category: 'numerique', productName: 'Photo numérique', variantName: 'Fichier HD', qty: 5, unitPriceCents: 1000, unitCostCents: 0, photos: ['2', '10'] }] };
@@ -840,6 +841,7 @@ describe('photos de séance', () => {
     // previews removed: files and rows gone, the order keeps its numbers
     expect(await ph.deletePreviews(x.sid)).toBe(3);
     expect(store.files.size).toBe(0);
+    expect(await ph.previewsUsage()).toEqual([]);
     expect((await loadCart(saved.id)).items[0].photos).toEqual(['2', '10', '1']);
   });
 
