@@ -58,6 +58,13 @@ jobs:
           path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
+      # .zip of the app with a fixed name: installs without a .dmg, and
+      # releases/latest/download/MF12-Studio-macOS.zip always points to the latest version.
+      - name: Zip app
+        run: |
+          cd src-tauri/target/aarch64-apple-darwin/release/bundle/macos
+          ditto -c -k --keepParent *.app "$GITHUB_WORKSPACE/MF12-Studio-macOS.zip"
+
       - name: Publish release (tags v* ou lancement manuel avec version)
         if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
@@ -65,7 +72,11 @@ jobs:
           tag_name: ${{ inputs.release_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
           name: MF/1.2 Studio ${{ inputs.release_tag || github.ref_name }}
-          files: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          files: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            MF12-Studio-macOS.zip
           body: |
             Application macOS (Apple Silicon). Installation : ouvrir le .dmg, glisser « MF12 Studio » dans Applications. Indépendante de « MF12 Iris Studio » (données séparées ; import des données d’Iris Studio dans Paramètres → Sauvegardes).
             Premier lancement : clic droit sur l'app → Ouvrir (application non signée par Apple).
+            Installation par le Terminal (sans .dmg), app fermée :
+            curl -fL -o /tmp/mf12.zip https://github.com/F-Mathieu/mf12-iris-studio/releases/latest/download/MF12-Studio-macOS.zip && rm -rf "/Applications/MF12 Studio.app" && ditto -x -k /tmp/mf12.zip /Applications && rm /tmp/mf12.zip && xattr -dr com.apple.quarantine "/Applications/MF12 Studio.app" && open "/Applications/MF12 Studio.app"
