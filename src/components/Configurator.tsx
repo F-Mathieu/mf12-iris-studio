@@ -19,9 +19,13 @@ import { todayIso } from '../lib/ids';
 import { eur, pctToBp } from '../lib/money';
 import { uid } from '../lib/ids';
 import { act } from '../lib/act';
+import { PhotoGallery } from './PhotoGallery';
+import { PhotoPicker } from './PhotoPicker';
+import { listPhotos, setFavorite } from '../services/photos';
+import { fmtPhoto, photosMissing } from '../lib/photos';
 
 type Mode = 'admin' | 'client';
-type LeftTab = 'creations' | 'numerique' | 'impression' | 'option';
+type LeftTab = 'photos' | 'creations' | 'numerique' | 'impression' | 'option';
 
 /**
  * Sales configurator. Shows SALE prices only (no cost, margin or supplier) in both modes.
@@ -41,8 +45,17 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
       getSession(sessionId), getFamily(familyId), listStyles(), listExamples(), listProducts(), listVariants(), pricingContext(sessionId), variantCosts(),
     ]);
     const cart = orderId ? await loadCart(orderId) : emptyCart(sessionId, familyId, registrationId);
-    return { session, family, styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active), variants: variants.filter((v) => v.active), ctx, costs, cart };
+    const regId = cart.registrationId ?? registrationId;
+    const photos = regId ? await listPhotos(regId) : [];
+    const hasCreations = ctx.rows.some((r) => r.kind === 'style' && r.price_cents != null);
+    // Products of the session's universe (or common); a product of another universe stays if it is priced in the grid.
+    const priced = new Set(ctx.rows.filter((r) => r.kind === 'variant').map((r) => r.ref_id));
+    const u = session?.universe_id;
+    const inUniverse = (p: Product) => !u || !p.universe_ids.length || p.universe_ids.includes(u) || variants.some((v) => v.product_id === p.id && priced.has(v.id));
+    return { session, family, styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active && inUniverse(p)), variants: variants.filter((v) => v.active), ctx, costs, cart, photos, hasCreations };
   }, [sessionId, familyId, orderId]);
+  const [photoFor, setPhotoFor] = useState<string | null>(null);
+  const [photosList, setPhotosList] = useState<Awaited<ReturnType<typeof listPhotos>>>([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [activeComp, setActiveComp] = useState<string | null>(null);
   const [tab, setTab] = useState<LeftTab>('creations');
@@ -57,7 +70,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const [sizeFor, setSizeFor] = useState<{ productId: string; initial?: string } | null>(null);
   const { settings } = useApp();
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (data.data) { setCart(data.data.cart); setSavedSnap(data.data.cart.orderId ? snap(data.data.cart) : null); setActiveComp(data.data.cart.compositions.at(-1)?.key ?? null); } }, [data.data]);
+  useEffect(() => { if (data.data) { setPhotosList(data.data.photos); if (data.data.photos.length && !data.data.hasCreations) setTab('photos'); else if (!data.data.hasCreations) setTab('numerique'); setCart(data.data.cart); setSavedSnap(data.data.cart.orderId ? snap(data.data.cart) : null); setActiveComp(data.data.cart.compositions.at(-1)?.key ?? null); } }, [data.data]);
   const cartRef = useRef<Cart | null>(null);
   cartRef.current = cart;
   useEffect(() => {
@@ -113,7 +126,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     const offer = !locked && !kids.length ? frameOffer(i) : null;
     return (
       <div key={i.key} className="space-y-1">
-        <ItemLine i={i} locked={locked} update={update} />
+        <ItemLine i={i} locked={locked} update={update} onPhotos={i.photosPerUnit != null && !isValidated ? () => setPhotoFor(i.key) : undefined} />
         {kids.map((k) => <div key={k.key} className="ml-3 border-l border-gold-500/40 pl-2"><ItemLine i={k} locked={locked} update={update} child /></div>)}
         {offer && (offer.price != null
           ? <button className="ml-3 text-[12px] text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); addFrame(i); }}>+ Ajouter un cadre ({frameProduct!.name.replace(/^Cadre /, '')}) · {eur(offer.price)}</button>
@@ -154,7 +167,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     update((x) => {
       const ex = x.items.find((i) => i.variantId === v.id && i.compositionKey === compKey);
       if (ex) return { ...x, items: x.items.map((i) => (i === ex || i.parentKey === ex.key ? { ...i, qty: i.qty + 1 } : i)) };
-      return { ...x, items: [...x.items, { key: uid(), variantId: v.id, productId: p.id, category: p.category, productName: p.name, variantName: v.name, compositionKey: compKey, qty: 1, unitPriceCents: price, unitCostCents: costs.get(v.id)?.cost ?? 0 }] };
+      return { ...x, items: [...x.items, { key: uid(), variantId: v.id, productId: p.id, category: p.category, productName: p.name, variantName: v.name, compositionKey: compKey, qty: 1, unitPriceCents: price, unitCostCents: costs.get(v.id)?.cost ?? 0,
+        photosPerUnit: p.photos_per_unit, photos: p.photos_per_unit ? [] : null }] };
     });
   };
   const save = async (target: 'brouillon' | 'validee') => {
@@ -182,18 +196,22 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
       {/* ------------------------------------------------ left: catalogue */}
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mb-4 flex items-center gap-1 rounded-xl border border-ink-700 bg-ink-850 p-1">
-          {([['creations', 'Créations'], ['numerique', 'Numérique'], ['impression', 'Impressions'], ['option', 'Options']] as const).map(([id, l]) => (
+          {([['photos', 'Photos'], ['creations', 'Créations'], ['numerique', 'Numérique'], ['impression', 'Impressions'], ['option', 'Options']] as const)
+            .filter(([id]) => (id !== 'photos' || photosList.length > 0) && (id !== 'creations' || data.data?.hasCreations)).map(([id, l]) => (
             <button key={id} onClick={() => setTab(id)} className={cx('flex-1 rounded-lg py-2.5 text-[14px] font-medium transition', tab === id ? 'bg-ink-650 bg-ink-600 text-white' : 'text-mist-400 hover:text-mist-100')}>{l}</button>
           ))}
         </div>
-        {tab !== 'creations' && (
+        {tab !== 'creations' && tab !== 'photos' && data.data?.hasCreations && (
           <div className="mb-3 text-[13px] text-mist-300">
             {comp ? <>Produits ajoutés à : <span className="font-semibold text-gold-300">{comp.styleName} · {comp.irisCount} iris</span>{comp.participantNames && <span className="text-mist-400"> ({comp.participantNames})</span>}</>
               : <span className="text-amber-200">Aucune création sélectionnée — ajoutez une création pour les produits qui en dépendent.</span>}
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {tab === 'impression' && (() => {
+          {tab === 'photos' && (
+            <PhotoGallery photos={photosList} big={big} onFavorite={(p, on) => act(async () => { await setFavorite(p.id, on); setPhotosList((l) => l.map((x) => (x.id === p.id ? { ...x, favorite: on ? 1 : 0 } : x))); })} />
+          )}
+          {tab === 'impression' && data.data?.hasCreations && (() => {
             const adv = adviceFor(comp?.irisCount);
             return (
               <div className="mb-4 flex items-center gap-5 rounded-2xl border border-gold-500/30 bg-gold-500/[0.05] p-4">
@@ -289,7 +307,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                   </div>
                 );
               })}
-              {!productsOf(tab).length && <div className="py-10 text-center text-mist-400">Aucun produit dans cette catégorie.</div>}
+              {tab !== 'photos' && !productsOf(tab).length && <div className="py-10 text-center text-mist-400">Aucun produit dans cette catégorie.</div>}
             </div>
           )}
         </div>
@@ -308,7 +326,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
           {!cart.compositions.length && !cart.items.length && (
-            <div className="py-12 text-center text-[13px] text-mist-400"><Sparkles className="mx-auto mb-3 size-6 text-gold-400" />Choisissez une création pour commencer.</div>
+            <div className="py-12 text-center text-[13px] text-mist-400"><Sparkles className="mx-auto mb-3 size-6 text-gold-400" />{d.hasCreations ? 'Choisissez une création pour commencer.' : 'Choisissez les produits pour commencer.'}</div>
           )}
           {cart.compositions.map((c) => {
             const its = cart.items.filter((i) => i.compositionKey === c.key);
@@ -414,6 +432,11 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
         onClose={() => setStyleOpen(null)} onZoom={(items, i) => setLight({ items, i })}
         onAdd={(c) => { addComposition(c); setStyleOpen(null); }} />}
       <Lightbox items={light?.items ?? []} index={light?.i ?? null} onClose={() => setLight(null)} />
+      {photoFor && (() => {
+        const line = cart.items.find((x) => x.key === photoFor);
+        return line ? <PhotoPicker familyId={familyId} sessionId={sessionId} line={line} onClose={() => setPhotoFor(null)}
+          onSave={(photos, src) => { update((c) => ({ ...c, items: c.items.map((x) => (x.key === photoFor ? { ...x, photos, photoSessionId: src } : x)) })); setPhotoFor(null); }} /> : null;
+      })()}
       {planOpen && <PaymentPlanDialog total={totals.total_cents} plan={cart.paymentPlan ?? null} onClose={() => setPlanOpen(false)}
         onSave={(pl) => { update((c) => ({ ...c, paymentPlan: pl })); setPlanOpen(false); }} />}
       <FormatGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} current={comp?.irisCount} />
@@ -459,15 +482,31 @@ function defaultIris(style: Style, participants: { id: string }[]) {
   return participants.slice(0, style.max_iris).map((p) => p.id);
 }
 
-function ItemLine({ i, locked, update, child }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void; child?: boolean }) {
+function ItemLine({ i, locked, update, child, onPhotos }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void; child?: boolean; onPhotos?: () => void }) {
   // A print's quantity is followed by its attached options (frame); removing it removes them.
   const setQty = (q: number) => update((c) => ({ ...c, items: c.items.map((x) => (x.key === i.key || x.parentKey === i.key ? { ...x, qty: q } : x)) }));
   return (
+    <>
     <div className="flex items-center gap-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
       <div className="min-w-0 flex-1"><div className="truncate">{i.productName}</div><div className="text-[11.5px] text-mist-400">{i.variantName} · {eur(i.unitPriceCents)}</div></div>
       {locked || child ? <span className="tabular">× {i.qty}</span> : <Stepper value={i.qty} onChange={setQty} />}
       <span className="w-[72px] text-right font-medium tabular">{eur(i.qty * i.unitPriceCents)}</span>
       {!locked && <IconButton title="Retirer" className="size-7" onClick={() => update((c) => ({ ...c, items: c.items.filter((x) => x.key !== i.key && x.parentKey !== i.key) }))}><Minus className="size-3.5" /></IconButton>}
+    </div>
+    {i.photosPerUnit != null && <PhotoLineInfo i={i} onPhotos={onPhotos} />}
+    </>
+  );
+}
+
+/** Photos of a cart line: numbers chosen, how many are still « à choisir ». */
+export function PhotoLineInfo({ i, onPhotos }: { i: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }; onPhotos?: () => void }) {
+  if (i.photosPerUnit === 0) return <div className="pl-1 text-[11.5px] text-mist-400">Toutes les photos</div>;
+  const missing = photosMissing(i);
+  return (
+    <div className="flex items-center gap-2 pl-1 text-[11.5px]" onClick={(e) => e.stopPropagation()}>
+      <span className="min-w-0 flex-1 truncate text-mist-300">{i.photos?.length ? `Photos ${i.photos.map(fmtPhoto).join(', ')}` : 'Photos'}
+        {missing > 0 && <span className="text-amber-300"> · {missing} à choisir</span>}</span>
+      {onPhotos && <button type="button" className="text-gold-300 hover:text-gold-200" onClick={onPhotos}>{i.photos?.length ? 'Modifier' : 'Choisir'}</button>}
     </div>
   );
 }

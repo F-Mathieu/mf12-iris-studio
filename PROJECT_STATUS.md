@@ -47,6 +47,8 @@
 
 - Registre des devis (`Documents` → `QuoteRegister`, `listQuotes`, `emailQuoteRow`), envoi groupé des offres (`BulkOffersDialog` : un `compose_mail` par famille, séquentiel), encaissements conservés à la suppression d’une commande (migration 15 `archived_receipts`, `archiveReceiptsStmts`, union dans `receipts()`), pièce jointe « devis signé » → `signedQuoteStmts` (dernier devis envoyé → signé, inscription cochée ; pas d’effet inverse à la suppression de la pièce). Testé : unitaires + aperçu navigateur. Envoi groupé non vérifié dans Mail (une fenêtre par famille).
 
+- **Étape 3 — Photos de séance** (`services/photos.ts`, `lib/photos.ts`, `lib/photoStore.ts`, `components/SessionPhotos.tsx`, `PhotoGallery.tsx`, `PhotoPicker.tsx`, migration 16 : `session_photos`, `order_items.photos/photo_session_id`, `orders.delivery_link/delivered_at`, `products.photos_per_unit`) : aperçus hors base (Tauri : AppData/apercus ; navigateur : IndexedDB ; tests : mémoire), n° = nom de fichier, favoris (app + CSV Pic-Time), rattachement des sous-dossiers aux familles (`matchFolders`), choix des photos par ligne (galerie / saisie, à choisir), photos d’une autre séance de la famille (prix = grille de la séance de la commande), n° modifiables après validation (`setItemPhotos`, historique), livraison. Testé : unitaires + aperçu navigateur. Non vérifié sur Mac : import de dossier (permissions fs read-dir/remove ajoutées), performances.
+
 ## Limites connues / non vérifié
 - **Build macOS (.dmg) non produit ici** (environnement Linux) : à lancer sur le Mac (`npm run tauri build`). Application non signée (clic droit → Ouvrir).
 - Aperçu PDF dans l'app : iframe WebKit — non vérifié visuellement sur macOS (l'enregistrement du fichier fonctionne).

@@ -14,9 +14,9 @@ export const fmtPhoto = (n: string) => (/^\d+$/.test(n) ? n.padStart(3, '0') : n
  * Numbers typed or pasted (from Lightroom: file names separated by commas, spaces or lines; ranges 12-15).
  * Returns unique numbers in their order of appearance.
  */
-export function parsePhotoNumbers(text: string): string[] {
+export function parsePhotoNumbers(text: string, unique = true): string[] {
   const out: string[] = [];
-  const add = (n: string) => { if (!out.includes(n)) out.push(n); };
+  const add = (n: string) => { if (!unique || !out.includes(n)) out.push(n); };
   for (const raw of text.split(/[,;\n\r\t]+|\s+/)) {
     const t = raw.trim();
     if (!t) continue;
@@ -32,10 +32,16 @@ export function parsePhotoNumbers(text: string): string[] {
   return out;
 }
 
-/** Photos still to choose on a line: a digital line needs one photo per unit, a print or other line one photo. */
-export function photosMissing(line: { category: string; qty: number; photos?: string[] | null }): number {
-  const have = line.photos?.length ?? 0;
-  return Math.max(0, (line.category === 'numerique' ? line.qty : 1) - have);
+/** Photos to choose on a line: qty × photos per unit of the product (null = no photo, 0 = all the photos). */
+export const photosNeeded = (line: { qty: number; photosPerUnit?: number | null }) => (line.photosPerUnit ? line.qty * line.photosPerUnit : 0);
+export const photosMissing = (line: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }) => Math.max(0, photosNeeded(line) - (line.photos?.length ?? 0));
+
+/** Text for documents: « Photos 002, 015 » + « 3 à choisir » / « toutes les photos » (empty if the line has no photos). */
+export function photosText(line: { qty: number; photosPerUnit?: number | null; photos?: string[] | null }): string {
+  if (line.photosPerUnit == null) return '';
+  if (line.photosPerUnit === 0) return 'toutes les photos';
+  const m = photosMissing(line);
+  return [line.photos?.length ? `photos ${line.photos.map(fmtPhoto).join(', ')}` : '', m ? `${m} à choisir` : ''].filter(Boolean).join(' · ');
 }
 
 /** Folder name ↔ family: case, accents and separators ignored. */

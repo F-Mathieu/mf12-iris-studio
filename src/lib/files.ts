@@ -49,3 +49,39 @@ export async function pickBackupFile(): Promise<string | null> {
 export const CSV_FILTER: Filter[] = [{ name: 'CSV', extensions: ['csv', 'txt'] }];
 export const PDF_FILTER: Filter[] = [{ name: 'PDF', extensions: ['pdf'] }];
 export const IMAGE_FILTER: Filter[] = [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }];
+
+export interface FolderFile { name: string; read: () => Promise<Uint8Array> }
+/**
+ * Session folder exported from Lightroom, one sub-folder per family: returns the sub-folders and their image files
+ * (read lazily, one at a time). Files directly in the folder are grouped under ''.
+ */
+export async function pickPhotoFolder(exts: string[]): Promise<Map<string, FolderFile[]> | null> {
+  const ok = (n: string) => exts.includes(n.split('.').pop()?.toLowerCase() ?? '');
+  const out = new Map<string, FolderFile[]>();
+  const push = (folder: string, f: FolderFile) => { if (!out.has(folder)) out.set(folder, []); out.get(folder)!.push(f); };
+  if (isTauri()) {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const fs = await import('@tauri-apps/plugin-fs');
+    const root = await open({ directory: true, multiple: false });
+    if (typeof root !== 'string') return null;
+    for (const e of await fs.readDir(root)) {
+      const p = `${root}/${e.name}`;
+      if (e.isDirectory) { for (const f of await fs.readDir(p)) if (f.isFile && ok(f.name)) push(e.name, { name: f.name, read: () => fs.readFile(`${p}/${f.name}`) }); }
+      else if (e.isFile && ok(e.name)) push('', { name: e.name, read: () => fs.readFile(p) });
+    }
+    return out;
+  }
+  return new Promise((resolve) => {
+    const input = Object.assign(document.createElement('input'), { type: 'file', multiple: true }) as HTMLInputElement & { webkitdirectory: boolean };
+    input.webkitdirectory = true;
+    input.onchange = () => {
+      for (const f of [...(input.files ?? [])]) {
+        if (!ok(f.name)) continue;
+        const parts = (f.webkitRelativePath || f.name).split('/');
+        push(parts.length > 2 ? parts[1] : '', { name: f.name, read: async () => new Uint8Array(await f.arrayBuffer()) });
+      }
+      resolve(out);
+    };
+    input.click();
+  });
+}

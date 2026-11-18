@@ -64,8 +64,8 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
   if (!o) throw new Error('Commande introuvable');
   const comps = await sel<{ id: string; style_id: string | null; style_name: string; iris_count: number; participant_ids: string; participant_names: string | null; instructions: string | null; fee_cents: number; orientation: string | null }>(
     'SELECT * FROM order_compositions WHERE order_id=? ORDER BY sort', [orderId]);
-  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number; parent_item_id: string | null; photos: string | null; photo_session_id: string | null }>(
-    'SELECT * FROM order_items WHERE order_id=? ORDER BY sort', [orderId]);
+  const items = await sel<{ id: string; composition_id: string | null; variant_id: string | null; product_id: string | null; category: string; product_name: string; variant_name: string | null; qty: number; unit_price_cents: number; unit_cost_cents: number; parent_item_id: string | null; photos: string | null; photo_session_id: string | null; ppu: number | null }>(
+    'SELECT i.*, (SELECT photos_per_unit FROM products p WHERE p.id=i.product_id) ppu FROM order_items i WHERE i.order_id=? ORDER BY i.sort', [orderId]);
   const disc = await sel<{ label: string; amount_cents: number; reason: string | null }>("SELECT * FROM order_discounts WHERE order_id=? AND kind='manual'", [orderId]);
   const cart: Cart = {
     orderId: o.id, number: o.number, status: o.status, sessionId: o.session_id, familyId: o.family_id, registrationId: o.registration_id,
@@ -73,7 +73,7 @@ export async function loadCart(orderId: string, repriceDraft = true): Promise<Ca
       participantIds: JSON.parse(c.participant_ids), participantNames: c.participant_names ?? '', instructions: c.instructions ?? '', orientation: (c.orientation as Orientation | null) ?? null })),
     items: items.map((i) => ({ key: i.id, variantId: i.variant_id, productId: i.product_id, category: i.category, productName: i.product_name,
       variantName: i.variant_name, compositionKey: i.composition_id, parentKey: i.parent_item_id, qty: i.qty, unitPriceCents: i.unit_price_cents, unitCostCents: i.unit_cost_cents,
-      photos: i.photos ? JSON.parse(i.photos) : null, photoSessionId: i.photo_session_id })),
+      photos: i.photos ? JSON.parse(i.photos) : null, photoSessionId: i.photo_session_id, photosPerUnit: i.ppu })),
     manual: disc.map((d) => ({ label: d.label, amount_cents: d.amount_cents, reason: d.reason })),
     notes: o.notes ?? '', desiredDelivery: o.desired_delivery, paymentPlan: o.payment_plan ? JSON.parse(o.payment_plan) : null,
   };
@@ -254,7 +254,7 @@ export async function duplicateOrder(id: string): Promise<string> {
 /* ---------- detail & payments */
 export interface Payment { id: string; order_id: string; amount_cents: number; method: PaymentMethod; paid_at: string; note: string | null }
 export async function getOrderDetail(id: string) {
-  const o = await one<OrderRow & { notes: string | null; desired_delivery: string | null; payment_note: string | null; registration_id: string | null; cancelled_at: string | null; cost_estimate_cents: number; family_phone: string | null; family_email: string | null; contact_first_name: string | null; session_date: string | null }>(
+  const o = await one<OrderRow & { delivery_link: string | null; delivered_at: string | null; notes: string | null; desired_delivery: string | null; payment_note: string | null; registration_id: string | null; cancelled_at: string | null; cost_estimate_cents: number; family_phone: string | null; family_email: string | null; contact_first_name: string | null; session_date: string | null }>(
     `SELECT o.*, s.name session_name, s.date session_date, f.name family_name, f.phone family_phone, f.email family_email, f.contact_first_name,
        COALESCE((SELECT sum(amount_cents) FROM payments pa WHERE pa.order_id=o.id),0) paid_cents, 0 items_count
      FROM orders o JOIN sessions s ON s.id=o.session_id JOIN families f ON f.id=o.family_id WHERE o.id=?`, [id]);

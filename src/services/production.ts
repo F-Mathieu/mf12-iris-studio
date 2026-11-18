@@ -1,4 +1,5 @@
 import { auditStmt, batch, insertStmt, nowIso, sel, uid, updateStmt } from './base';
+import { photosText } from '../lib/photos';
 import { variantCosts } from './suppliers';
 import type { Stmt } from '../lib/db/types';
 
@@ -16,7 +17,7 @@ export interface Task {
   id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string;
   order_id: string; order_number: string; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
   composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: import('../lib/formatsGuide').Orientation | null;
-  order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null;
+  order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null; item_photos: string | null; item_ppu: number | null;
   example_thumb: string | null;
   items: TaskItem[]; refs: { participant: string; reference: string; file_path: string | null }[]; hasPrint: boolean;
 }
@@ -28,7 +29,8 @@ export async function listTasks(f: { sessionId?: string; status?: string } = {})
   const tasks = await sel<Task>(
     `SELECT t.*, o.number order_number, o.session_id, s.name session_name, o.family_id, fa.name family_name, o.desired_delivery,
        c.style_id, c.style_name, c.iris_count, c.participant_ids, c.participant_names, c.instructions, c.orientation,
-       i.product_name item_product, i.variant_name item_variant, i.qty item_qty, i.category item_category, NULL example_thumb
+       i.product_name item_product, i.variant_name item_variant, i.qty item_qty, i.category item_category, i.photos item_photos,
+       (SELECT photos_per_unit FROM products pr WHERE pr.id=i.product_id) item_ppu, NULL example_thumb
      FROM production_tasks t JOIN orders o ON o.id=t.order_id JOIN sessions s ON s.id=o.session_id JOIN families fa ON fa.id=o.family_id
      LEFT JOIN order_compositions c ON c.id=t.composition_id LEFT JOIN order_items i ON i.id=t.order_item_id
      WHERE ${w.join(' AND ')} ORDER BY s.date DESC, fa.name COLLATE NOCASE, o.number`, p);
@@ -125,3 +127,7 @@ export async function updateSupplierOrder(id: string, d: Partial<Pick<SupplierOr
   }
   await batch(stmts);
 }
+
+/** « photos 002, 015 · 3 à choisir » for an item task (production sheet, board). */
+export const taskPhotos = (t: Pick<Task, 'item_qty' | 'item_photos' | 'item_ppu'>) =>
+  photosText({ qty: t.item_qty ?? 0, photosPerUnit: t.item_ppu, photos: t.item_photos ? JSON.parse(t.item_photos) : null });

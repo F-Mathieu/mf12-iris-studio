@@ -1,4 +1,6 @@
 /** Gathers data for PDF documents (client documents only read sale prices). */
+import { taskPhotos } from './production';
+import { photosText } from '../lib/photos';
 import { getSettings, one, sel } from './base';
 import { universeText } from './universes';
 import { getOrderDetail, PAYMENT_METHODS, PAYMENT_STATUS, ORDER_STATUS } from './orders';
@@ -36,7 +38,7 @@ export async function orderRecapPdf(orderId: string) {
     compositions: cart.compositions.map((c, n) => ({ style: c.styleName, iris: c.irisCount, participants: c.participantNames, fee: c.feeCents, image: images[n],
       orientation: c.orientation ? ORIENTATION_LABEL[c.orientation].toLowerCase() : null, instructions: c.instructions || null,
       items: cart.items.filter((i) => i.compositionKey === c.key).map((i) => ({ name: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, qty: i.qty, unit: i.unitPriceCents })) })),
-    looseItems: cart.items.filter((i) => !i.compositionKey).map((i) => ({ name: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, qty: i.qty, unit: i.unitPriceCents })),
+    looseItems: cart.items.filter((i) => !i.compositionKey).map((i) => ({ name: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}${photosText(i) ? ` (${photosText(i)})` : ''}`, qty: i.qty, unit: i.unitPriceCents })),
     subtotal: o.subtotal_cents, discounts: discounts.map((x) => ({ label: x.label, amount: x.amount_cents })), total: o.total_cents, paid: o.paid_cents,
     paymentStatus: PAYMENT_STATUS[paymentStatus(o.total_cents, o.paid_cents)], payments: payments.map((p) => ({ date: p.paid_at, method: PAYMENT_METHODS[p.method], amount: p.amount_cents })),
     dueDate: o.payment_due_date, notes: o.notes,
@@ -130,7 +132,7 @@ export async function productionPdf(f: { sessionId?: string; taskIds?: string[] 
       family: t.family_name, order: t.order_number, session: t.session_name, style: t.style_name ?? t.item_product ?? '', iris: t.iris_count ?? 0,
       orientation: t.orientation ? ORIENTATION_LABEL[t.orientation].toLowerCase() : null,
       participants: t.participant_names ?? '', refs: t.refs.map((r) => `${r.participant} : ${r.reference}`).join(', '), instructions: t.instructions ?? t.notes ?? '',
-      products: t.kind === 'item' ? `${t.item_product} ${t.item_variant ?? ''} × ${t.item_qty}` : t.items.map((i) => `${i.product_name}${i.variant_name ? ' ' + i.variant_name : ''} × ${i.qty}`).join(' ; '),
+      products: t.kind === 'item' ? `${t.item_product} ${t.item_variant ?? ''} × ${t.item_qty}${taskPhotos(t) ? ` — ${taskPhotos(t)}` : ''}` : t.items.map((i) => `${i.product_name}${i.variant_name ? ' ' + i.variant_name : ''} × ${i.qty}`).join(' ; '),
       delivery: t.desired_delivery, status: TASK_STATUS[t.status], thumb: t.example_thumb,
     })),
   });

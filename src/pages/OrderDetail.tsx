@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Ban, Copy, CreditCard, Eye, EyeOff, FileDown, FileSignature, Mail, History, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Textarea, useAsync, useConfirm } from '../components/ui';
 import { OrderBadge, PayBadge } from '../components/badges';
@@ -10,6 +11,9 @@ import { activeInvoice, invoicesOfOrder, type InvoiceRow } from '../services/inv
 import { emailInvoice, emailOrderRecap } from '../services/mail';
 import { QuoteDialog } from '../components/QuoteDialog';
 import { OrderAttachments } from '../components/OrderAttachments';
+import { PhotoPicker } from '../components/PhotoPicker';
+import { PhotoLineInfo } from '../components/Configurator';
+import { setDelivery, setItemPhotos } from '../services/orders';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -29,6 +33,7 @@ export default function OrderDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const [showInternal, setShowInternal] = useState(false);
+  const [photoLine, setPhotoLine] = useState<string | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false); // cost / margin folded by default
   useEffect(() => setShowInternal(false), [id]); // folded again on every order
   if (d.error) return <ErrorBox error={d.error} />;
@@ -99,7 +104,10 @@ export default function OrderDetail() {
                 </div>
               ))}
               {cart.items.filter((i) => !i.compositionKey).map((i) => (
-                <div key={i.key} className="flex justify-between px-5 py-3 text-[13.5px]"><span>{i.productName}{i.variantName ? ` — ${i.variantName}` : ''} × {i.qty}</span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
+                <div key={i.key} className="px-5 py-3 text-[13.5px]">
+                  <div className="flex justify-between"><span>{i.productName}{i.variantName ? ` — ${i.variantName}` : ''} × {i.qty}</span><span className="tabular">{eur(i.qty * i.unitPriceCents)}</span></div>
+                  {i.photosPerUnit != null && <PhotoLineInfo i={i} onPhotos={o.status !== 'annulee' ? () => setPhotoLine(i.key) : undefined} />}
+                </div>
               ))}
             </div>
             <div className="space-y-1.5 border-t border-ink-700 px-5 py-4 text-[13.5px]">
@@ -110,6 +118,7 @@ export default function OrderDetail() {
           </Card>
           {o.notes && <Card className="px-5 py-4 text-[13.5px] text-mist-200">{o.notes}</Card>}
           <OrderAttachments orderId={id} onChange={d.reload} />
+          <DeliveryCard orderId={id} link={o.delivery_link} date={o.delivered_at} onSaved={d.reload} />
           <Card>
             <CardHeader title={<span className="flex items-center gap-2"><History className="size-4 text-mist-400" />Historique</span>} />
             <div className="divide-y divide-ink-700/50">
@@ -199,6 +208,11 @@ export default function OrderDetail() {
           </Card>
         </div>
       </div>
+      {photoLine && (() => {
+        const line = cart.items.find((x) => x.key === photoLine);
+        return line ? <PhotoPicker familyId={o.family_id} sessionId={o.session_id} line={line} onClose={() => setPhotoLine(null)}
+          onSave={async (photos) => { if (await act(() => setItemPhotos(line.key, photos), 'Photos enregistrées') !== undefined) { setPhotoLine(null); d.reload(); } }} /> : null;
+      })()}
       {quoteOpen && <QuoteDialog orderId={id} onClose={() => setQuoteOpen(false)} />}
       <PaymentDialog open={payOpen} balance={balance} suggested={nextDue?.remaining_cents} suggestedLabel={nextDue ? `Échéance n° ${nextDue.n} du ${fmtDate(nextDue.date)}` : undefined} onClose={() => setPayOpen(false)} onSave={async (p) => { if (await act(() => addPayment(id, p), 'Règlement enregistré') !== undefined) { setPayOpen(false); d.reload(); } }} />
       <PlanDialog open={planOpen} initial={{ due: o.payment_due_date, note: o.payment_note }} onClose={() => setPlanOpen(false)} onSave={async (due, note) => { await act(() => setPaymentPlan(id, due, note), 'Échéance enregistrée'); setPlanOpen(false); d.reload(); }} />
@@ -237,5 +251,25 @@ function PlanDialog({ open, initial, onClose, onSave }: { open: boolean; initial
         <Field label="Note"><Textarea value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       </div>
     </Modal>
+  );
+}
+
+/** Delivery of the files (TransferNow, Pic-Time private gallery): link + date sent. */
+function DeliveryCard({ orderId, link, date, onSaved }: { orderId: string; link: string | null; date: string | null; onSaved: () => void }) {
+  const [l, setL] = useState(link ?? '');
+  const [dt, setDt] = useState(date ?? '');
+  const dirty = l !== (link ?? '') || dt !== (date ?? '');
+  return (
+    <Card>
+      <CardHeader title="Livraison des fichiers" subtitle="Lien TransferNow (ou galerie privée Pic-Time) et date d’envoi."
+        actions={date ? <Badge tone="green">Envoyé le {fmtDate(date)}</Badge> : <Badge tone="amber">À livrer</Badge>} />
+      <div className="flex flex-wrap items-end gap-3 px-5 py-4">
+        <Field label="Lien" className="min-w-64 flex-1"><Input value={l} placeholder="https://www.transfernow.net/…" onChange={(e) => setL(e.target.value)} /></Field>
+        <Field label="Envoyé le"><Input type="date" value={dt} onChange={(e) => setDt(e.target.value)} /></Field>
+        {!dt && <Button variant="ghost" onClick={() => setDt(todayIso())}>Aujourd’hui</Button>}
+        {link && <Button variant="ghost" onClick={() => navigator.clipboard?.writeText(link).then(() => toast.success('Lien copié'))}>Copier le lien</Button>}
+        <Button variant="gold" disabled={!dirty} onClick={() => act(() => setDelivery(orderId, l, dt || null).then(onSaved), 'Livraison enregistrée')}>Enregistrer</Button>
+      </div>
+    </Card>
   );
 }

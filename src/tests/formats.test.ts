@@ -142,9 +142,10 @@ describe('numéros de photos', async () => {
     expect(parsePhotoNumbers('')).toEqual([]);
   });
   it('photos à choisir', () => {
-    expect(photosMissing({ category: 'numerique', qty: 5, photos: ['1', '2'] })).toBe(3);
-    expect(photosMissing({ category: 'impression', qty: 2, photos: ['1'] })).toBe(0);
-    expect(photosMissing({ category: 'impression', qty: 1, photos: null })).toBe(1);
+    expect(photosMissing({ qty: 5, photosPerUnit: 1, photos: ['1', '2'] })).toBe(3);
+    expect(photosMissing({ qty: 2, photosPerUnit: 5, photos: ['1'] })).toBe(9); // 2 packs of 5 photos
+    expect(photosMissing({ qty: 1, photosPerUnit: 0, photos: null })).toBe(0); // all the photos
+    expect(photosMissing({ qty: 3, photosPerUnit: null })).toBe(0);
     expect(normName('Dupont-Martin Élodie')).toBe('dupont martin elodie');
   });
 });

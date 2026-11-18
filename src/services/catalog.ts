@@ -6,7 +6,7 @@ export interface Style { id: string; name: string; description: string | null; m
 export interface Example { id: string; style_id: string; media_id: string; iris_count: number | null; caption: string | null; sort: number; thumb: string }
 export type Category = 'numerique' | 'impression' | 'option';
 export const CATEGORY_LABEL: Record<Category | 'creation', string> = { numerique: 'Numérique', impression: 'Impressions', option: 'Options', creation: 'Créations' };
-export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; universe_ids: string[]; thumb?: string | null; style_name?: string | null }
+export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; universe_ids: string[]; photos_per_unit: number | null; thumb?: string | null; style_name?: string | null }
 export interface Variant { id: string; product_id: string; name: string; format: string | null; finish: string | null; extra_cost_cents: number; preferred_supplier_product_id: string | null; active: number; archived: number; sort: number; universe_ids: string[] }
 
 /* ---------- media */
@@ -78,7 +78,8 @@ export const listVariants = async (includeArchived = false, universeId?: string 
 export async function saveProduct(p: Partial<Product> & { name: string; category: Category }) {
   if (!p.name.trim()) throw new Error('Nom du produit obligatoire.');
   const row = { category: p.category, name: p.name.trim(), description: p.description ?? null, media_id: p.media_id ?? null, style_id: p.style_id || null,
-    needs_composition: p.needs_composition ?? (p.category === 'option' ? 0 : 1), active: p.active ?? 1, archived: p.archived ?? 0 };
+    needs_composition: p.needs_composition ?? (p.category === 'option' ? 0 : 1), active: p.active ?? 1, archived: p.archived ?? 0,
+    photos_per_unit: p.photos_per_unit == null || (p.photos_per_unit as unknown) === '' ? null : Math.max(0, Math.round(Number(p.photos_per_unit))) };
   const linkStmts = (id: string) => (p.universe_ids ? setLinksStmts('product', id, p.universe_ids) : []);
   if (p.id) { await batch([updateStmt('products', p.id, row), ...linkStmts(p.id)]); return p.id; }
   const id = uid();

@@ -5,6 +5,7 @@
  * - a validated order that is corrected, cancelled or deleted gets a credit note cancelling its invoice;
  *   the next print then issues a new invoice.
  */
+import { photosText } from '../lib/photos';
 import { batch, getSetting, getSettings, insertStmt, nowIso, one, sel, uid } from './base';
 import { getOrderDetail, PAYMENT_METHODS } from './orders';
 import { discountLabel, instalmentStatus, schedule } from '../lib/pricing';
@@ -76,7 +77,7 @@ export async function buildInvoiceData(orderId: string, number: string): Promise
       lines.push({ label: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, detail: `pour la création ${c.styleName}`, qty: i.qty, unit: i.unitPriceCents, total: i.qty * i.unitPriceCents });
   }
   for (const i of cart.items.filter((x) => !x.compositionKey))
-    lines.push({ label: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, qty: i.qty, unit: i.unitPriceCents, total: i.qty * i.unitPriceCents });
+    lines.push({ label: `${i.productName}${i.variantName ? ' — ' + i.variantName : ''}`, detail: photosText(i) || undefined, qty: i.qty, unit: i.unitPriceCents, total: i.qty * i.unitPriceCents });
   const today = nowIso().slice(0, 10);
   return {
     kind: 'facture', number, date: today, saleDate: (o.validated_at ?? o.created_at).slice(0, 10),

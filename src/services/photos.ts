@@ -19,11 +19,18 @@ export const listPhotos = (registrationId: string) =>
 export const photoCounts = (sessionId: string) =>
   sel<{ registration_id: string; n: number; fav: number }>('SELECT registration_id, count(*) n, sum(favorite) fav FROM session_photos WHERE session_id=? GROUP BY registration_id', [sessionId]);
 
+/** Sessions where this family has a registration (current first), with their photo count: photos of another session can go on a line. */
+export const familyPhotoSessions = (familyId: string) =>
+  sel<{ registration_id: string; session_id: string; session_name: string; date: string | null; n: number }>(
+    `SELECT r.id registration_id, s.id session_id, s.name session_name, s.date, (SELECT count(*) FROM session_photos p WHERE p.registration_id=r.id) n
+     FROM session_registrations r JOIN sessions s ON s.id=r.session_id WHERE r.family_id=? ORDER BY COALESCE(s.date, s.created_at) DESC`, [familyId]);
+
 /**
  * Imports the exported files of one family (re-importing a number replaces its preview, favorite kept).
  * Files without a number in their name are skipped.
  */
-export async function importPhotos(sessionId: string, registrationId: string, files: { name: string; bytes: Uint8Array }[],
+export interface PhotoFile { name: string; bytes?: Uint8Array; read?: () => Promise<Uint8Array> }
+export async function importPhotos(sessionId: string, registrationId: string, files: PhotoFile[],
   onProgress?: (done: number, total: number) => void): Promise<{ imported: number; skipped: string[] }> {
   const skipped: string[] = [];
   let imported = 0;
@@ -31,7 +38,7 @@ export async function importPhotos(sessionId: string, registrationId: string, fi
     const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
     const number = PHOTO_EXT.includes(ext) ? photoNumber(f.name) : null;
     if (!number) { skipped.push(f.name); continue; }
-    const p = await makePreviews(f.bytes);
+    const p = await makePreviews(f.bytes ?? (await f.read!()));
     const row = { session_id: sessionId, registration_id: registrationId, number };
     await photoStore().put(filePath(row, false), p.preview);
     await photoStore().put(filePath(row, true), p.thumb);

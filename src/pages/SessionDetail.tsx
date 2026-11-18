@@ -4,6 +4,7 @@ import { Archive, CalendarDays, Copy, FileDown, MapPin, MonitorPlay, Pencil, Tag
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, Loading, PageHeader, Select, Stat, Tabs, useAsync, useConfirm } from '../components/ui';
 import { SessionBadge } from '../components/badges';
 import { RegistrationsPanel } from '../components/Registrations';
+import { SessionPhotos } from '../components/SessionPhotos';
 import { Planning } from '../components/Planning';
 import { PriceListEditor } from '../components/PriceListEditor';
 import { PresentDialog } from '../components/Layout';
@@ -21,7 +22,7 @@ import { eur } from '../lib/money';
 import { fmtLongDate, slug } from '../lib/format';
 import { act } from '../lib/act';
 
-type Tab = 'general' | 'inscrits' | 'planning' | 'commandes' | 'production' | 'finances' | 'parametres';
+type Tab = 'general' | 'inscrits' | 'photos' | 'planning' | 'commandes' | 'production' | 'finances' | 'parametres';
 
 export default function SessionDetail() {
   const { id = '' } = useParams();
@@ -48,9 +49,10 @@ export default function SessionDetail() {
           <span className="flex items-center gap-1.5"><Tags className="size-3.5" />{session.price_list_name ?? 'Aucune grille'}</span></div>}
         actions={<Button variant="gold" icon={<MonitorPlay className="size-4" />} onClick={() => setPresent(true)}>Présentation client</Button>} />
       <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[
-        { id: 'general', label: 'Vue générale' }, { id: 'inscrits', label: 'Inscrits', count: regs.data?.length }, { id: 'planning', label: 'Planning' },
+        { id: 'general', label: 'Vue générale' }, { id: 'inscrits', label: 'Inscrits', count: regs.data?.length }, { id: 'photos', label: 'Photos' }, { id: 'planning', label: 'Planning' },
         { id: 'commandes', label: 'Commandes', count: kpi.data?.orders }, { id: 'production', label: 'Postproduction' }, { id: 'finances', label: 'Finances' }, { id: 'parametres', label: 'Paramètres' },
       ]} />
+      {tab === 'photos' && <SessionPhotos sessionId={id} regs={regs.data ?? []} />}
       {tab === 'general' && kpi.data && (
         <div className="space-y-5 animate-fade">
           <div className="grid grid-cols-4 gap-4">

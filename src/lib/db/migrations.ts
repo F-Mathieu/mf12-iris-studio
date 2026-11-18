@@ -348,6 +348,8 @@ ALTER TABLE order_items ADD COLUMN photos TEXT;
 ALTER TABLE order_items ADD COLUMN photo_session_id TEXT;
 ALTER TABLE orders ADD COLUMN delivery_link TEXT;
 ALTER TABLE orders ADD COLUMN delivered_at TEXT;
+-- photos à choisir par unité vendue (NULL = aucune, 1 = photo à l’unité / tirage, 5 = pack 5 photos, 0 = toutes les photos)
+ALTER TABLE products ADD COLUMN photos_per_unit INTEGER;
 `,
 ];
 

@@ -50,6 +50,8 @@ export interface CartItem {
   photos?: string[] | null;
   /** Session the photos come from, when it is not the order's session (e.g. last Christmas photos bought at the iris session). */
   photoSessionId?: string | null;
+  /** From the product: photos per unit (null = none, 0 = all the photos). Not stored on the line. */
+  photosPerUnit?: number | null;
   qty: number;
   unitPriceCents: number;
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CheckSquare, Download, FileDown, ImageOff, PackagePlus, Square, Truck, Wand2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, Input, Loading, Modal, MoneyInput, PageHeader, SearchInput, Segmented, Select, Tabs, Textarea, useAsync, cx } from '../components/ui';
 import { TaskBadge } from '../components/badges';
-import { createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, listTasks, setTaskNotes, setTaskStatus, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
+import { taskPhotos, createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, listTasks, setTaskNotes, setTaskStatus, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
 import { listSessions } from '../services/sessions';
 import { listSuppliers } from '../services/suppliers';
 import { brand, productionPdf } from '../services/documents';
@@ -78,7 +78,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
         {t.example_thumb ? <img src={t.example_thumb} className="size-14 shrink-0 rounded-lg object-cover" alt="" /> : t.kind === 'composition' && <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-ink-800"><ImageOff className="size-4 text-mist-400/50" /></div>}
         <div className="min-w-0 flex-1">
           <div className="font-semibold">{t.family_name} <span className="font-normal text-mist-400">· {t.order_number}</span></div>
-          <div className="text-[13px] text-gold-300">{t.kind === 'composition' ? `${t.style_name} · ${t.iris_count} iris${t.orientation ? ` · ${ORIENTATION_LABEL[t.orientation].toLowerCase()}` : ''}` : `${t.item_product} ${t.item_variant ?? ''} × ${t.item_qty}`}</div>
+          <div className="text-[13px] text-gold-300">{t.kind === 'composition' ? `${t.style_name} · ${t.iris_count} iris${t.orientation ? ` · ${ORIENTATION_LABEL[t.orientation].toLowerCase()}` : ''}` : `${t.item_product} ${t.item_variant ?? ''} × ${t.item_qty}${taskPhotos(t) ? ` — ${taskPhotos(t)}` : ''}`}</div>
           {t.participant_names && <div className="text-[12px] text-mist-300">{t.participant_names}</div>}
           {t.refs.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{t.refs.map((r) => <Badge key={r.reference} className="font-mono">{r.reference}</Badge>)}</div>}
           {t.items.length > 0 && <div className="mt-1 text-[12px] text-mist-400">{t.items.map((i) => `${i.product_name}${i.variant_name ? ' ' + i.variant_name : ''} ×${i.qty}`).join(' · ')}</div>}
@@ -108,7 +108,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
           <DataTable<Task> rows={tasks} rowKey={(t) => t.id} dense columns={[
             { key: 'img', header: '', cell: (t) => (t.example_thumb ? <img src={t.example_thumb} className="size-10 rounded-md object-cover" alt="" /> : null) },
             { key: 'f', header: 'Famille', sort: (t) => t.family_name, cell: (t) => <div><div className="font-medium">{t.family_name}</div><div className="text-[11.5px] text-mist-400">{t.order_number}{!sessionId && ` · ${t.session_name}`}</div></div> },
-            { key: 'c', header: 'Création', sort: (t) => t.style_name ?? '', cell: (t) => (t.kind === 'composition' ? `${t.style_name} · ${t.iris_count} iris${t.orientation ? ` · ${ORIENTATION_LABEL[t.orientation].toLowerCase()}` : ''}` : `${t.item_product} ${t.item_variant ?? ''} ×${t.item_qty}`) },
+            { key: 'c', header: 'Création', sort: (t) => t.style_name ?? '', cell: (t) => (t.kind === 'composition' ? `${t.style_name} · ${t.iris_count} iris${t.orientation ? ` · ${ORIENTATION_LABEL[t.orientation].toLowerCase()}` : ''}` : `${t.item_product} ${t.item_variant ?? ''} ×${t.item_qty}${taskPhotos(t) ? ` — ${taskPhotos(t)}` : ''}`) },
             { key: 'p', header: 'Participants / réf.', cell: (t) => <div className="max-w-[240px] text-[12.5px]"><div className="truncate">{t.participant_names}</div><div className="truncate font-mono text-mist-400">{t.refs.map((r) => r.reference).join(' ')}</div></div> },
             { key: 'i', header: 'Produits', cell: (t) => <div className="max-w-[260px] truncate text-[12.5px] text-mist-300">{t.items.map((i) => `${i.product_name} ${i.variant_name ?? ''} ×${i.qty}`).join(' · ')}</div> },
             { key: 's', header: 'Statut', sort: (t) => t.status, cell: (t) => <StatusSelect t={t} /> },

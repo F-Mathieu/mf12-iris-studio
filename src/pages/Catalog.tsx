@@ -241,6 +241,15 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
           <Field label="Description" className="col-span-2"><Textarea rows={2} value={p.description ?? ''} onChange={(e) => setP({ ...p, description: e.target.value })} /></Field>
           <Field label="Univers" hint="Aucun coché : commun à tous les univers."><UniverseChips value={p.universe_ids ?? []} universes={universes} onChange={(v) => setP({ ...p, universe_ids: v })} /></Field>
           <Field label="Style associé (fichiers numériques)"><Select value={p.style_id ?? ''} onChange={(e) => setP({ ...p, style_id: e.target.value || null })}><option value="">— Aucun —</option>{styles.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
+          <Field label="Photos à choisir" hint={p.photos_per_unit && p.photos_per_unit > 1 ? `Pack : ${p.photos_per_unit} photos par unité vendue.` : 'Photo à l’unité, tirage, pack de N photos…'}>
+            <div className="flex gap-2">
+              <Select value={p.photos_per_unit == null ? '' : p.photos_per_unit === 0 ? 'all' : p.photos_per_unit === 1 ? '1' : 'pack'}
+                onChange={(e) => setP({ ...p, photos_per_unit: e.target.value === '' ? null : e.target.value === 'all' ? 0 : e.target.value === '1' ? 1 : Math.max(2, p.photos_per_unit ?? 5) })}>
+                <option value="">Aucune (création iris, goodies…)</option><option value="1">1 photo par unité</option><option value="pack">Pack de plusieurs photos</option><option value="all">Toutes les photos</option>
+              </Select>
+              {(p.photos_per_unit ?? 0) > 1 && <Input type="number" min={2} className="w-20" value={p.photos_per_unit ?? 5} onChange={(e) => setP({ ...p, photos_per_unit: Math.max(2, Number(e.target.value) || 2) })} />}
+            </div>
+          </Field>
           <div className="space-y-2 pt-6">
             <Toggle checked={!!p.needs_composition} onChange={(v) => setP({ ...p, needs_composition: v ? 1 : 0 })} label="Rattaché à une création" />
             <Toggle checked={!!p.active} onChange={(v) => setP({ ...p, active: v ? 1 : 0 })} label="Actif" />
