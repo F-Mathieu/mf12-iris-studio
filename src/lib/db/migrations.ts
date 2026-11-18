@@ -367,6 +367,18 @@ CREATE TABLE weddings (
 );
 CREATE INDEX idx_weddings_date ON weddings(date);
 `,
+  /* 18 — agenda : événements libres (prestation, livraison, rendez-vous, perso…) avec rappel N jours avant et
+        journée réservée ; orientation d’un tirage photo (vertical / horizontal) choisie sur la ligne de commande. */ `
+CREATE TABLE calendar_events (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'rdv' CHECK (kind IN ('prestation','livraison','rdv','perso','autre')),
+  date TEXT NOT NULL, end_date TEXT, start_time TEXT, end_time TEXT, location TEXT, notes TEXT,
+  remind_days INTEGER, blocks_day INTEGER NOT NULL DEFAULT 0, done_at TEXT,
+  family_id TEXT REFERENCES families(id) ON DELETE SET NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX idx_events_date ON calendar_events(date);
+ALTER TABLE order_items ADD COLUMN orientation TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

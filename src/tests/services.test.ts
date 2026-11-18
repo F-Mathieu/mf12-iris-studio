@@ -5,7 +5,7 @@ import { migrate } from '../lib/db/migrations';
 import { seedIfEmpty } from '../services/seed';
 import { applyDataUpgrades, applyOnelab2026 } from '../services/onelab';
 import { variantCosts } from '../services/suppliers';
-import { sel, one } from '../services/base';
+import { sel, one, run } from '../services/base';
 import { createSession, duplicateSession, getSession, updateSession, deleteSession, applyTemplateToSession, listSessions } from '../services/sessions';
 import { parseRegistrationCsv, registrationTemplate, REGISTRATION_COLUMNS, toCsv } from '../lib/csv';
 import { applyImport, listRegistrations, planImport } from '../services/registrations';
@@ -915,5 +915,57 @@ describe('mariages', () => {
     await W.saveWeddingLines(id2, [line('Forfait', 1000)], '');
     await W.deleteWedding(id2);
     expect((await W.listWeddings()).map((x) => x.id)).toEqual([id]);
+  });
+});
+
+describe('agenda et rappels', () => {
+  it('rassemble séances, mariages, livrables, échéances, devis, événements ; journées réservées ; rappels', async () => {
+    const A = await import('../services/agenda');
+    const W = await import('../services/weddings');
+    const { issueQuote } = await import('../services/quotes');
+    const { setSetting } = await import('../services/base');
+    const { todayIso } = await import('../lib/ids');
+    const { addDays } = await import('../lib/weddingTexts');
+    await setSetting('legal_name', 'Mathieu Exemple'); await setSetting('legal_address', '1 rue des Iris, 75000 Paris'); await setSetting('siret', '123 456 789 00012'); await setSetting('mediator', 'CNPM');
+    const today = todayIso();
+    const line = (cents: number) => ({ key: uid(), variantId: null, productId: null, category: 'prestation', productName: 'Forfait', variantName: null, compositionKey: null, qty: 1, unitPriceCents: cents, unitCostCents: 0 });
+    // a signed wedding 20 days ago: teaser overdue (J+15), final in 10 days; deposit unpaid (overdue)
+    const wid = await W.createWedding({ partner1: 'Julie', partner2: 'Tom', date: addDays(today, -20), services: 'photo_video' });
+    await W.saveWeddingLines(wid, [line(200000)], '');
+    await W.signWedding(wid, addDays(today, -100));
+    // a wedding in 30 days, signed, information sheet not received
+    const w2 = await W.createWedding({ partner1: 'Anne', date: addDays(today, 30), services: 'photo' });
+    await W.saveWeddingLines(w2, [line(100000)], '');
+    await W.signWedding(w2, today);
+    // a quote sent 40 days ago, expired (validity 30 days)
+    const w3 = await W.createWedding({ partner1: 'Léa', date: addDays(today, 200), services: 'photo' });
+    await W.saveWeddingLines(w3, [line(50000)], '');
+    const q = await issueQuote((await W.getWedding(w3))!.order_id!);
+    await run('UPDATE quotes SET valid_until=? WHERE id=?', [addDays(today, -10), q.row.id]);
+    // a free event with reminder 3 days before, and a booked day
+    await A.saveEvent({ title: 'RDV essayage album', kind: 'rdv', date: addDays(today, 2), start_time: '10:00', remind_days: 3 });
+    const blocked = addDays(today, 60);
+    await A.saveEvent({ title: 'Prestation entreprise', kind: 'prestation', date: blocked, blocks_day: 1 });
+    await expect(A.saveEvent({ title: 'x', date: today, end_date: addDays(today, -1) })).rejects.toThrow('fin');
+
+    const items = await A.agenda(addDays(today, -30), addDays(today, 60));
+    const src = (s: string) => items.filter((x) => x.source === s).map((x) => x.title);
+    expect(src('mariage')).toEqual(expect.arrayContaining([expect.stringContaining('Julie & Tom'), expect.stringContaining('Anne')]));
+    expect(src('livraison').filter((t) => t.includes('Julie')).length).toBe(2);
+    expect((await A.agenda(addDays(today, -120), today)).find((x) => x.source === 'echeance' && x.date === addDays(today, -100))?.title).toContain('600,00');
+    expect((await A.bookedOn(blocked)).map((x) => x.title)).toEqual(['Prestation entreprise']);
+    expect((await A.bookedOn(addDays(today, 30))).map((x) => x.title)).toEqual([expect.stringContaining('Mariage Anne')]);
+    expect((await A.bookedOn(addDays(today, 200))).length).toBe(0); // unsigned wedding = option, not booked
+
+    const r = await A.reminders(today);
+    const g = (k: string) => r.filter((x) => x.group === k);
+    expect(g('livraison').map((x) => x.late)).toEqual([true]); // teaser late (final due in 10 days: not yet, 7-day window)
+    expect(g('fiche').length).toBe(1);
+    expect(g('echeance').some((x) => x.late)).toBe(true);
+    expect(g('devis').length).toBe(1);
+    expect(g('rappel').map((x) => x.title)).toEqual(['RDV essayage album']);
+    // delivered teaser disappears from reminders
+    await W.updateWedding(wid, { teaser_delivered_at: today });
+    expect((await A.reminders(today)).filter((x) => x.group === 'livraison').length).toBe(0);
   });
 });
