@@ -232,6 +232,10 @@ export async function setItemPhotos(orderItemId: string, photos: string[]) {
   ]);
 }
 
+/** Private notes of an order (never printed nor sent to the client). */
+export const setInternalNotes = (orderId: string, notes: string) =>
+  batch([{ sql: 'UPDATE orders SET internal_notes=? WHERE id=?', params: [notes.trim() || null, orderId] }]);
+
 /** Orientation of a photo print (vertical / horizontal), also after validation: no price change. */
 export async function setItemOrientation(orderItemId: string, orientation: 'vertical' | 'horizontal' | null) {
   const it = await one<{ order_id: string; product_name: string }>('SELECT order_id, product_name FROM order_items WHERE id=?', [orderItemId]);
@@ -262,7 +266,7 @@ export async function duplicateOrder(id: string): Promise<string> {
 /* ---------- detail & payments */
 export interface Payment { id: string; order_id: string; amount_cents: number; method: PaymentMethod; paid_at: string; note: string | null }
 export async function getOrderDetail(id: string) {
-  const o = await one<OrderRow & { delivery_link: string | null; delivered_at: string | null; notes: string | null; desired_delivery: string | null; payment_note: string | null; registration_id: string | null; cancelled_at: string | null; cost_estimate_cents: number; family_phone: string | null; family_email: string | null; contact_first_name: string | null; session_date: string | null }>(
+  const o = await one<OrderRow & { internal_notes: string | null; delivery_link: string | null; delivered_at: string | null; notes: string | null; desired_delivery: string | null; payment_note: string | null; registration_id: string | null; cancelled_at: string | null; cost_estimate_cents: number; family_phone: string | null; family_email: string | null; contact_first_name: string | null; session_date: string | null }>(
     `SELECT o.*, s.name session_name, s.date session_date, f.name family_name, f.phone family_phone, f.email family_email, f.contact_first_name,
        COALESCE((SELECT sum(amount_cents) FROM payments pa WHERE pa.order_id=o.id),0) paid_cents, 0 items_count
      FROM orders o JOIN sessions s ON s.id=o.session_id JOIN families f ON f.id=o.family_id WHERE o.id=?`, [id]);

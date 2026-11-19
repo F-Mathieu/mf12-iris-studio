@@ -846,6 +846,9 @@ describe('photos de séance', () => {
     await setItemOrientation(it.key, 'vertical');
     expect((await loadCart(saved.id)).items[0].printOrientation).toBe('vertical');
     expect(await ph.lightroomList(x.reg.family_id, x.sid, ['2', '99'])).toBe('002, 099');
+    const { setInternalNotes } = await import('../services/orders');
+    await setInternalNotes(saved.id, '  livrer les fichiers d’abord, pas urgent  ');
+    expect((await getOrderDetail(saved.id))!.order.internal_notes).toBe('livrer les fichiers d’abord, pas urgent');
     await setDelivery(saved.id, ' https://www.transfernow.net/dl/abc ', '2026-11-20');
     expect(await one('SELECT delivery_link, delivered_at FROM orders WHERE id=?', [saved.id])).toEqual({ delivery_link: 'https://www.transfernow.net/dl/abc', delivered_at: '2026-11-20' });
     // previews removed: files and rows gone, the order keeps its numbers

@@ -86,6 +86,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
           {t.items.length > 0 && <div className="mt-1 text-[12px] text-mist-400">{t.items.map((i) => `${i.product_name}${i.variant_name ? ' ' + i.variant_name : ''} ×${i.qty}`).join(' · ')}</div>}
           {t.instructions && <div className="mt-1 text-[12px] text-mist-300 italic">« {t.instructions} »</div>}
           {t.notes && <div className="mt-1 rounded bg-ink-800 px-2 py-1 text-[12px] text-amber-200/90">{t.notes}</div>}
+          {t.internal_notes && <div className="mt-1.5 line-clamp-3 whitespace-pre-line text-[12px] text-amber-200/90" title="Note interne de la commande">📝 {t.internal_notes}</div>}
           <div className="mt-2 flex items-center gap-2">{view !== 'kanban' && <StatusSelect t={t} />}<button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>Note</button>{t.desired_delivery && <span className="text-[11.5px] text-mist-400">Livraison {fmtDate(t.desired_delivery)}</span>}</div>
         </div>
       </div>

@@ -15,7 +15,7 @@ export const flowFor = (hasPrint: boolean) => (hasPrint ? FULL_FLOW : DIGITAL_FL
 export interface TaskItem { id: string; product_name: string; variant_name: string | null; category: string; qty: number; variant_id: string | null; supplier_name?: string }
 export interface Task {
   id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string;
-  order_id: string; order_number: string; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
+  order_id: string; order_number: string; internal_notes: string | null; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
   composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: import('../lib/formatsGuide').Orientation | null;
   order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null; item_photos: string | null; item_ppu: number | null; item_orientation: string | null;
   example_thumb: string | null;
@@ -27,7 +27,7 @@ export async function listTasks(f: { sessionId?: string; status?: string } = {})
   if (f.sessionId) { w.push('o.session_id=?'); p.push(f.sessionId); }
   if (f.status) { w.push('t.status=?'); p.push(f.status); }
   const tasks = await sel<Task>(
-    `SELECT t.*, o.number order_number, o.session_id, s.name session_name, o.family_id, fa.name family_name, o.desired_delivery,
+    `SELECT t.*, o.number order_number, o.internal_notes, o.session_id, s.name session_name, o.family_id, fa.name family_name, o.desired_delivery,
        c.style_id, c.style_name, c.iris_count, c.participant_ids, c.participant_names, c.instructions, c.orientation,
        i.product_name item_product, i.variant_name item_variant, i.qty item_qty, i.category item_category, i.photos item_photos, i.orientation item_orientation,
        (SELECT photos_per_unit FROM products pr WHERE pr.id=i.product_id) item_ppu, NULL example_thumb

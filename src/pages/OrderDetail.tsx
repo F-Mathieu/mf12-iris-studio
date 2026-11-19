@@ -15,7 +15,7 @@ import { OrderProofs } from '../components/OrderProofs';
 import { PhotoPicker } from '../components/PhotoPicker';
 import { lightroomList } from '../services/photos';
 import { PhotoLineInfo } from '../components/Configurator';
-import { setDelivery, setItemOrientation, setItemPhotos } from '../services/orders';
+import { setDelivery, setInternalNotes, setItemOrientation, setItemPhotos } from '../services/orders';
 import { saveFile, PDF_FILTER } from '../lib/files';
 import { eur, fmtRate, margin } from '../lib/money';
 import { fmtDate, fmtDateTime, slug } from '../lib/format';
@@ -196,6 +196,7 @@ export default function OrderDetail() {
               </div>
             </Card>
           )}
+          <InternalNotes orderId={id} notes={o.internal_notes} onSaved={d.reload} />
           {/* Internal data (cost, margin): folded by default — this page is often open in front of clients. */}
           <Card>
             <button type="button" onClick={() => setShowInternal((x) => !x)} className="flex w-full items-center justify-between px-5 py-2.5 text-[12px] text-mist-500 hover:text-mist-300">
@@ -278,6 +279,28 @@ function DeliveryCard({ orderId, link, date, onSaved }: { orderId: string; link:
         {link && <Button variant="ghost" onClick={() => navigator.clipboard?.writeText(link).then(() => toast.success('Lien copié'))}>Copier le lien</Button>}
         <Button variant="gold" disabled={!dirty} onClick={() => act(() => setDelivery(orderId, l, dt || null).then(onSaved), 'Livraison enregistrée')}>Enregistrer</Button>
       </div>
+    </Card>
+  );
+}
+
+/** Private notes on the order / client, folded by default (the page is often open in front of the client). Never printed. */
+function InternalNotes({ orderId, notes, onSaved }: { orderId: string; notes: string | null; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [txt, setTxt] = useState(notes ?? '');
+  useEffect(() => setTxt(notes ?? ''), [notes]);
+  return (
+    <Card>
+      <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between px-5 py-2.5 text-[12px] text-mist-500 hover:text-mist-300">
+        <span className="flex items-center gap-2">Notes internes{notes?.trim() && !open && <span className="size-1.5 rounded-full bg-gold-400" title="Une note est enregistrée" />}</span>
+        {open ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-ink-700/70 px-5 py-4">
+          <Textarea rows={5} autoFocus value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="Pour vous seulement : livrer les fichiers d’abord, pas d’urgence sur le délai, préfère être appelé le soir…" />
+          <div className="flex items-center justify-between text-[11.5px] text-mist-500"><span>Jamais imprimées ni envoyées au client.</span>
+            <Button size="sm" variant="gold" disabled={txt === (notes ?? '')} onClick={() => act(() => setInternalNotes(orderId, txt).then(onSaved), 'Note enregistrée')}>Enregistrer</Button></div>
+        </div>
+      )}
     </Card>
   );
 }

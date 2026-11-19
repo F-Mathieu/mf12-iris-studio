@@ -389,6 +389,9 @@ CREATE TABLE proofs (
 );
 CREATE INDEX idx_proofs_order ON proofs(order_id);
 `,
+  /* 20 — notes internes d’une commande (remarques pour soi : livrer les fichiers, pas urgent…), jamais imprimées ni envoyées. */ `
+ALTER TABLE orders ADD COLUMN internal_notes TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {
