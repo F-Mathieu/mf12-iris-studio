@@ -73,7 +73,9 @@ export function OrderProofs({ orderId, unpaid = 0, onChange }: { orderId: string
               </>}
               {(p.status === 'corrections' || p.status === 'envoye') && <Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => add(p.label)}>Nouvelle version</Button>}
               {p.status === 'valide' && <IconButton title="Annuler la validation" onClick={() => act(() => setProofStatus(p.id, 'a_envoyer').then(reload))}><RotateCcw className="size-4" /></IconButton>}
-              {p.status === 'a_envoyer' && <IconButton title="Supprimer" onClick={async () => (await confirm({ title: `Supprimer le BAT « ${p.label} » v${p.version} ?`, danger: true, confirm: 'Supprimer' })) && act(() => deleteProof(p.id).then(reload))}><Trash2 className="size-4" /></IconButton>}
+              <IconButton title="Supprimer le BAT" onClick={async () => (await confirm({ title: `Supprimer le BAT « ${p.label} » v${p.version} ?`, danger: true, confirm: 'Supprimer',
+                text: p.status === 'a_envoyer' ? undefined : `Ce BAT est « ${PROOF_STATUS[p.status].toLowerCase()} ». Il sera retiré de la commande (noté dans l’historique) ; l’e-mail déjà envoyé au client n’est pas rappelé.` }))
+                && act(() => deleteProof(p.id).then(reload), 'BAT supprimé')}><Trash2 className="size-4" /></IconButton>
             </div>
           ))}
           {old.length > 0 && <div className="px-5 py-2 text-[11.5px] text-mist-500">Versions précédentes : {old.map((p) => `${p.label} v${p.version}`).join(', ')}</div>}

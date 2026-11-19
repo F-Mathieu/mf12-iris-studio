@@ -25,7 +25,7 @@ import { ORIENTATION_LABEL } from '../lib/formatsGuide';
 import { act } from '../lib/act';
 
 const ACTIONS: Record<string, string> = { delete_order: 'Commande supprimée', save_draft: 'Brouillon enregistré', validate: 'Commande validée', correction: 'Correction', cancel: 'Annulation', payment_add: 'Règlement ajouté', payment_delete: 'Règlement supprimé', delete_draft: 'Brouillon supprimé', attachment_add: 'Pièce jointe ajoutée', attachment_delete: 'Pièce jointe supprimée',
-  bat_ajout: 'BAT ajouté', bat_envoye: 'BAT envoyé', bat_valide: 'BAT validé', bat_corrections: 'BAT : corrections demandées', bat_reouvert: 'BAT rouvert',
+  bat_ajout: 'BAT ajouté', bat_envoye: 'BAT envoyé', bat_valide: 'BAT validé', bat_corrections: 'BAT : corrections demandées', bat_reouvert: 'BAT rouvert', bat_supprime: 'BAT supprimé',
   relance_devis: 'Relance du devis', relance_paiement: 'Relance de paiement', demande_avis: 'Demande d’avis', photos: 'Photos choisies', orientation: 'Orientation du tirage', delivery: 'Livraison' };
 
 export default function OrderDetail() {

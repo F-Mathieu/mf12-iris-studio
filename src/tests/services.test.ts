@@ -1054,5 +1054,9 @@ describe('BAT', () => {
     expect(l.map((p) => [p.label, p.version, p.status])).toEqual([['Acrylique 40x40', 2, 'a_envoyer'], ['Acrylique 40x40', 1, 'remplace'], ['Tirage 13x18', 1, 'valide']]);
     expect((await reminders()).filter((r) => r.group === 'bat').length).toBe(0);
     expect((await sel<{ action: string }>("SELECT action FROM audit_logs WHERE entity='order' AND entity_id=? AND action LIKE 'bat%'", [o.id])).length).toBe(5);
+    // a sent / validated BAT can be deleted too (history kept)
+    await P.deleteProof(l[2].id);
+    expect((await P.listProofs(o.id)).map((p) => p.label)).toEqual(['Acrylique 40x40', 'Acrylique 40x40']);
+    expect((await sel("SELECT * FROM audit_logs WHERE entity_id=? AND action='bat_supprime'", [o.id])).length).toBe(1);
   });
 });

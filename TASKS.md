@@ -4,6 +4,7 @@
 
 ## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.3)
 - BAT : case « Joindre le RIB » (cochée d’office si la commande n’est pas réglée) → fichier RIB en pièce jointe + phrase « RIB en pièce jointe si vous souhaitez régler par virement (reste à régler, référence) » ; sans fichier, l’IBAN est écrit dans le message. Fichier RIB (PDF / image) à déposer dans Paramètres → Facturation. Variable {rib} dans le texte du BAT.
+- BAT : suppression possible quel que soit le statut (envoyé, validé…), avec confirmation et trace dans l’historique.
 
 ## Publié en v2.4.3 (à tester sur Mac)
 - Correctif agenda : les événements « Rendez-vous » ajoutés étaient masqués par le filtre des RDV des inscrits (même type). Les RDV des inscrits ont maintenant leur propre type « RDV des inscrits », seul masqué par défaut.

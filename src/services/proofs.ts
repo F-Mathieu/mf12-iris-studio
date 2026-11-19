@@ -76,7 +76,12 @@ export async function setProofStatus(id: string, status: Extract<ProofStatus, 'v
   ]);
 }
 
-export const deleteProof = (id: string) => batch([{ sql: 'DELETE FROM proofs WHERE id=?', params: [id] }]);
+/** Deletes a BAT whatever its status (noted in the order history). The e-mail already sent is of course not recalled. */
+export async function deleteProof(id: string) {
+  const p = await one<{ order_id: string; label: string; version: number; status: string }>('SELECT order_id, label, version, status FROM proofs WHERE id=?', [id]);
+  if (!p) return;
+  await batch([{ sql: 'DELETE FROM proofs WHERE id=?', params: [id] }, auditStmt('order', p.order_id, 'bat_supprime', { label: p.label, version: p.version, status: p.status })]);
+}
 
 /** E-mail with the BAT to send (« à envoyer » and current versions), then marked « envoyé ». */
 /** Text of the BAT e-mail; a custom text without {rib} gets the RIB sentence just before the signature. */
