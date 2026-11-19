@@ -6,7 +6,7 @@ import { auditStmt, batch, getSettings, insertStmt, nowIso, one, sel, uid, updat
 import { composeMail, type MailResult } from './mail';
 import { clientName, sellerInfo } from './invoices';
 import { fromBase64, toBase64 } from './attachments';
-import { makeProof, type ProofStyle } from '../lib/proof';
+import { DEFAULT_PROOF_STYLE, makeProof, type ProofStyle } from '../lib/proof';
 import { fillMail } from '../lib/followUpMail';
 import { signatureOf } from '../lib/invoiceMail';
 import { slug } from '../lib/format';
@@ -46,7 +46,7 @@ export async function addProofs(orderId: string, files: { name: string; bytes: U
     const lbl = (files.length === 1 && label?.trim()) || f.name.replace(/\.[a-z0-9]+$/i, '');
     const prev = await one<{ v: number }>('SELECT max(version) v FROM proofs WHERE order_id=? AND label=?', [orderId, lbl]);
     const version = (prev?.v ?? 0) + 1;
-    const img = await makeProof(f.bytes, { mark: `BAT · ${brand} · ${o.number}`, banner: `BON À TIRER — ${lbl} — v${version} — aperçu non imprimable, à valider`, style: (s.proof_style as ProofStyle) || 'discret' });
+    const img = await makeProof(f.bytes, { mark: `BAT · ${brand} · ${o.number}`, banner: `BON À TIRER — ${lbl} — v${version} — aperçu non imprimable, à valider`, style: (s.proof_style as ProofStyle) || DEFAULT_PROOF_STYLE });
     await batch([
       { sql: "UPDATE proofs SET status='remplace' WHERE order_id=? AND label=? AND status<>'valide'", params: [orderId, lbl] },
       insertStmt('proofs', { id: uid(), order_id: orderId, label: lbl, version, file_name: f.name, data: toBase64(img), status: 'a_envoyer', created_at: nowIso() }),

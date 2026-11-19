@@ -2,6 +2,9 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.0)
+- BAT : nouveau filigrane par défaut « bande centrale » (bande sombre 55 % en travers du centre, 20 % de la hauteur, « BAT · NE PAS UTILISER · réf. », 800 px) ; avertissement avant d’envoyer un BAT d’une commande non réglée.
+
 ## Publié en v2.4.0 (à tester sur Mac)
 - Bouton « Ouvrir le dossier » des aperçus (commande native `open_data_folder`, non compilée ici).
 - Filtre des photos par note exacte + « Notées ».

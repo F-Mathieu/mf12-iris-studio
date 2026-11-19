@@ -124,7 +124,7 @@ export default function OrderDetail() {
             </div>
           </Card>
           {o.notes && <Card className="px-5 py-4 text-[13.5px] text-mist-200">{o.notes}</Card>}
-          {o.status === 'validee' && <OrderProofs orderId={id} onChange={d.reload} />}
+          {o.status === 'validee' && <OrderProofs orderId={id} unpaid={balance} onChange={d.reload} />}
           <OrderAttachments orderId={id} onChange={d.reload} />
           <DeliveryCard orderId={id} link={o.delivery_link} date={o.delivered_at} onSaved={d.reload} />
           <Card>

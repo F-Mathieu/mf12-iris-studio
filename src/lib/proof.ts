@@ -1,16 +1,20 @@
 /**
  * BAT (bon à tirer) : copie basse définition + filigrane + bandeau « BAT — ne pas imprimer » SOUS l'image (il ne cache rien).
- * Trois intensités (Paramètres) : la basse définition est la vraie protection, le filigrane signale que ce n'est pas le fichier final.
+ * Intensités (Paramètres) : la basse définition est la vraie protection, le filigrane signale que ce n'est pas le fichier final.
+ * - bande (défaut) : bande sombre en travers du centre (visages), 800 px : lisible pour valider, inutilisable sur un téléphone ;
  * - discret : un seul grand « BAT » en diagonale, très transparent (le montage reste lisible) ;
  * - normal  : motif espacé, transparent ;
  * - fort    : motif serré sur toute l'image.
  * Anti-IA : trame fine irrégulière sur toute l'image + petites marques à des places et angles aléatoires.
  * Sans canvas (tests) : les octets sont rendus tels quels.
  */
-export type ProofStyle = 'discret' | 'normal' | 'fort';
-export const PROOF_STYLES: Record<ProofStyle, string> = { discret: 'Discret — un grand « BAT » transparent', normal: 'Normal — motif espacé', fort: 'Fort — motif serré' };
+export type ProofStyle = 'bande' | 'discret' | 'normal' | 'fort';
+export const PROOF_STYLES: Record<ProofStyle, string> = { bande: 'Bande centrale — « BAT · NE PAS UTILISER » sur les visages (conseillé)', discret: 'Discret — un grand « BAT » transparent', normal: 'Normal — motif espacé', fort: 'Fort — motif serré' };
+export const DEFAULT_PROOF_STYLE: ProofStyle = 'bande';
 
-const STYLE: Record<ProofStyle, { max: number; quality: number; size: number; fill: number; stroke: number; spacing: number | null; hatch: number; scatter: number }> = {
+const STYLE: Record<ProofStyle, { max: number; quality: number; size: number; fill: number; stroke: number; spacing: number | null; hatch: number; scatter: number; band?: number }> = {
+  // band: opacity of a dark strip (20 % of the height) across the centre, where faces usually are
+  bande: { max: 800, quality: 0.55, size: 0.2, fill: 0.9, stroke: 0, spacing: null, hatch: 0.06, scatter: 0, band: 0.55 },
   discret: { max: 1000, quality: 0.55, size: 0.24, fill: 0.15, stroke: 0.08, spacing: null, hatch: 0.05, scatter: 7 },
   normal: { max: 1100, quality: 0.55, size: 0.032, fill: 0.2, stroke: 0.12, spacing: 2.4, hatch: 0.07, scatter: 5 },
   fort: { max: 1400, quality: 0.6, size: 0.045, fill: 0.42, stroke: 0.28, spacing: 1, hatch: 0.08, scatter: 0 },
@@ -18,7 +22,7 @@ const STYLE: Record<ProofStyle, { max: number; quality: number; size: number; fi
 
 export async function makeProof(bytes: Uint8Array, o: { mark: string; banner: string; style?: ProofStyle }): Promise<Uint8Array> {
   if (typeof createImageBitmap === 'undefined' || typeof document === 'undefined') return bytes;
-  const st = STYLE[o.style ?? 'discret'] ?? STYLE.discret;
+  const st = STYLE[o.style ?? DEFAULT_PROOF_STYLE] ?? STYLE[DEFAULT_PROOF_STYLE];
   const bmp = await createImageBitmap(new Blob([bytes as BlobPart]));
   try {
     const k = Math.min(1, st.max / Math.max(bmp.width, bmp.height));
@@ -31,7 +35,7 @@ export async function makeProof(bytes: Uint8Array, o: { mark: string; banner: st
     x.drawImage(bmp, 0, 0, w, h);
     x.save();
     x.beginPath(); x.rect(0, 0, w, h); x.clip();
-    x.translate(w / 2, h / 2); x.rotate(-Math.atan2(h, w));
+    x.translate(w / 2, h / 2); x.rotate(-Math.atan2(h, w) * (st.band != null ? 0.55 : 1));
     x.textAlign = 'center'; x.textBaseline = 'middle';
     const draw = (text: string, xx: number, yy: number, fs: number) => {
       x.lineWidth = Math.max(1, fs / 18); x.strokeStyle = `rgba(0,0,0,${st.stroke})`; x.strokeText(text, xx, yy);
@@ -53,7 +57,15 @@ export async function makeProof(bytes: Uint8Array, o: { mark: string; banner: st
       draw(o.mark, 0, 0, small);
       x.restore();
     }
-    if (st.spacing == null) {
+    if (st.band != null) {
+      // dark strip across the centre with « BAT · NE PAS UTILISER · reference » repeated
+      const bh = Math.round(h * st.size), span = Math.hypot(w, h);
+      x.fillStyle = `rgba(20,20,22,${st.band})`; x.fillRect(-span, -bh / 2, span * 2, bh);
+      const fs = Math.round(bh * 0.42), t = `BAT · NE PAS UTILISER · ${o.mark.replace(/^BAT · /, '')} · `;
+      x.font = `700 ${fs}px Helvetica, Arial, sans-serif`; x.textAlign = 'left'; x.fillStyle = `rgba(255,255,255,${Math.min(0.9, st.band + 0.35)})`;
+      const tw = x.measureText(t).width;
+      for (let xx = -span; xx < span; xx += tw) x.fillText(t, xx, 0);
+    } else if (st.spacing == null) {
       // one big « BAT » across the image + the reference, small, under it
       const fs = Math.round(Math.min(w, h) * st.size);
       x.font = `700 ${fs}px Helvetica, Arial, sans-serif`; draw('BAT', 0, 0, fs);

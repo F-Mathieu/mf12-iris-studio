@@ -4,6 +4,7 @@ import { Badge, Button, Card, CardHeader, IconButton, Modal, useAsync, useConfir
 import { addProofs, deleteProof, emailProofs, listProofs, proofImage, PROOF_STATUS, setProofStatus, type Proof, type ProofStatus } from '../services/proofs';
 import { pickFiles } from '../lib/files';
 import { fmtDate } from '../lib/format';
+import { eur } from '../lib/money';
 import { act } from '../lib/act';
 
 const TONE: Record<ProofStatus, 'neutral' | 'gold' | 'green' | 'amber'> = { a_envoyer: 'neutral', envoye: 'gold', valide: 'green', corrections: 'amber', remplace: 'neutral' };
@@ -22,7 +23,8 @@ function Thumb({ id, className, onClick }: { id: string; className?: string; onC
  * BAT (bons à tirer) of an order: import the final file (print, montage) → low-definition watermarked copy,
  * e-mail to the client, answer (validated / corrections), new version.
  */
-export function OrderProofs({ orderId, onChange }: { orderId: string; onChange?: () => void }) {
+/** unpaid: amount still due on the order (a BAT of an unpaid order can be kept as a digital file: warning before sending). */
+export function OrderProofs({ orderId, unpaid = 0, onChange }: { orderId: string; unpaid?: number; onChange?: () => void }) {
   const confirm = useConfirm();
   const list = useAsync(() => listProofs(orderId), [orderId]);
   const [view, setView] = useState<Proof | null>(null);
@@ -44,7 +46,10 @@ export function OrderProofs({ orderId, onChange }: { orderId: string; onChange?:
         subtitle="Importez le fichier final (JPEG/PNG) : le client reçoit une copie basse définition filigranée, inutilisable comme fichier numérique."
         actions={<>
           <Button size="sm" icon={<Plus className="size-3.5" />} loading={busy} onClick={() => add()}>Ajouter</Button>
-          <Button size="sm" variant="gold" icon={<Mail className="size-3.5" />} disabled={!toSend} onClick={() => act(() => emailProofs(orderId).then((r) => { reload(); return r; }), (r) => `${r.count} BAT ${r.how === 'mail' ? 'prêt(s) dans Mail' : 'enregistré(s) — joignez-les au message'}`)}>Envoyer{toSend ? ` (${toSend})` : ''}</Button>
+          <Button size="sm" variant="gold" icon={<Mail className="size-3.5" />} disabled={!toSend} onClick={async () => {
+            if (unpaid > 0 && !(await confirm({ title: 'Commande non réglée', text: `Il reste ${eur(unpaid)} à régler. Un BAT envoyé avant paiement peut être gardé comme fichier numérique. Envoyer quand même ?`, confirm: 'Envoyer quand même' }))) return;
+            await act(() => emailProofs(orderId).then((r) => { reload(); return r; }), (r) => `${r.count} BAT ${r.how === 'mail' ? 'prêt(s) dans Mail' : 'enregistré(s) — joignez-les au message'}`);
+          }}>Envoyer{toSend ? ` (${toSend})` : ''}</Button>
         </>} />
       {!current.length ? <div className="px-5 py-4 text-[12.5px] text-mist-400">Aucun BAT. Exportez le tirage ou le montage depuis Lightroom / Photoshop puis « Ajouter ».</div> : (
         <div className="divide-y divide-ink-700/50">
