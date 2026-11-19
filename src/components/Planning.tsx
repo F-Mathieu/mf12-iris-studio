@@ -40,7 +40,7 @@ export function Planning({ session, regs, reload }: { session: Session; regs: Re
   const sell = (r: RegistrationRow) => nav(r.order_id ? (r.order_status === 'validee' ? `/commandes/${r.order_id}` : `/vente/commande/${r.order_id}`) : `/vente/${session.id}/${r.id}`);
 
   const RegCard = ({ r }: { r: RegistrationRow }) => (
-    <div draggable onDragStart={() => setDragId(r.id)} onDragEnd={() => setDragId(null)}
+    <div draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', r.id); e.dataTransfer.effectAllowed = 'move'; setDragId(r.id); }} onDragEnd={() => setDragId(null)}
       className={cx('group flex items-center gap-3 rounded-xl border border-ink-700 bg-ink-800 px-3 py-2.5 transition hover:border-ink-500', r.appt_status === 'en_cours' && 'border-gold-500/50 bg-gold-500/5')}>
       <GripVertical className="size-4 shrink-0 cursor-grab text-mist-400/60" />
       <button className="min-w-0 flex-1 text-left" onClick={() => sell(r)}>

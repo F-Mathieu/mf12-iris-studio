@@ -49,6 +49,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
   const [sel, setSel] = useState<string[]>([]);
   const [noteTask, setNoteTask] = useState<Task | null>(null);
   const [drag, setDrag] = useState<string | null>(null);
+  const [over, setOver] = useState<TaskStatus | null>(null);
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
     return (data.data ?? []).filter((t) => (!status || (status === 'open' ? t.status !== 'livre' : t.status === status)) &&
@@ -72,7 +73,8 @@ function TasksView({ sessionId }: { sessionId?: string }) {
     </Select>
   );
   const TaskCard = ({ t }: { t: Task }) => (
-    <div draggable={view === 'kanban'} onDragStart={() => setDrag(t.id)} className={cx('rounded-xl border bg-ink-850 p-3 transition', sel.includes(t.id) ? 'border-gold-500/60' : 'border-ink-700 hover:border-ink-500')}>
+    <div draggable={view === 'kanban'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setDrag(t.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
+      className={cx('rounded-xl border bg-ink-850 p-3 transition', view === 'kanban' && 'cursor-grab active:cursor-grabbing', drag === t.id && 'opacity-40', sel.includes(t.id) ? 'border-gold-500/60' : 'border-ink-700 hover:border-ink-500')}>
       <div className="flex gap-3">
         <button onClick={() => setSel((s) => (s.includes(t.id) ? s.filter((x) => x !== t.id) : [...s, t.id]))} className="mt-0.5 text-mist-400">{sel.includes(t.id) ? <CheckSquare className="size-4 text-gold-400" /> : <Square className="size-4" />}</button>
         {t.example_thumb ? <img src={t.example_thumb} className="size-14 shrink-0 rounded-lg object-cover" alt="" /> : t.kind === 'composition' && <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-ink-800"><ImageOff className="size-4 text-mist-400/50" /></div>}
@@ -119,7 +121,9 @@ function TasksView({ sessionId }: { sessionId?: string }) {
       {tasks.length > 0 && view === 'kanban' && (
         <div className="flex gap-3 overflow-x-auto pb-4">
           {(Object.keys(TASK_STATUS) as TaskStatus[]).map((s) => (
-            <div key={s} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag) change([drag], s); setDrag(null); }} className="w-[290px] shrink-0 rounded-2xl bg-ink-900 p-2.5">
+            <div key={s} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== s) setOver(s); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }}
+              onDrop={(e) => { e.preventDefault(); const id = drag ?? e.dataTransfer.getData('text/plain'); const t = tasks.find((x) => x.id === id); if (t && t.status !== s) change([id], s); setDrag(null); setOver(null); }}
+              className={cx('min-h-[200px] w-[290px] shrink-0 rounded-2xl bg-ink-900 p-2.5 transition', over === s && drag && 'bg-ink-800 ring-2 ring-gold-500/60')}>
               <div className="mb-2 flex items-center justify-between px-1"><TaskBadge s={s} /><span className="text-[12px] text-mist-400">{tasks.filter((t) => t.status === s).length}</span></div>
               <div className="space-y-2">{tasks.filter((t) => t.status === s).map((t) => <TaskCard key={t.id} t={t} />)}</div>
             </div>

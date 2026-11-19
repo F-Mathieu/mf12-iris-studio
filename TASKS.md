@@ -2,6 +2,9 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.1)
+- Glisser-déposer dans l’app Mac (Postproduction → Kanban, Planning) : `dragDropEnabled: false` sur la fenêtre Tauri (le glisser de fichiers du Finder vers la fenêtre n’est pas utilisé) + `dataTransfer.setData` (exigé par WebKit), colonne cible surlignée. À vérifier sur Mac.
+
 ## Publié en v2.4.1 (à tester sur Mac)
 - BAT : nouveau filigrane par défaut « bande centrale » (bande sombre 55 % en travers du centre, 20 % de la hauteur, « BAT · NE PAS UTILISER · réf. », 800 px) ; avertissement avant d’envoyer un BAT d’une commande non réglée.
 
