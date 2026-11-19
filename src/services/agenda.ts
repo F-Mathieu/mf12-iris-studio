@@ -58,7 +58,7 @@ export async function agenda(from: string, to: string): Promise<AgendaItem[]> {
   for (const e of events) out.push({ key: `e:${e.id}`, source: 'event', kind: e.kind, date: e.date, end_date: e.end_date, time: e.start_time, end_time: e.end_time,
     title: e.title, detail: e.location, done: !!e.done_at, blocks: !!e.blocks_day, event: e });
   for (const s of sessions) out.push({ key: `s:${s.id}`, source: 'seance', kind: 'seance', date: s.date, time: s.start_time, end_time: s.end_time, title: s.name, detail: s.location, link: `/seances/${s.id}`, blocks: true });
-  for (const r of appts) out.push({ key: `r:${r.id}`, source: 'rdv', kind: 'rdv', date: r.appt_date, time: r.appt_time, title: `RDV ${r.family}`, detail: r.session, link: `/seances/${r.session_id}?tab=planning` });
+  for (const r of appts) out.push({ key: `r:${r.id}`, source: 'rdv', kind: 'inscrit', date: r.appt_date, time: r.appt_time, title: `RDV ${r.family}`, detail: r.session, link: `/seances/${r.session_id}?tab=planning` });
   const couple = (w: { partner1: string; partner2: string | null }) => [w.partner1, w.partner2].filter(Boolean).join(' & ');
   for (const w of weddings) {
     const d = w.date!;

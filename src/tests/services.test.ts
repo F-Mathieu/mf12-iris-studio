@@ -954,6 +954,9 @@ describe('agenda et rappels', () => {
 
     const items = await A.agenda(addDays(today, -30), addDays(today, 60));
     const src = (s: string) => items.filter((x) => x.source === s).map((x) => x.title);
+    // own « Rendez-vous » events are not mixed up with the registrations' appointments (hidden by default in the agenda)
+    expect(items.find((x) => x.title === 'RDV essayage album')).toMatchObject({ source: 'event', kind: 'rdv' });
+    expect(items.filter((x) => x.source === 'rdv').every((x) => x.kind === 'inscrit')).toBe(true);
     expect(src('mariage')).toEqual(expect.arrayContaining([expect.stringContaining('Julie & Tom'), expect.stringContaining('Anne')]));
     expect(src('livraison').filter((t) => t.includes('Julie')).length).toBe(2);
     expect((await A.agenda(addDays(today, -120), today)).find((x) => x.source === 'echeance' && x.date === addDays(today, -100))?.title).toContain('600,00');

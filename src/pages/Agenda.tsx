@@ -14,6 +14,7 @@ export const KIND_STYLE: Record<string, { label: string; cls: string }> = {
   seance: { label: 'Séance', cls: 'bg-gold-500/20 text-gold-100 border-gold-400/40' },
   prestation: { label: 'Prestation', cls: 'bg-gold-500/20 text-gold-100 border-gold-400/40' },
   rdv: { label: 'Rendez-vous', cls: 'bg-sky-500/15 text-sky-200 border-sky-400/40' },
+  inscrit: { label: 'RDV des inscrits', cls: 'bg-cyan-500/10 text-cyan-200 border-cyan-400/30' },
   livraison: { label: 'Livraison', cls: 'bg-emerald-500/15 text-emerald-200 border-emerald-400/40' },
   echeance: { label: 'Échéance', cls: 'bg-amber-500/15 text-amber-200 border-amber-400/40' },
   devis: { label: 'Devis', cls: 'bg-violet-500/15 text-violet-200 border-violet-400/40' },
@@ -30,7 +31,8 @@ export default function Agenda() {
   const today = todayIso();
   const [month, setMonth] = useState(monthStart(today));
   const [view, setView] = useState<'mois' | 'liste'>('mois');
-  const [hide, setHide] = useState<Set<string>>(new Set(['rdv']));
+  // the many appointments of registered families are hidden by default (not the events you add yourself)
+  const [hide, setHide] = useState<Set<string>>(new Set(['inscrit']));
   const [day, setDay] = useState<string | null>(today);
   const [edit, setEdit] = useState<Partial<CalendarEvent> | null>(null);
   // grid from the Monday before the 1st to the Sunday after the end of the month
