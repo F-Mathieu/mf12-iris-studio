@@ -6,7 +6,9 @@ import { setSetting } from '../services/base';
 import { appPaths, backupNow, exportCsv, importIris, integrityCheck, irisSource, listBackups, restoreBackup } from '../services/backup';
 import { useApp } from '../store';
 import { isTauri } from '../lib/db';
-import { pickBackupFile, saveFile } from '../lib/files';
+import { pickBackupFile, pickFiles, saveFile } from '../lib/files';
+import { toBase64 } from '../services/attachments';
+import { RIB_MAX_BYTES } from '../services/proofs';
 import { fmtDateTime } from '../lib/format';
 import { todayIso } from '../lib/ids';
 import { act } from '../lib/act';
@@ -69,6 +71,15 @@ export default function Settings() {
             <Field label="Code APE (facultatif)"><Input value={v('ape_code')} placeholder="7420Z" onChange={(e) => setDraft({ ...draft, ape_code: e.target.value })} /></Field>
             <Field label="Médiateur de la consommation" hint="Nom + site, ex. « CNPM Médiation — www.cnpm-mediation-consommation.eu »" className="col-span-2"><Input value={v('mediator')} onChange={(e) => setDraft({ ...draft, mediator: e.target.value })} /></Field>
             <Field label="IBAN (facultatif, pour les virements)" className="col-span-2"><Input value={v('iban')} onChange={(e) => setDraft({ ...draft, iban: e.target.value })} /></Field>
+            <Field label="RIB (PDF ou image) — joint aux e-mails sur demande (ex. BAT)" className="col-span-2">
+              <div className="flex items-center gap-2">
+                {settings.rib_file ? <Badge tone="green">{settings.rib_file_name || 'RIB'}</Badge> : <span className="text-[12.5px] text-mist-400">Aucun fichier</span>}
+                <Button size="sm" onClick={async () => { const [f] = await pickFiles([{ name: 'RIB', extensions: ['pdf', 'jpg', 'jpeg', 'png'] }]); if (!f) return;
+                  if (f.bytes.length > RIB_MAX_BYTES) { await act(() => Promise.reject(new Error('Fichier trop lourd (5 Mo max).'))); return; }
+                  await act(async () => { await setSetting('rib_file', toBase64(f.bytes)); await setSetting('rib_file_name', f.name); await reloadSettings(); }, 'RIB enregistré'); }}>{settings.rib_file ? 'Remplacer' : 'Ajouter le RIB'}</Button>
+                {settings.rib_file && <Button size="sm" variant="ghost" onClick={() => act(async () => { await setSetting('rib_file', ''); await setSetting('rib_file_name', ''); await reloadSettings(); }, 'RIB retiré')}>Retirer</Button>}
+              </div>
+            </Field>
             <Field label={`Dernière facture émise avant le logiciel en ${new Date().getFullYear()} (n°)`} hint="Ex. 4 si vous avez déjà émis 4 factures : la suivante sera F…-0005"><Input type="number" min={0} value={v(`invoice_external_last_${new Date().getFullYear()}`)} onChange={(e) => setDraft({ ...draft, [`invoice_external_last_${new Date().getFullYear()}`]: e.target.value })} /></Field>
             <Field label="Mention libre (facultatif)" hint="Ex. délais de livraison, droit à l’image…"><Input value={v('invoice_terms')} onChange={(e) => setDraft({ ...draft, invoice_terms: e.target.value })} /></Field>
             <Field label="Texte de l’e-mail d’envoi de facture" hint={`Objet : « Facture – séance – MF/1.2 ». Variables : ${MAIL_PLACEHOLDERS}`} className="col-span-2"><Textarea rows={9} value={v('invoice_mail_body') || DEFAULT_INVOICE_MAIL} onChange={(e) => setDraft({ ...draft, invoice_mail_body: e.target.value })} /></Field>
@@ -128,7 +139,7 @@ export default function Settings() {
             <Field label="Relance d’une échéance"><Textarea rows={10} value={v('payment_followup_mail') || DEFAULT_PAYMENT_FOLLOWUP} onChange={(e) => setDraft({ ...draft, payment_followup_mail: e.target.value })} /></Field>
             <Field label="Demande d’avis (questionnaire + lien Google)"><Textarea rows={10} value={v('review_mail') || DEFAULT_REVIEW_MAIL} onChange={(e) => setDraft({ ...draft, review_mail: e.target.value })} /></Field>
             <Field label="Filigrane des BAT" hint="S’applique aux prochains BAT ajoutés. La basse définition reste la vraie protection."><Select value={v('proof_style') || DEFAULT_PROOF_STYLE} onChange={(e) => setDraft({ ...draft, proof_style: e.target.value })}>{Object.entries(PROOF_STYLES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></Field>
-            <Field label="Envoi d’un BAT (bon à tirer)" hint="Variables : {bonjour} {numero} {seance} {liste} {signature}" className="col-span-2"><Textarea rows={9} value={v('proof_mail') || DEFAULT_PROOF_MAIL} onChange={(e) => setDraft({ ...draft, proof_mail: e.target.value })} /></Field>
+            <Field label="Envoi d’un BAT (bon à tirer)" hint="Variables : {bonjour} {numero} {seance} {liste} {rib} {signature}" className="col-span-2"><Textarea rows={9} value={v('proof_mail') || DEFAULT_PROOF_MAIL} onChange={(e) => setDraft({ ...draft, proof_mail: e.target.value })} /></Field>
           </div>
         </Card>
         <Card className="col-span-2">

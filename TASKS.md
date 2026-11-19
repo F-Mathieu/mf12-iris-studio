@@ -2,6 +2,9 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.3)
+- BAT : case « Joindre le RIB » (cochée d’office si la commande n’est pas réglée) → fichier RIB en pièce jointe + phrase « RIB en pièce jointe si vous souhaitez régler par virement (reste à régler, référence) » ; sans fichier, l’IBAN est écrit dans le message. Fichier RIB (PDF / image) à déposer dans Paramètres → Facturation. Variable {rib} dans le texte du BAT.
+
 ## Publié en v2.4.3 (à tester sur Mac)
 - Correctif agenda : les événements « Rendez-vous » ajoutés étaient masqués par le filtre des RDV des inscrits (même type). Les RDV des inscrits ont maintenant leur propre type « RDV des inscrits », seul masqué par défaut.
 - Agenda : suppression directe d’un événement (corbeille dans le détail du jour et la liste « À venir », avec confirmation) ; clic sur un événement dans le mois = modifier / supprimer (ou ouvrir la séance, le mariage…).

@@ -10,6 +10,7 @@ import { DEFAULT_PROOF_STYLE, makeProof, type ProofStyle } from '../lib/proof';
 import { fillMail } from '../lib/followUpMail';
 import { signatureOf } from '../lib/invoiceMail';
 import { slug } from '../lib/format';
+import { eur } from '../lib/money';
 
 export type ProofStatus = 'a_envoyer' | 'envoye' | 'valide' | 'corrections' | 'remplace';
 export const PROOF_STATUS: Record<ProofStatus, string> = { a_envoyer: 'À envoyer', envoye: 'Envoyé', valide: 'Validé', corrections: 'Corrections demandées', remplace: 'Remplacé' };
@@ -24,7 +25,16 @@ Il s’agit d’un aperçu en basse définition, filigrané, destiné uniquement
 
 Merci de me confirmer par retour de mail que tout vous convient (cadrage, disposition, photos choisies), ou de m’indiquer les modifications souhaitées. La fabrication sera lancée dès votre validation.
 
+{rib}
+
 {signature}`;
+
+/** RIB (bank details) file saved in Paramètres → Facturation (base64 in settings). */
+export async function ribFile(): Promise<{ name: string; bytes: Uint8Array } | null> {
+  const s = await getSettings();
+  return s.rib_file ? { name: s.rib_file_name || 'RIB.pdf', bytes: fromBase64(s.rib_file) } : null;
+}
+export const RIB_MAX_BYTES = 5 * 1024 * 1024;
 
 export const listProofs = (orderId: string) =>
   sel<Proof>('SELECT id, order_id, label, version, file_name, status, sent_at, answered_at, comment, created_at FROM proofs WHERE order_id=? ORDER BY label, version DESC', [orderId]);
@@ -69,22 +79,40 @@ export async function setProofStatus(id: string, status: Extract<ProofStatus, 'v
 export const deleteProof = (id: string) => batch([{ sql: 'DELETE FROM proofs WHERE id=?', params: [id] }]);
 
 /** E-mail with the BAT to send (« à envoyer » and current versions), then marked « envoyé ». */
-export async function emailProofs(orderId: string, ids?: string[]): Promise<{ how: MailResult; count: number }> {
+/** Text of the BAT e-mail; a custom text without {rib} gets the RIB sentence just before the signature. */
+export function proofMailBody(template: string, vars: Record<string, string>): string {
+  let body = fillMail(template, vars);
+  const rib = vars.rib, signature = vars.signature;
+  if (rib && !body.includes(rib)) body = signature && body.includes(signature) ? body.replace(signature, `${rib}\n\n${signature}`) : `${body}\n\n${rib}`;
+  return body;
+}
+
+/** opts.rib: attach the RIB and add a sentence about paying by bank transfer (amount still due). */
+export async function emailProofs(orderId: string, ids?: string[], opts: { rib?: boolean } = {}): Promise<{ how: MailResult; count: number }> {
   const all = (await listProofs(orderId)).filter((p) => (ids ? ids.includes(p.id) : p.status === 'a_envoyer'));
   if (!all.length) throw new Error('Aucun BAT à envoyer.');
-  const o = await one<{ number: string; email: string | null; first: string | null; family: string; session: string }>(
-    `SELECT o.number, f.email, f.contact_first_name first, f.name family, s.name session FROM orders o JOIN families f ON f.id=o.family_id JOIN sessions s ON s.id=o.session_id WHERE o.id=?`, [orderId]);
+  const o = await one<{ number: string; email: string | null; first: string | null; family: string; session: string; due: number }>(
+    `SELECT o.number, f.email, f.contact_first_name first, f.name family, s.name session,
+       o.total_cents - COALESCE((SELECT sum(amount_cents) FROM payments p WHERE p.order_id=o.id),0) due FROM orders o JOIN families f ON f.id=o.family_id JOIN sessions s ON s.id=o.session_id WHERE o.id=?`, [orderId]);
   if (!o) throw new Error('Commande introuvable');
   const [s, seller] = await Promise.all([getSettings(), sellerInfo()]);
   const files = await Promise.all(all.map(async (p) => ({ name: `BAT-${o.number}-${slug(p.label)}-v${p.version}.jpg`, bytes: (await proofImage(p.id))! })));
+  let rib = '';
+  if (opts.rib) {
+    const f = await ribFile();
+    if (!f && !s.iban?.trim()) throw new Error('Aucun RIB : ajoutez-le dans Paramètres → Facturation (fichier RIB ou IBAN).');
+    if (f) files.push(f);
+    rib = `${f ? 'Vous trouverez également mon RIB en pièce jointe' : `Pour un règlement par virement, voici mon IBAN : ${s.iban!.trim()}`}${f ? ' si vous souhaitez régler par virement' : ''}${o.due > 0 ? ` (reste à régler : ${eur(o.due)}, merci d’indiquer la référence ${o.number} dans le libellé)` : ''}.`;
+  }
+  const signature = signatureOf(seller);
+  const body = proofMailBody(s.proof_mail || DEFAULT_PROOF_MAIL, { bonjour: o.first ? `Bonjour ${o.first},` : 'Bonjour,', client: clientName(o.first, o.family), numero: o.number, seance: o.session,
+    liste: all.map((p) => `• ${p.label}${p.version > 1 ? ` (version ${p.version})` : ''}`).join('\n'), signature, lien_avis: '', rib });
   const how = await composeMail({
     to: (o.email ?? '').trim(), subject: `BAT à valider — commande ${o.number} — ${o.session}`,
-    body: fillMail(s.proof_mail || DEFAULT_PROOF_MAIL, { bonjour: o.first ? `Bonjour ${o.first},` : 'Bonjour,', client: clientName(o.first, o.family), numero: o.number, seance: o.session,
-      liste: all.map((p) => `• ${p.label}${p.version > 1 ? ` (version ${p.version})` : ''}`).join('\n'), signature: signatureOf(seller), lien_avis: '' }),
-    files,
+    body, files,
   });
   const today = nowIso().slice(0, 10);
-  await batch([...all.map((p) => updateStmt('proofs', p.id, { status: 'envoye', sent_at: today })), auditStmt('order', orderId, 'bat_envoye', { labels: all.map((p) => p.label) })]);
+  await batch([...all.map((p) => updateStmt('proofs', p.id, { status: 'envoye', sent_at: today })), auditStmt('order', orderId, 'bat_envoye', { labels: all.map((p) => p.label), rib: !!opts.rib })]);
   return { how, count: all.length };
 }
 

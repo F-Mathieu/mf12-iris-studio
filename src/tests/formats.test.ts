@@ -172,3 +172,17 @@ describe('filtre des notes', async () => {
     expect(r.filter((x) => ratedFor(x, 0))).toEqual([1, 2, 2, 5]); // « Toutes » → les actions prennent les notées
   });
 });
+
+describe('e-mail du BAT avec RIB', async () => {
+  const { proofMailBody, DEFAULT_PROOF_MAIL } = await import('../services/proofs');
+  const v = { bonjour: 'Bonjour Julie,', numero: '2026-0012', seance: 'Noël', liste: '• Tirage 40x60', signature: 'Mathieu — MF/1.2', lien_avis: '' };
+  it('sans RIB : pas de phrase, pas de ligne vide en trop', () => {
+    const b = proofMailBody(DEFAULT_PROOF_MAIL, { ...v, rib: '' });
+    expect(b).not.toContain('{rib}'); expect(b).not.toMatch(/\n{3,}/); expect(b.endsWith('Mathieu — MF/1.2')).toBe(true);
+  });
+  it('avec RIB : phrase avant la signature, même dans un texte personnalisé sans {rib}', () => {
+    const rib = 'Vous trouverez également mon RIB en pièce jointe si vous souhaitez régler par virement.';
+    expect(proofMailBody(DEFAULT_PROOF_MAIL, { ...v, rib })).toContain(`${rib}\n\nMathieu — MF/1.2`);
+    expect(proofMailBody('{bonjour}\n\nVoici le BAT.\n\n{signature}', { ...v, rib })).toBe(`Bonjour Julie,\n\nVoici le BAT.\n\n${rib}\n\nMathieu — MF/1.2`);
+  });
+});

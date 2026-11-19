@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Check, FileImage, Mail, MessageSquareWarning, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, IconButton, Modal, useAsync, useConfirm, cx } from './ui';
-import { addProofs, deleteProof, emailProofs, listProofs, proofImage, PROOF_STATUS, setProofStatus, type Proof, type ProofStatus } from '../services/proofs';
+import { getSetting } from '../services/base';
+import { addProofs, ribFile, deleteProof, emailProofs, listProofs, proofImage, PROOF_STATUS, setProofStatus, type Proof, type ProofStatus } from '../services/proofs';
 import { pickFiles } from '../lib/files';
 import { fmtDate } from '../lib/format';
 import { eur } from '../lib/money';
@@ -29,6 +30,9 @@ export function OrderProofs({ orderId, unpaid = 0, onChange }: { orderId: string
   const list = useAsync(() => listProofs(orderId), [orderId]);
   const [view, setView] = useState<Proof | null>(null);
   const [busy, setBusy] = useState(false);
+  const ribAvail = useAsync(async () => !!(await ribFile()) || !!(await getSetting('iban')).trim(), []);
+  const [rib, setRib] = useState<boolean | null>(null);
+  const withRib = rib ?? (unpaid > 0 && !!ribAvail.data);
   const reload = () => { list.reload(); onChange?.(); };
   const current = (list.data ?? []).filter((p) => p.status !== 'remplace');
   const old = (list.data ?? []).filter((p) => p.status === 'remplace');
@@ -45,10 +49,12 @@ export function OrderProofs({ orderId, unpaid = 0, onChange }: { orderId: string
       <CardHeader title={<span className="flex items-center gap-2"><FileImage className="size-4 text-mist-400" />BAT (bons à tirer)</span>}
         subtitle="Importez le fichier final (JPEG/PNG) : le client reçoit une copie basse définition filigranée, inutilisable comme fichier numérique."
         actions={<>
+          <label className={cx('flex cursor-pointer items-center gap-1.5 text-[12.5px]', ribAvail.data ? 'text-mist-200' : 'text-mist-500')} title={ribAvail.data ? 'Joint le RIB et ajoute une phrase pour régler par virement' : 'Ajoutez votre RIB dans Paramètres → Facturation'}>
+            <input type="checkbox" className="size-4 accent-[rgb(212,175,105)]" disabled={!ribAvail.data} checked={withRib} onChange={(e) => setRib(e.target.checked)} />Joindre le RIB</label>
           <Button size="sm" icon={<Plus className="size-3.5" />} loading={busy} onClick={() => add()}>Ajouter</Button>
           <Button size="sm" variant="gold" icon={<Mail className="size-3.5" />} disabled={!toSend} onClick={async () => {
             if (unpaid > 0 && !(await confirm({ title: 'Commande non réglée', text: `Il reste ${eur(unpaid)} à régler. Un BAT envoyé avant paiement peut être gardé comme fichier numérique. Envoyer quand même ?`, confirm: 'Envoyer quand même' }))) return;
-            await act(() => emailProofs(orderId).then((r) => { reload(); return r; }), (r) => `${r.count} BAT ${r.how === 'mail' ? 'prêt(s) dans Mail' : 'enregistré(s) — joignez-les au message'}`);
+            await act(() => emailProofs(orderId, undefined, { rib: withRib }).then((r) => { reload(); return r; }), (r) => `${r.count} BAT ${r.how === 'mail' ? 'prêt(s) dans Mail' : 'enregistré(s) — joignez-les au message'}`);
           }}>Envoyer{toSend ? ` (${toSend})` : ''}</Button>
         </>} />
       {!current.length ? <div className="px-5 py-4 text-[12.5px] text-mist-400">Aucun BAT. Exportez le tirage ou le montage depuis Lightroom / Photoshop puis « Ajouter ».</div> : (
