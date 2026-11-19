@@ -4,6 +4,7 @@
 
 ## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.2)
 - Correctif agenda : les événements « Rendez-vous » ajoutés étaient masqués par le filtre des RDV des inscrits (même type). Les RDV des inscrits ont maintenant leur propre type « RDV des inscrits », seul masqué par défaut.
+- Agenda : suppression directe d’un événement (corbeille dans le détail du jour et la liste « À venir », avec confirmation) ; clic sur un événement dans le mois = modifier / supprimer (ou ouvrir la séance, le mariage…).
 
 ## Publié en v2.4.2 (à tester sur Mac)
 - Glisser-déposer dans l’app Mac (Postproduction → Kanban, Planning) : `dragDropEnabled: false` sur la fenêtre Tauri (le glisser de fichiers du Finder vers la fenêtre n’est pas utilisé) + `dataTransfer.setData` (exigé par WebKit), colonne cible surlignée. Vérifié sur Mac ✓ (v2.4.2).

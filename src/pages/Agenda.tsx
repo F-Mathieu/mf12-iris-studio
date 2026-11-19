@@ -28,6 +28,7 @@ const covers = (x: AgendaItem, day: string) => x.date <= day && (x.end_date ?? x
 
 export default function Agenda() {
   const nav = useNavigate();
+  const confirm = useConfirm();
   const today = todayIso();
   const [month, setMonth] = useState(monthStart(today));
   const [view, setView] = useState<'mois' | 'liste'>('mois');
@@ -45,6 +46,10 @@ export default function Agenda() {
   const days: string[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
   const open = (x: AgendaItem) => (x.event ? setEdit(x.event) : x.link ? nav(x.link) : undefined);
+  /** Own events only: the others come from séances, weddings, orders (deleted / changed there). */
+  const remove = async (x: AgendaItem) => {
+    if (x.event && (await confirm({ title: `Supprimer « ${x.title} » ?`, text: fmtDate(x.date), danger: true, confirm: 'Supprimer' }))) await act(() => deleteEvent(x.event!.id).then(items.reload), 'Événement supprimé');
+  };
   const toggleKind = (k: string) => setHide((h) => { const n = new Set(h); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   return (
     <>
@@ -66,7 +71,7 @@ export default function Agenda() {
       {!items.data ? <Loading /> : view === 'liste' ? (
         <Card>
           <div className="divide-y divide-ink-700/50">
-            {shown.filter((x) => !x.done).map((x) => <ItemRow key={x.key} x={x} onOpen={() => open(x)} onDone={x.event ? () => act(() => setEventDone(x.event!.id, true).then(items.reload)) : undefined} withDate />)}
+            {shown.filter((x) => !x.done).map((x) => <ItemRow key={x.key} x={x} onOpen={() => open(x)} onDone={x.event ? () => act(() => setEventDone(x.event!.id, true).then(items.reload)) : undefined} onDelete={x.event ? () => remove(x) : undefined} withDate />)}
             {!shown.length && <div className="px-5 py-8 text-center text-mist-400">Rien de prévu dans les 4 prochains mois.</div>}
           </div>
         </Card>
@@ -83,7 +88,9 @@ export default function Agenda() {
                     className={cx('min-h-[104px] border-r border-b border-ink-700/60 p-1.5 text-left align-top transition hover:bg-ink-800/60', d.slice(0, 7) !== month.slice(0, 7) && 'opacity-40', day === d && 'bg-ink-800 ring-1 ring-gold-500/50 ring-inset', blocked && 'bg-rose-500/[0.04]')}>
                     <div className={cx('mb-1 flex size-6 items-center justify-center rounded-full text-[12px]', d === today ? 'bg-gold-400 font-semibold text-ink-950' : 'text-mist-300')}>{Number(d.slice(8))}</div>
                     <div className="space-y-0.5">
-                      {list.slice(0, 4).map((x) => <div key={x.key} className={cx('truncate rounded border px-1 py-px text-[11px]', KIND_STYLE[x.kind]?.cls, x.done && 'line-through opacity-50')}>{x.time ? x.time + ' ' : ''}{x.title}</div>)}
+                      {list.slice(0, 4).map((x) => <div key={x.key} title={x.event ? 'Cliquer pour modifier ou supprimer' : x.link ? 'Cliquer pour ouvrir' : undefined}
+                        onClick={(e) => { if (x.event || x.link) { e.stopPropagation(); setDay(d); open(x); } }}
+                        className={cx('truncate rounded border px-1 py-px text-[11px] hover:brightness-125', KIND_STYLE[x.kind]?.cls, x.done && 'line-through opacity-50')}>{x.time ? x.time + ' ' : ''}{x.title}</div>)}
                       {list.length > 4 && <div className="text-[11px] text-mist-400">+ {list.length - 4}</div>}
                     </div>
                   </button>
@@ -94,7 +101,7 @@ export default function Agenda() {
           <Card className="h-fit">
             <CardHeader title={day ? fmtLongDate(day) : 'Choisissez un jour'} actions={day && <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ date: day, kind: 'rdv' })}>Ajouter</Button>} />
             <div className="divide-y divide-ink-700/50">
-              {day && shown.filter((x) => covers(x, day)).map((x) => <ItemRow key={x.key} x={x} onOpen={() => open(x)} onDone={x.event ? () => act(() => setEventDone(x.event!.id, !x.done).then(items.reload)) : undefined} />)}
+              {day && shown.filter((x) => covers(x, day)).map((x) => <ItemRow key={x.key} x={x} onOpen={() => open(x)} onDone={x.event ? () => act(() => setEventDone(x.event!.id, !x.done).then(items.reload)) : undefined} onDelete={x.event ? () => remove(x) : undefined} />)}
               {day && !shown.some((x) => covers(x, day)) && <div className="px-5 py-6 text-[13px] text-mist-400">Rien ce jour-là. Double-cliquez sur un jour pour ajouter un événement.</div>}
             </div>
           </Card>
@@ -105,7 +112,7 @@ export default function Agenda() {
   );
 }
 
-function ItemRow({ x, onOpen, onDone, withDate }: { x: AgendaItem; onOpen: () => void; onDone?: () => void; withDate?: boolean }) {
+function ItemRow({ x, onOpen, onDone, onDelete, withDate }: { x: AgendaItem; onOpen: () => void; onDone?: () => void; onDelete?: () => void; withDate?: boolean }) {
   return (
     <div className="flex items-center gap-3 px-5 py-2.5 text-[13px]">
       <span className={cx('size-2.5 shrink-0 rounded-full border', KIND_STYLE[x.kind]?.cls)} />
@@ -116,6 +123,8 @@ function ItemRow({ x, onOpen, onDone, withDate }: { x: AgendaItem; onOpen: () =>
       </button>
       {x.blocks && <Badge tone="neutral">Réservé</Badge>}
       {onDone && <IconButton title={x.done ? 'Rouvrir' : 'Fait'} onClick={onDone}><Check className={cx('size-4', x.done && 'text-emerald-300')} /></IconButton>}
+      {onDelete ? <IconButton title="Supprimer l’événement" onClick={onDelete}><Trash2 className="size-4" /></IconButton>
+        : x.link && <span className="text-[11px] text-mist-500" title="Se modifie depuis sa page (séance, mariage, commande)">↗</span>}
     </div>
   );
 }
