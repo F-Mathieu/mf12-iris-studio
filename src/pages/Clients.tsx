@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Download, EyeOff, Merge, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, DataTable, Empty, Loading, Modal, PageHeader, SearchInput, useAsync, useConfirm, useDebounced } from '../components/ui';
-import { ApptBadge, OrderBadge } from '../components/badges';
+import { ApptStatusPicker, OrderBadge } from '../components/badges';
+import type { ApptStatus } from '../services/registrations';
 import { FamilyForm } from '../components/FamilyForm';
 import { anonymizeFamily, deleteFamily, findDuplicateFamilies, getFamily, mergeFamilies, searchFamilies, type FamilyRow } from '../services/families';
 import { exportCsv } from '../services/backup';
@@ -72,7 +73,7 @@ function FamilyDetail({ id, onClose, onChanged }: { id: string; onClose: () => v
             ))}{!f.participants.length && <span className="text-[13px] text-mist-400">Aucun participant.</span>}</div>
           </div>
           <Card><CardHeader title="Séances" />
-            <div className="divide-y divide-ink-700/50">{f.sessions.map((s) => <button key={s.reg_id} onClick={() => nav(`/seances/${s.id}?tab=inscrits`)} className="flex w-full justify-between px-5 py-2.5 text-left text-[13px] hover:bg-ink-800"><span>{s.name} <span className="text-mist-400">· {fmtDate(s.date)}</span></span><ApptBadge s={s.appt_status as 'a_venir'} /></button>)}
+            <div className="divide-y divide-ink-700/50">{f.sessions.map((s) => <div key={s.reg_id} role="button" tabIndex={0} onClick={() => nav(`/seances/${s.id}?tab=inscrits`)} className="flex w-full cursor-pointer items-center justify-between px-5 py-2.5 text-left text-[13px] hover:bg-ink-800"><span>{s.name} <span className="text-mist-400">· {fmtDate(s.date)}</span></span><ApptStatusPicker id={s.reg_id} s={s.appt_status as ApptStatus} onChanged={d.reload} /></div>)}
               {!f.sessions.length && <div className="px-5 py-3 text-[13px] text-mist-400">Aucune séance.</div>}</div>
           </Card>
           <Card><CardHeader title="Commandes" />

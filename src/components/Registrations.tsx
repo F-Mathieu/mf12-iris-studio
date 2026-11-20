@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Download, Send, Pencil, ShoppingBag, Trash2, Upload, UserPlus, Users } from 'lucide-react';
 import { Badge, Button, Card, DataTable, Empty, Field, IconButton, Input, Modal, SearchInput, Select, Textarea, cx, useConfirm, useDebounced, useAsync } from './ui';
-import { ApptBadge, OrderBadge, PayBadge } from './badges';
+import { ApptStatusPicker, OrderBadge, PayBadge } from './badges';
 import { FamilyForm } from './FamilyForm';
 import { ImportDialog } from './ImportDialog';
 import { addRegistration, APPT_STATUS, deleteRegistration, setRegistrationQuote, updateRegistration, type ApptStatus, type RegistrationRow } from '../services/registrations';
@@ -51,7 +51,7 @@ export function RegistrationsPanel({ sessionId, sessionName, regs, reload }: { s
             { key: 'ref', header: 'Réf.', sort: (r) => r.external_ref ?? '', cell: (r) => <span className="font-mono text-[12px] text-mist-300">{r.external_ref ?? ''}</span> },
             { key: 'family', header: 'Famille', sort: (r) => r.family_name, cell: (r) => <div><button className="font-medium hover:text-gold-300" onClick={() => setEditFamily(r.family_id)}>{r.family_name}</button><div className="text-[12px] text-mist-400">{[r.contact_first_name, r.phone].filter(Boolean).join(' · ')}</div></div> },
             { key: 'parts', header: 'Participants', cell: (r) => <div className="max-w-[220px] truncate text-mist-300" title={r.participant_names ?? ''}><span className="mr-1.5 tabular text-mist-100">{r.nb_participants || r.participants_count || 0}</span>{r.participant_names}</div> },
-            { key: 'status', header: 'Statut', cell: (r) => <ApptBadge s={r.appt_status} /> },
+            { key: 'status', header: 'Statut', cell: (r) => <ApptStatusPicker id={r.id} s={r.appt_status} onChanged={reload} /> },
             { key: 'order', header: 'Commande', cell: (r) => r.order_status ? <div className="flex items-center gap-1.5"><OrderBadge s={r.order_status as 'validee'} />{r.order_status === 'validee' && <PayBadge total={r.order_total ?? 0} paid={r.paid_cents ?? 0} />}</div> : <span className="text-mist-400">—</span> },
             { key: 'quote', header: 'Suivi', sort: (r) => (r.done_at ? 4 : r.quote_signed_at ? 3 : r.quote_sent_at ? 2 : r.awaiting_reply_at ? 1 : 0), cell: (r) => (
               <div className="flex flex-col gap-1 text-[12px]">

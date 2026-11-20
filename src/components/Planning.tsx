@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Clock, GripVertical, ShoppingBag, UserCheck, UserRound } from 'lucide-react';
 import { Badge, Button, Card, Empty, Segmented, SearchInput, Select, cx } from './ui';
-import { ApptBadge, OrderBadge } from './badges';
+import { ApptStatusPicker, OrderBadge } from './badges';
 import { AppointmentDialog } from './Registrations';
 import { APPT_STATUS, updateRegistration, type ApptStatus, type RegistrationRow } from '../services/registrations';
 import type { Session } from '../services/sessions';
@@ -103,7 +103,7 @@ export function Planning({ session, regs, reload }: { session: Session; regs: Re
             return (
               <Card key={t} className={cx('p-3', n.length > session.slot_capacity && 'border-amber-500/40')}>
                 <div className="flex items-center justify-between"><span className="font-semibold tabular">{t}</span><Badge tone={n.length > session.slot_capacity ? 'amber' : full ? 'gold' : 'neutral'}>{n.length}/{session.slot_capacity}</Badge></div>
-                <div className="mt-2 space-y-1">{n.map((r) => <div key={r.id} className="flex items-center justify-between text-[12.5px]"><button className="truncate hover:text-gold-300" onClick={() => sell(r)}>{r.family_name}</button><ApptBadge s={r.appt_status} /></div>)}</div>
+                <div className="mt-2 space-y-1">{n.map((r) => <div key={r.id} className="flex items-center justify-between text-[12.5px]"><button className="truncate hover:text-gold-300" onClick={() => sell(r)}>{r.family_name}</button><ApptStatusPicker id={r.id} s={r.appt_status} onChanged={reload} /></div>)}</div>
               </Card>
             );
           })}

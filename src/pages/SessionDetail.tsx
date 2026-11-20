@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Archive, CalendarDays, Copy, FileDown, MapPin, MonitorPlay, Pencil, Tags, Trash2, User } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, ErrorBox, Field, Loading, PageHeader, Select, Stat, Tabs, useAsync, useConfirm } from '../components/ui';
-import { SessionBadge } from '../components/badges';
+import { SessionStatusPicker } from '../components/badges';
 import { RegistrationsPanel } from '../components/Registrations';
 import { SessionPhotos } from '../components/SessionPhotos';
 import { Planning } from '../components/Planning';
@@ -42,7 +42,7 @@ export default function SessionDetail() {
   return (
     <>
       <PageHeader back={() => nav('/seances')} title={session.name}
-        subtitle={<div className="flex flex-wrap items-center gap-x-4 gap-y-1"><SessionBadge s={session.status} />
+        subtitle={<div className="flex flex-wrap items-center gap-x-4 gap-y-1"><SessionStatusPicker id={session.id} s={session.status} onChanged={reload} />
           {session.date && <span className="flex items-center gap-1.5"><CalendarDays className="size-3.5" />{fmtLongDate(session.date)}{session.start_time && ` · ${session.start_time}${session.end_time ? '–' + session.end_time : ''}`}</span>}
           {session.location && <span className="flex items-center gap-1.5"><MapPin className="size-3.5" />{session.location}</span>}
           {session.organizer && <span className="flex items-center gap-1.5"><User className="size-3.5" />{session.organizer}</span>}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, MapPin, Plus } from 'lucide-react';
 import { Button, Card, DataTable, Field, Input, Modal, PageHeader, SearchInput, Segmented, Select, Textarea, useAsync, useDebounced } from '../components/ui';
-import { SessionBadge } from '../components/badges';
+import { SessionStatusPicker } from '../components/badges';
 import { createSession, listSessions, type SessionInput, type SessionRow } from '../services/sessions';
 import { listTemplates } from '../services/pricing';
 import { listUniverses } from '../services/universes';
@@ -18,7 +18,7 @@ export default function Sessions() {
   const dq = useDebounced(q);
   const [universe, setUniverse] = useState('');
   const universes = useAsync(() => listUniverses(), []);
-  const { data } = useAsync(() => listSessions({ q: dq, status: status || undefined, universeId: universe || undefined }), [dq, status, universe]);
+  const { data, reload } = useAsync(() => listSessions({ q: dq, status: status || undefined, universeId: universe || undefined }), [dq, status, universe]);
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -36,7 +36,7 @@ export default function Sessions() {
             { key: 'name', header: 'Séance', sort: (r) => r.name, cell: (r) => <div><div className="font-medium">{r.name}</div>{r.location && <div className="mt-0.5 flex items-center gap-1 text-[12px] text-mist-400"><MapPin className="size-3" />{r.location}</div>}</div> },
             { key: 'date', header: 'Date', sort: (r) => r.date ?? '', cell: (r) => <span className="tabular">{fmtDate(r.date)}{r.start_time && <span className="text-mist-400"> · {r.start_time}</span>}</span> },
             { key: 'universe', header: 'Univers', sort: (r) => r.universe_name ?? '', cell: (r) => <span className="text-mist-300">{r.universe_name ?? '—'}</span> },
-            { key: 'status', header: 'Statut', cell: (r) => <SessionBadge s={r.status} /> },
+            { key: 'status', header: 'Statut', cell: (r) => <SessionStatusPicker id={r.id} s={r.status} onChanged={reload} /> },
             { key: 'tpl', header: 'Grille tarifaire', cell: (r) => <span className="text-mist-300">{r.price_list_name ?? <span className="text-amber-300">Aucune</span>}</span> },
             { key: 'reg', header: 'Inscrits', align: 'right', sort: (r) => r.registrations, cell: (r) => r.registrations },
             { key: 'orders', header: 'Commandes', align: 'right', sort: (r) => r.orders, cell: (r) => r.orders },
