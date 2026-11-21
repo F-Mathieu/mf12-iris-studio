@@ -245,7 +245,7 @@ function PromotionDialog({ promo, styles, products, onClose, onSave }: { promo: 
         </>)}
         <div className="col-span-4 grid grid-cols-4 gap-4 rounded-xl border border-ink-700 p-3">
           <div className="col-span-4 text-[12px] font-medium text-mist-300">Condition sur le montant de la commande (facultatif) — prix normal, avant remises</div>
-          <Field label="Dès (inclus)"><MoneyInput value={(c.min_subtotal_cents as number) ?? null} placeholder="—" onChange={(v) => setC({ min_subtotal_cents: v ?? undefined })} /></Field>
+          <Field label="Dès (inclus)" hint="Montant payé après remise commerciale et autres promotions"><MoneyInput value={(c.min_subtotal_cents as number) ?? null} placeholder="—" onChange={(v) => setC({ min_subtotal_cents: v ?? undefined })} /></Field>
           <Field label="Jusqu’à (inclus)"><MoneyInput value={(c.max_subtotal_cents as number) ?? null} placeholder="—" onChange={(v) => setC({ max_subtotal_cents: v ?? undefined })} /></Field>
           <Field label="Montant calculé sur" className="col-span-2"><Select value={(c.threshold_category as string) ?? ''} onChange={(e) => setC({ threshold_category: e.target.value || undefined })}>
             <option value="">Toute la commande</option><option value="impression">Impressions seulement</option><option value="numerique">Numérique seulement</option><option value="option">Options seulement</option><option value="creation">Créations seulement</option>

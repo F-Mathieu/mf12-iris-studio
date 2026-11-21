@@ -2,6 +2,9 @@
 
 **Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
 
+## Non publié (branche claude/gracious-gates-xu2t2t, après v2.4.6)
+- **Calcul des promotions à seuil** (« 10 € dès 100 € ») : le seuil se compare au montant payé APRÈS la remise commerciale et les promotions sans seuil déjà appliquées (priorités respectées), plus au prix normal. Les paliers ne se réduisent pas entre eux. Ex. 110 € − 25 € de remise commerciale = 85 € → pas de −10 € (avant : 35 € de remise).
+
 ## Publié en v2.4.6 (à tester sur Mac)
 - Statuts modifiables en un clic partout (badge cliquable → menu) : statut des inscrits (liste des inscrits, Planning, fiche client) et statut des séances (en-tête de la séance, liste des séances). Mariages, tâches de postproduction : déjà modifiables (liste / glisser-déposer). Statut des commandes : non (règles brouillon / validée / annulée, avoirs).
 

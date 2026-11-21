@@ -65,7 +65,9 @@ export interface Selector {
   styleId?: string;
 }
 /**
- * Optional order-amount condition, valid for every promotion type, based on the normal price (before discounts).
+ * Optional order-amount condition, valid for every promotion type, based on what the client actually pays:
+ * after the commercial discounts and the promotions without threshold (« 10 € dès 100 € » needs 100 € paid).
+ * Tiers (other threshold promotions) do not lower each other's base.
  * threshold_category: only items of this category count (e.g. 'impression' = "dès 200 € de tableaux").
  */
 export interface Threshold {
@@ -174,10 +176,17 @@ export function computeCart(
   // (e.g. a file already offered cannot also be discounted by a pack).
   const rem = new Map(units.map((u) => [u.id, u.price]));
   const remOf = (us: Unit[]) => us.reduce((s, u) => s + (rem.get(u.id) ?? 0), 0);
-  const spend = (us: Unit[], amount: number) => {
+  // Same, counting only promotions WITHOUT threshold: the base « dès 100 € » is compared with (tiers never lower each other).
+  const remNT = new Map(units.map((u) => [u.id, u.price]));
+  const spend = (us: Unit[], amount: number, noThreshold = false) => {
     const live = us.filter((u) => (rem.get(u.id) ?? 0) > 0);
-    allocate(Math.min(amount, remOf(live)), live.map((u) => rem.get(u.id)!)).forEach((a, i) => rem.set(live[i].id, rem.get(live[i].id)! - a));
+    allocate(Math.min(amount, remOf(live)), live.map((u) => rem.get(u.id)!)).forEach((a, i) => {
+      rem.set(live[i].id, rem.get(live[i].id)! - a);
+      if (noThreshold) remNT.set(live[i].id, Math.max(0, remNT.get(live[i].id)! - a));
+    });
   };
+  /** Commercial (manual) discounts applied to an amount, in order. */
+  const afterManual = (x: number) => manual.reduce((v, m) => v - Math.min(v, m.pct_bp != null ? pctOf(v, m.pct_bp) : m.amount_cents ?? 0), x);
   let remaining = subtotal;
   let exclusiveApplied = false;
 
@@ -194,7 +203,13 @@ export function computeCart(
     if (exclusiveApplied) break;
     if (!p.stackable && discounts.length > 0) continue; // exclusive promo cannot join others
     const cfg = p.config as PromoConfig;
-    const base = cfg.threshold_category ? units.filter((u) => u.category === cfg.threshold_category).reduce((t, u) => t + u.price, 0) : subtotal;
+    const thr = cfg.min_subtotal_cents != null || cfg.max_subtotal_cents != null;
+    // « dès 100 € » = what the client pays: after commercial discounts and the promotions without threshold already applied
+    const ntTotal = units.reduce((t, u) => t + remNT.get(u.id)!, 0);
+    const ntAfter = afterManual(ntTotal);
+    const base = cfg.threshold_category
+      ? Math.round(units.filter((u) => u.category === cfg.threshold_category).reduce((t, u) => t + remNT.get(u.id)!, 0) * (ntTotal ? ntAfter / ntTotal : 1))
+      : ntAfter;
     if (cfg.min_subtotal_cents != null && base < cfg.min_subtotal_cents) continue;
     if (cfg.max_subtotal_cents != null && base > cfg.max_subtotal_cents) continue;
     // Limit a scoped discount to N items (cheapest first, to protect the margin).
@@ -215,7 +230,7 @@ export function computeCart(
         const d = Math.min(cfg.mode === 'price' ? value - cfg.value_cents : cfg.value_cents, value);
         if (d <= 0) break;
         set.forEach((u) => consumed.add(u.id));
-        spend(set, d);
+        spend(set, d, !thr);
         used.push(...set);
         amount += d; sets++;
       } while (cfg.repeat && ++guard < 50);
@@ -241,7 +256,7 @@ export function computeCart(
     if (amount > 0) {
       const scoped = target !== units;
       const applied = push({ promotionId: p.id, kind: 'auto', label: p.name, amount_cents: amount, count: scoped ? target.filter((u) => (rem.get(u.id) ?? 0) > 0).length || undefined : undefined });
-      if (applied) { spend(target, applied); if (!p.stackable) exclusiveApplied = true; }
+      if (applied) { spend(target, applied, !thr); if (!p.stackable) exclusiveApplied = true; }
     }
   }
 

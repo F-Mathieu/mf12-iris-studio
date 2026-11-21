@@ -182,6 +182,27 @@ describe('computeCart', () => {
     expect(t.total_cents).toBe(8550);
   });
 
+  it('threshold reached AFTER the commercial discount and the promotions already applied (not on the normal price)', () => {
+    const r10 = promo({ id: 'r10', name: '10 € dès 100 €', type: 'amount', priority: 10, config: { amount_cents: 1000, min_subtotal_cents: 10000 } });
+    const cart = [item('p', { unitPriceCents: 11000 })]; // 110 €
+    // 25 € commercial discount → 85 € paid: the « 10 € dès 100 € » no longer applies (it used to give 35 € of discounts)
+    const a = computeCart([], cart, [r10], [{ label: 'Remise commerciale', amount_cents: 2500 }]);
+    expect(a.discounts.map((d) => [d.kind, d.amount_cents])).toEqual([['manual', 2500]]);
+    expect(a.total_cents).toBe(8500);
+    // 5 € commercial discount → 105 €: still above 100 €
+    expect(computeCart([], cart, [r10], [{ label: 'Remise commerciale', amount_cents: 500 }]).discount_cents).toBe(1500);
+    // 10 % commercial discount → 99 €: below
+    expect(computeCart([], cart, [r10], [{ label: 'Remise', pct_bp: 1000 }]).discount_cents).toBe(1100);
+    // a pack applied first (higher priority) also counts: 110 € − 15 € = 95 €
+    const pack = promo({ id: 'pk', type: 'pack', priority: 1, config: { items: [{ selector: { category: 'impression' }, qty: 1 }], mode: 'discount', value_cents: 1500 } });
+    expect(computeCart([], cart, [pack, r10]).discounts.map((d) => d.promotionId)).toEqual(['pk']);
+    // category threshold also sees the commercial discount (spread over the items)
+    const onPrints = promo({ id: 'op', type: 'amount', config: { amount_cents: 1000, min_subtotal_cents: 10000, threshold_category: 'impression' } });
+    const mixed = [item('pr', { unitPriceCents: 10000 }), item('hd', { category: 'numerique', unitPriceCents: 10000 })];
+    expect(computeCart([], mixed, [onPrints]).discount_cents).toBe(1000);
+    expect(computeCart([], mixed, [onPrints], [{ label: 'Remise', amount_cents: 2000 }]).discount_cents).toBe(2000); // 90 € of prints after discount
+  });
+
   it('min subtotal for amount promo', () => {
     const p = promo({ type: 'amount', config: { amount_cents: 1000, min_subtotal_cents: 10000 } });
     expect(computeCart([], [item('p', { unitPriceCents: 9999 })], [p]).discount_cents).toBe(0);
