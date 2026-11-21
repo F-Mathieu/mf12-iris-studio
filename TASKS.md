@@ -1,64 +1,18 @@
 # Tâches — MF12 Studio (branche main)
 
-**Règles de travail** : réponses courtes en français ; publier (`gh` workflow_dispatch `build-macos.yml`, `release_tag=vX.Y.Z`, bump package.json / tauri.conf.json / Cargo.toml / package-lock) **uniquement quand l’utilisateur dit « publie »**, et redonner le lien du .dmg. Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux.
+## État actuel (21/11/2026)
+- **Dernière version publiée : v2.4.7** (main = branche de travail `claude/gracious-gates-xu2t2t`, rien de non publié). 86 tests vitest OK.
+- Toutes les étapes de la feuille de route sont faites. On travaille maintenant au fil des retours de l’utilisateur (il teste sur Mac et demande des améliorations).
+- Dernières versions : v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
 
-## Publié en v2.4.7 (à tester sur Mac)
-- **Calcul des promotions à seuil** (« 10 € dès 100 € ») : le seuil se compare au montant payé APRÈS la remise commerciale et les promotions sans seuil déjà appliquées (priorités respectées), plus au prix normal. Les paliers ne se réduisent pas entre eux. Ex. 110 € − 25 € de remise commerciale = 85 € → pas de −10 € (avant : 35 € de remise).
-
-## Publié en v2.4.6 (à tester sur Mac)
-- Statuts modifiables en un clic partout (badge cliquable → menu) : statut des inscrits (liste des inscrits, Planning, fiche client) et statut des séances (en-tête de la séance, liste des séances). Mariages, tâches de postproduction : déjà modifiables (liste / glisser-déposer). Statut des commandes : non (règles brouillon / validée / annulée, avoirs).
-
-## Publié en v2.4.5 (à tester sur Mac)
-- Commande : « Notes internes » (migration 20 `orders.internal_notes`), repliées par défaut (point doré si une note existe), jamais imprimées ni envoyées ; affichées aussi sur les cartes de Postproduction (📝).
-
-## Publié en v2.4.4 (à tester sur Mac)
-- BAT : case « Joindre le RIB » (cochée d’office si la commande n’est pas réglée) → fichier RIB en pièce jointe + phrase « RIB en pièce jointe si vous souhaitez régler par virement (reste à régler, référence) » ; sans fichier, l’IBAN est écrit dans le message. Fichier RIB (PDF / image) à déposer dans Paramètres → Facturation. Variable {rib} dans le texte du BAT.
-- BAT : suppression possible quel que soit le statut (envoyé, validé…), avec confirmation et trace dans l’historique.
-
-## Publié en v2.4.3 (à tester sur Mac)
-- Correctif agenda : les événements « Rendez-vous » ajoutés étaient masqués par le filtre des RDV des inscrits (même type). Les RDV des inscrits ont maintenant leur propre type « RDV des inscrits », seul masqué par défaut.
-- Agenda : suppression directe d’un événement (corbeille dans le détail du jour et la liste « À venir », avec confirmation) ; clic sur un événement dans le mois = modifier / supprimer (ou ouvrir la séance, le mariage…).
-
-## Publié en v2.4.2 (à tester sur Mac)
-- Glisser-déposer dans l’app Mac (Postproduction → Kanban, Planning) : `dragDropEnabled: false` sur la fenêtre Tauri (le glisser de fichiers du Finder vers la fenêtre n’est pas utilisé) + `dataTransfer.setData` (exigé par WebKit), colonne cible surlignée. Vérifié sur Mac ✓ (v2.4.2).
-
-## Publié en v2.4.1 (à tester sur Mac)
-- BAT : nouveau filigrane par défaut « bande centrale » (bande sombre 55 % en travers du centre, 20 % de la hauteur, « BAT · NE PAS UTILISER · réf. », 800 px) ; avertissement avant d’envoyer un BAT d’une commande non réglée.
-
-## Publié en v2.4.0 (à tester sur Mac)
-- Bouton « Ouvrir le dossier » des aperçus (commande native `open_data_folder`, non compilée ici).
-- Filtre des photos par note exacte + « Notées ».
-- **Statistiques par univers** (Rentabilité → « Par univers », par année) : CA, part du CA, panier moyen, marge et taux, frais, cotisations, bénéfice net estimé.
-- **Relances & avis** (tableau de bord) : devis sans réponse (après N jours), échéances impayées, demande d’avis N jours après la livraison (questionnaire + lien Google) ; un clic prépare l’e-mail dans Mail, noté dans l’historique ; ✕ = ne pas relancer. Textes et délais dans Paramètres → Relances & avis.
-
-- **BAT** (commande validée, migration 19 `proofs`) : import du fichier final JPEG/PNG → copie basse définition (1000 à 1400 px), filigrane réglable (discret : un grand « BAT » transparent ; normal ; fort) + trame fine irrégulière et marques aléatoires contre l’effacement par IA, bandeau « BAT » sous l’image ; envoi par Mail ; Validé / Corrections (commentaire) / Nouvelle version (l’ancienne passe « remplacé ») ; historique ; rappel « BAT sans réponse » (3 jours, en retard à 7). Texte de l’e-mail dans Paramètres → Relances, avis & BAT.
-
-## Publié en v2.3.0 (à tester sur Mac)
-- **Agenda** (menu Agenda, migration 18 `calendar_events`) : vue mois / à venir ; événements (prestation, livraison, RDV, perso) avec rappel N jours avant et « journée réservée » ; affiche aussi séances, RDV des inscrits, mariages (option si non signé), livrables J+15/J+30, échéances de paiement, fin de validité des devis ; alerte « date déjà réservée » à la création d’un mariage, d’une séance, d’un événement.
-- **Rappels du tableau de bord** (« À faire ») : livraisons en retard / sous 7 jours, fiches jour J non reçues (mariage sous 45 jours), échéances impayées / sous 14 jours, devis expirés, rappels d’agenda.
-- **Orientation des tirages** (vertical / horizontal) choisie sur la ligne (vente et commande validée), sur documents et postproduction.
-- **Copier pour Lightroom** : noms de fichiers des photos notées (galerie) ou d’une ligne de commande, à coller dans le filtre Lightroom Classic.
-
-## Publié en v2.2.0 (à tester sur Mac)
-- **Étape 3 Photos de séance** (migration 16) : Séance → Photos (import du dossier de séance = un sous-dossier par famille, ou par famille ; aperçus 1600/400 px hors base dans « apercus » ; notes 1 à 5 étoiles comme Lightroom ; CSV Pic-Time ; suppression des aperçus sans toucher aux commandes). Produit : « photos à choisir » (aucune / 1 par unité / pack de N / toutes). Vente : onglet Photos (galerie + favoris), choix des photos par ligne (galerie ou n° saisis depuis les étoiles Lightroom), « N à choisir » ; photos d’une autre séance de la famille. Commande validée : n° complétables sans avoir. Livraison : lien TransferNow + date. N° sur récap, devis, facture, postproduction.
-  - À vérifier sur Mac : import d’un dossier (permissions lecture de dossier / suppression), fluidité avec 30 photos.
-- Jauge des aperçus (Paramètres) ; notes 1 à 5 étoiles.
-- **Étape 5 Mariages** (migration 17, menu Mariages) : projet par couple (séance univers « Mariage »), devis à lignes catalogue / libres modifiables, acompte 30 % + solde au jour J en 1 à 12 fois, envoi « devis + contrat + CGV » dans Mail, contrat PDF (tableau, échéancier, signatures, CGV, formulaire de rétractation), « Marquer signé » (prix figés, devis signé), fiche de renseignements à envoyer plus tard + saisie + fiche du jour J (PDF), livrables J+15 / J+30 avec liens, album (fournisseur, 6 étapes datées), pièces jointes. Textes CGV / contrat / e-mails / délais / acompte dans Paramètres → Mariages.
-  - CGV et contrat = modèles à faire relire par un juriste (dit à l’utilisateur).
-
-## Publié en v2.1.2 (à tester sur Mac)
-- Registre des devis (Documents PDF) : statut envoyé / signé / refusé modifiable, validité / expiré, lien commande, e-mail, PDF, export CSV.
-- Envoi groupé des offres (Séance → Inscrits → « Offres à toutes les familles ») : un e-mail personnalisé par famille cochée dans Mail.
-- Suppression d’une commande réglée : encaissements conservés dans le livre des recettes (migration 15 `archived_receipts`).
-- Pièce jointe « devis signé » : le dernier devis envoyé passe en signé, « devis envoyé / validé » cochés sur l’inscription. Nouveau type « Devis (non signé) ».
-
-## Publié en v2.1.1 (à tester sur Mac)
-- Produits et variantes dans **plusieurs univers** (cases à cocher ; aucun = commun ; variante sans univers = comme son produit). Produits existants → Iris. Migration 13 (`catalog_universes`).
-- **Pièces jointes de commande** (devis signé, captures d’e-mails, bons de commande, justificatifs) : ajout de fichiers ou collage ⌘V d’une capture, type, note, aperçu, copie. Migration 14 (`order_attachments`). À vérifier sur Mac : collage ⌘V et aperçu PDF.
-
-## Publié en v2.1.0 (à tester sur Mac)
-- Étape 1 Compta (livre des recettes, déclaration URSSAF, dépenses, année & seuils) + prestations déjà signées + numérotation factures externes → publié en **v2.1.0**.
-- Étape 2 Univers de séance (Catalogue → onglet « Univers de séance » ; univers par séance / style / produit / template, template par défaut, textes brochure + e-mails offres / récap ; données existantes = univers Iris).
+## Règles de travail
+- Réponses courtes en français. Développer sur `claude/gracious-gates-xu2t2t`, avancer `main` en fast-forward seulement à la publication.
+- **Publier uniquement quand l’utilisateur dit « publie »** : bump version (package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml, src-tauri/Cargo.lock ligne `iris-studio`, package-lock.json ×2) → commit → push branche + `main` → workflow_dispatch `build-macos.yml` sur `main` avec `release_tag=vX.Y.Z` (outil GitHub MCP) → **annuler le run « push » en doublon** → vérifier ~8 min plus tard (send_later) puis donner le lien .dmg. Si le run reste « queued » > 15 min : relancer avec `runner=macos-15-intel`.
+- La release contient aussi `MF12-Studio-macOS.zip` (nom fixe) ; installation Terminal (dernière version) :
+  `curl -fL -o /tmp/mf12.zip https://github.com/F-Mathieu/mf12-iris-studio/releases/latest/download/MF12-Studio-macOS.zip && rm -rf "/Applications/MF12 Studio.app" && ditto -x -k /tmp/mf12.zip /Applications && rm /tmp/mf12.zip && xattr -dr com.apple.quarantine "/Applications/MF12 Studio.app" && open "/Applications/MF12 Studio.app"`
+- Données de l’app sur le Mac : `~/Library/Application Support/fr.mf12.studio/` (studio.db, apercus/, backups/, envois/).
+- Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux. Changements d’interface : vérification Playwright sur `npm run dev` (vite port 5199) ; vitest + tsc systématiques.
+- Prochaine migration : **21** (dernière : 20 `orders.internal_notes`).
 
 ## Feuille de route (validée avec l’utilisateur)
 | Étape | Contenu | État |
@@ -80,6 +34,7 @@
 - Une commande peut mêler deux séances (ex. iris + photos de Noël dernier).
 
 ## Questions ouvertes à l’utilisateur
+- Aucune. Idées non retenues pour l’instant : factures d’acompte numérotées, import depuis un outil de réservation (Calendly / Cal.com…), accès iPhone (agenda vers Calendrier iCloud).
 
 ## Divers
 | P | Tâche | État |
