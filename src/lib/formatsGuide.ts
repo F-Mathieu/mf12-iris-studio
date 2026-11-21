@@ -23,6 +23,9 @@ export const FORMAT_GUIDE: FormatAdvice[] = [
   { iris: 6, format: [60, 40], shape: 'Horizontal', layout: 'Six iris en 3 × 2 pour préserver les détails.', alt: [40, 40], altText: 'Alternative : 40 × 40 cm carré.' },
 ];
 
+/** Number of iris the print format is advised for: 1 when the iris form a single visual (puzzle, fusion). */
+export const visualIris = (irisCount: number, single: boolean) => (single ? 1 : irisCount);
+
 export const adviceFor = (iris: number | null | undefined) => FORMAT_GUIDE.find((g) => g.iris === iris) ?? null;
 
 /** "40 × 50 cm", "40x50", "50 x 40 cm" → [50, 40] (landscape order). */

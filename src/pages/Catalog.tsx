@@ -155,6 +155,8 @@ function StyleEditor({ style, universes, onClose }: { style: Partial<Style>; uni
             <Field label="Iris maximum"><Input type="number" min={1} value={st.max_iris ?? 1} onChange={(e) => setSt({ ...st, max_iris: Number(e.target.value) })} /></Field>
           </div>
           <div className="space-y-2.5 pt-1">
+            <div><Toggle checked={!!st.single_visual} onChange={(v) => setSt({ ...st, single_visual: v ? 1 : 0 })} label="Un seul visuel (puzzle)" />
+              <div className="mt-1 text-[11.5px] text-mist-400">Les iris forment un seul iris : format conseillé comme pour 1 iris (20 × 20 cm).</div></div>
             <Toggle checked={!!st.active} onChange={(v) => setSt({ ...st, active: v ? 1 : 0 })} label="Actif (proposé à la vente)" />
             <Toggle checked={!!st.archived} onChange={(v) => setSt({ ...st, archived: v ? 1 : 0, active: v ? 0 : st.active })} label="Archivé" />
           </div>

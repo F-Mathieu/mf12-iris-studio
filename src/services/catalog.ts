@@ -1,8 +1,8 @@
-import { auditStmt, batch, insertStmt, nowIso, one, run, sel, uid, updateStmt } from './base';
+import { auditStmt, batch, getSetting, insertStmt, nowIso, one, run, sel, uid, updateStmt } from './base';
 import { processImage } from '../lib/images';
 import { linkedFilter, linkedIds, setLinksStmts, splitIds, universeFilter } from './universes';
 
-export interface Style { id: string; name: string; description: string | null; min_iris: number; max_iris: number; active: number; archived: number; sort: number; universe_id: string | null; examples_count?: number; cover_thumb?: string | null }
+export interface Style { id: string; name: string; description: string | null; min_iris: number; max_iris: number; single_visual: number; active: number; archived: number; sort: number; universe_id: string | null; examples_count?: number; cover_thumb?: string | null }
 export interface Example { id: string; style_id: string; media_id: string; iris_count: number | null; caption: string | null; sort: number; thumb: string }
 export type Category = 'numerique' | 'impression' | 'option';
 export const CATEGORY_LABEL: Record<Category | 'creation', string> = { numerique: 'Numérique', impression: 'Impressions', option: 'Options', creation: 'Créations' };
@@ -28,10 +28,25 @@ export const listStyles = (includeArchived = false, universeId?: string | null) 
      FROM composition_styles s WHERE ${u.sql} ${includeArchived ? '' : 'AND s.archived=0'} ORDER BY s.archived, s.sort, s.name`, u.params);
 };
 
+/** Styles whose iris form a single visual (puzzle, fusion…): the print format is advised as for one iris. */
+export async function singleVisualStyleIds(): Promise<Set<string>> {
+  return new Set((await sel<{ id: string }>('SELECT id FROM composition_styles WHERE single_visual=1')).map((r) => r.id));
+}
+
+/** One-time: mark existing puzzle styles as a single visual (others, e.g. Fusion, via the style toggle). */
+export async function applySingleVisualStyles(): Promise<boolean> {
+  if ((await getSetting('single_visual_styles')) === '1') return false;
+  await batch([
+    { sql: "UPDATE composition_styles SET single_visual=1 WHERE lower(name) LIKE '%puzzle%'" },
+    { sql: "INSERT OR REPLACE INTO settings (key, value) VALUES ('single_visual_styles', '1')" },
+  ]);
+  return true;
+}
+
 export async function saveStyle(s: Partial<Style> & { name: string }) {
   if (!s.name.trim()) throw new Error('Nom du style obligatoire.');
   const min = Math.max(1, s.min_iris ?? 1), max = Math.max(min, s.max_iris ?? min);
-  const row = { name: s.name.trim(), description: s.description ?? null, min_iris: min, max_iris: max, active: s.active ?? 1, archived: s.archived ?? 0, universe_id: s.universe_id || null };
+  const row = { name: s.name.trim(), description: s.description ?? null, min_iris: min, max_iris: max, single_visual: s.single_visual ? 1 : 0, active: s.active ?? 1, archived: s.archived ?? 0, universe_id: s.universe_id || null };
   if (s.id) { await batch([updateStmt('composition_styles', s.id, row)]); return s.id; }
   const id = uid();
   const n = await one<{ n: number }>('SELECT COALESCE(max(sort),0)+1 n FROM composition_styles');

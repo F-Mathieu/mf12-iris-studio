@@ -7,6 +7,7 @@ import { buildInvoiceData, REQUIRED_SELLER, sellerInfo, type InvoiceData } from 
 import { getOrderDetail } from './orders';
 import { hasPlan, schedule } from '../lib/pricing';
 import { compositionSketches } from './sketches';
+import { singleVisualStyleIds } from './catalog';
 import type { Stmt } from '../lib/db/types';
 
 export type QuoteStatus = 'envoye' | 'signe' | 'refuse';
@@ -37,7 +38,7 @@ export async function buildQuoteData(orderId: string, number: string): Promise<I
   const days = Math.max(1, Number(s.quote_validity_days) || 30);
   return {
     ...base, kind: 'devis', validUntil: addDays(base.date, days), quoteTerms: s.quote_terms || null,
-    sketches: d ? compositionSketches(d.cart) : [],
+    sketches: d ? compositionSketches(d.cart, await singleVisualStyleIds()) : [],
     paid: 0, balance: base.total, payments: [],
     instalments: hasPlan(plan) ? schedule(base.total, plan).map((x) => ({ n: x.n, date: x.date, amount: x.amount_cents, paid: false })) : undefined,
   };

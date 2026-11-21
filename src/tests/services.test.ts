@@ -1063,3 +1063,27 @@ describe('BAT', () => {
     expect((await sel("SELECT * FROM audit_logs WHERE entity_id=? AND action='bat_supprime'", [o.id])).length).toBe(1);
   });
 });
+
+describe('style « un seul visuel » (puzzle, fusion)', () => {
+  it('marque les styles Puzzle à la mise à jour et conseille le format d’un iris', async () => {
+    const { saveStyle, singleVisualStyleIds } = await import('../services/catalog');
+    const { compositionSketches } = await import('../services/sketches');
+    const { adviceFor, visualIris } = await import('../lib/formatsGuide');
+    const styles = await listStyles();
+    const fusion = styles.find((s) => s.name === 'Fusion')!;
+    const collection = styles.find((s) => s.name === 'Collection')!;
+    expect(fusion.single_visual).toBe(0);
+    await run("UPDATE settings SET value='0' WHERE key='single_visual_styles'");
+    const old = await saveStyle({ name: 'Puzzle famille', min_iris: 2, max_iris: 4 });
+    await applyDataUpgrades();
+    const puzzle = await saveStyle({ name: 'Mosaïque', min_iris: 2, max_iris: 4, single_visual: 1 });
+    const ids = await singleVisualStyleIds();
+    expect(ids.has(old) && ids.has(puzzle) && !ids.has(fusion.id) && !ids.has(collection.id)).toBe(true);
+    expect(adviceFor(visualIris(2, ids.has(puzzle)))?.format).toEqual([20, 20]);
+    expect(adviceFor(visualIris(2, ids.has(collection.id)))?.format).toEqual([30, 20]);
+    const comp = (styleId: string) => ({ key: styleId, styleId, styleName: 'x', irisCount: 2, feeCents: 0, participantIds: [], participantNames: 'Léa, Tom', instructions: '', orientation: 'horizontal' as const });
+    const sk = compositionSketches({ compositions: [comp(puzzle), comp(collection.id)], items: [] } as never, ids);
+    expect(sk[0]).toMatchObject({ iris: 1, format: [20, 20], orientation: null, names: ['Léa · Tom'] });
+    expect(sk[1]).toMatchObject({ iris: 2, format: [30, 20] });
+  });
+});

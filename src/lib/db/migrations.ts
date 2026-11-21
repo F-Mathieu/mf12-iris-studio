@@ -392,6 +392,9 @@ CREATE INDEX idx_proofs_order ON proofs(order_id);
   /* 20 — notes internes d’une commande (remarques pour soi : livrer les fichiers, pas urgent…), jamais imprimées ni envoyées. */ `
 ALTER TABLE orders ADD COLUMN internal_notes TEXT;
 `,
+  /* 21 — style dont les iris forment un seul visuel (puzzle, fusion) : format conseillé = celui d’un iris. */ `
+ALTER TABLE composition_styles ADD COLUMN single_visual INTEGER NOT NULL DEFAULT 0;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

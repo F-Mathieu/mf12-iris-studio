@@ -4,7 +4,7 @@ import { photosText } from '../lib/photos';
 import { getSettings, one, sel } from './base';
 import { universeText } from './universes';
 import { getOrderDetail, PAYMENT_METHODS, PAYMENT_STATUS, ORDER_STATUS } from './orders';
-import { listStyles, listProducts, listVariants } from './catalog';
+import { listStyles, listProducts, listVariants, singleVisualStyleIds } from './catalog';
 import { getPriceItems, listPromotions } from './pricing';
 import { listTasks, TASK_STATUS } from './production';
 import { hasPlan, findPrice, instalmentStatus, paymentStatus, schedule } from '../lib/pricing';
@@ -32,7 +32,7 @@ export async function orderRecapPdf(orderId: string) {
   const images = await Promise.all(cart.compositions.map((c) => imageOf(c.styleId)));
   return clientRecapPdf({
     draft: o.status === 'brouillon',
-    sketches: compositionSketches(cart),
+    sketches: compositionSketches(cart, await singleVisualStyleIds()),
     brand: await brand(), number: o.number, date: o.validated_at ?? o.created_at, status: ORDER_STATUS[o.status], session: o.session_name,
     family: clientName(o.contact_first_name, o.family_name), contact: [o.family_phone, o.family_email].filter(Boolean).join(' · '),
     compositions: cart.compositions.map((c, n) => ({ style: c.styleName, iris: c.irisCount, participants: c.participantNames, fee: c.feeCents, image: images[n],

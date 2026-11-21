@@ -1,7 +1,8 @@
 # Tâches — MF12 Studio (branche main)
 
 ## État actuel (21/11/2026)
-- **Dernière version publiée : v2.4.7** (main = branche de travail `claude/gracious-gates-xu2t2t`, rien de non publié). 86 tests vitest OK.
+- **Dernière version publiée : v2.4.7** 87 tests vitest OK.
+- **Non publié (branche `claude/gracious-gates-xu2t2t`)** : style « Un seul visuel (puzzle) » (migration 21 `composition_styles.single_visual`) → format conseillé, croquis et PDF comme pour 1 iris (puzzle 2 iris = 20 × 20). Styles nommés « puzzle » cochés automatiquement ; Fusion à cocher si besoin.
 - Toutes les étapes de la feuille de route sont faites. On travaille maintenant au fil des retours de l’utilisateur (il teste sur Mac et demande des améliorations).
 - Dernières versions : v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
 
@@ -12,7 +13,7 @@
   `curl -fL -o /tmp/mf12.zip https://github.com/F-Mathieu/mf12-iris-studio/releases/latest/download/MF12-Studio-macOS.zip && rm -rf "/Applications/MF12 Studio.app" && ditto -x -k /tmp/mf12.zip /Applications && rm /tmp/mf12.zip && xattr -dr com.apple.quarantine "/Applications/MF12 Studio.app" && open "/Applications/MF12 Studio.app"`
 - Données de l’app sur le Mac : `~/Library/Application Support/fr.mf12.studio/` (studio.db, apercus/, backups/, envois/).
 - Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux. Changements d’interface : vérification Playwright sur `npm run dev` (vite port 5199) ; vitest + tsc systématiques.
-- Prochaine migration : **21** (dernière : 20 `orders.internal_notes`).
+- Prochaine migration : **22** (dernière : 21 `composition_styles.single_visual`).
 
 ## Feuille de route (validée avec l’utilisateur)
 | Étape | Contenu | État |

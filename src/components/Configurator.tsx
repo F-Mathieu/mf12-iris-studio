@@ -6,7 +6,7 @@ import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, St
 import { Lightbox, type LightItem } from './Lightbox';
 import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
-import { adviceFor, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
+import { adviceFor, visualIris, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
 import { useApp } from '../store';
 import { listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
 import { getFamily } from '../services/families';
@@ -52,7 +52,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     const priced = new Set(ctx.rows.filter((r) => r.kind === 'variant').map((r) => r.ref_id));
     const u = session?.universe_id;
     const inUniverse = (p: Product) => !u || !p.universe_ids.length || p.universe_ids.includes(u) || variants.some((v) => v.product_id === p.id && priced.has(v.id));
-    return { session, family, styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active && inUniverse(p)), variants: variants.filter((v) => v.active), ctx, costs, cart, photos, hasCreations };
+    return { session, family, singleIds: new Set(styles.filter((s) => s.single_visual).map((s) => s.id)), styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active && inUniverse(p)), variants: variants.filter((v) => v.active), ctx, costs, cart, photos, hasCreations };
   }, [sessionId, familyId, orderId]);
   const [photoFor, setPhotoFor] = useState<string | null>(null);
   const [photosList, setPhotosList] = useState<Awaited<ReturnType<typeof listPhotos>>>([]);
@@ -91,7 +91,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const d = data.data;
   const totals = useMemo(() => (cart && d ? totalsOf(cart, d.ctx.promotions) : null), [cart, d]);
   if (!d || !cart || !totals) return <Loading />;
-  const { styles, examples, products, variants, ctx, costs, family } = d;
+  const { styles, examples, products, variants, ctx, costs, family, singleIds } = d;
   const participants = family?.participants ?? [];
   // Cancelled orders are read-only; in the client presentation a validated order is read-only too.
   const locked = cart.status === 'annulee' || (mode === 'client' && cart.status === 'validee');
@@ -103,6 +103,10 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     return ps.length ? Math.min(...ps) : null;
   };
   const comp = cart.compositions.find((c) => c.key === activeComp) ?? null;
+  /** Iris count the print format is advised for (1 for a puzzle / fusion: a single visual). */
+  const isSingle = (c: CartComp | null) => !!c?.styleId && singleIds.has(c.styleId);
+  const fmtIris = comp ? visualIris(comp.irisCount, isSingle(comp)) : undefined;
+  const fmtOrient = isSingle(comp) ? null : comp?.orientation;
   const variantPrice = (v: Variant, iris = comp?.irisCount ?? 0) => findPrice(ctx.rows, 'variant', v.id, iris);
   const exOf = (styleId: string) => examples.filter((e) => e.style_id === styleId);
   const frameCfg = parsePrintFrame(settings.print_frame);
@@ -212,13 +216,13 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
             <PhotoGallery photos={photosList} big={big} onRate={(p, n) => act(async () => { await setRating(p.id, n); setPhotosList((l) => l.map((x) => (x.id === p.id ? { ...x, rating: n } : x))); })} />
           )}
           {tab === 'impression' && data.data?.hasCreations && (() => {
-            const adv = adviceFor(comp?.irisCount);
+            const adv = adviceFor(fmtIris);
             return (
               <div className="mb-4 flex items-center gap-5 rounded-2xl border border-gold-500/30 bg-gold-500/[0.05] p-4">
-                {adv ? <IrisSketch n={adv.iris} w={isPortrait(comp?.orientation) ? adv.format[1] : adv.format[0]} h={isPortrait(comp?.orientation) ? adv.format[0] : adv.format[1]} width={isPortrait(comp?.orientation) ? (big ? 115 : 95) : big ? 170 : 140} orientation={comp?.orientation === 'vertical' || comp?.orientation === 'horizontal' ? null : comp?.orientation} /> : comp && <IrisSketch n={comp.irisCount} w={60} h={40} width={big ? 170 : 140} orientation={comp.orientation} />}
+                {adv ? <IrisSketch n={adv.iris} w={isPortrait(fmtOrient) ? adv.format[1] : adv.format[0]} h={isPortrait(fmtOrient) ? adv.format[0] : adv.format[1]} width={isPortrait(fmtOrient) ? (big ? 115 : 95) : big ? 170 : 140} orientation={fmtOrient === 'vertical' || fmtOrient === 'horizontal' ? null : fmtOrient} /> : comp && <IrisSketch n={fmtIris ?? 1} w={60} h={40} width={big ? 170 : 140} orientation={fmtOrient} />}
                 <div className="min-w-0 flex-1">
                   {adv ? (<>
-                    <div className="text-[11.5px] font-semibold tracking-[0.18em] text-gold-400">CONSEILLÉ POUR {adv.iris} IRIS</div>
+                    <div className="text-[11.5px] font-semibold tracking-[0.18em] text-gold-400">{isSingle(comp) ? `CONSEILLÉ · ${comp!.styleName.toUpperCase()} DE ${comp!.irisCount} IRIS = UN SEUL VISUEL` : `CONSEILLÉ POUR ${adv.iris} IRIS`}</div>
                     <div className={cx('mt-0.5 font-semibold', big ? 'text-[22px]' : 'text-[18px]')}>{dimsLabel(adv.format)} <span className="text-[14px] font-normal text-mist-400">· {adv.shape}</span></div>
                     <div className="mt-1 text-[13.5px] text-mist-200">{adv.layout}</div>
                     {adv.altText && <div className="text-[12.5px] text-mist-400">{adv.altText}</div>}
@@ -281,7 +285,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                         {p.description && <div className="mt-0.5 text-[12.5px] text-mist-400">{p.description}</div>}
                         {p.category === 'impression' && vs.some((v) => variantDims(v.name, v.format)) && (
                           <button className="mt-1 text-[12.5px] text-gold-300 hover:text-gold-200" onClick={() => {
-                            const adv = adviceFor(comp?.irisCount);
+                            const adv = adviceFor(fmtIris);
                             const rec = vs.find((v) => sameDims(variantDims(v.name, v.format), adv?.format));
                             setSizeFor({ productId: p.id, initial: rec?.name });
                           }}>Visualiser la taille et la disposition →</button>
@@ -294,7 +298,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                               <button key={v.id} disabled={price == null || locked} onClick={() => addItem(p, v)}
                                 className={cx('flex items-center gap-3 rounded-xl border px-3.5 py-2 text-[13.5px] transition disabled:opacity-35', inCart ? 'border-gold-500/60 bg-gold-500/10' : 'border-ink-600 hover:border-gold-500/50 hover:bg-ink-750')}>
                                 <span>{v.name}</span>
-                                {p.category === 'impression' && (() => { const adv = adviceFor(comp?.irisCount); const d = variantDims(v.name, v.format);
+                                {p.category === 'impression' && (() => { const adv = adviceFor(fmtIris); const d = variantDims(v.name, v.format);
                                   return sameDims(d, adv?.format) ? <Badge tone="gold">Conseillé</Badge> : sameDims(d, adv?.alt) ? <Badge>Alternative</Badge> : null; })()}
                                 <span className="font-semibold text-gold-300 tabular">{price != null ? eur(price) : '—'}</span>
                                 {inCart ? <Badge tone="gold">{inCart.qty}</Badge> : <Plus className="size-3.5 text-mist-400" />}
@@ -337,7 +341,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                     <div className="font-semibold">{c.styleName} <span className="font-normal text-mist-400">· {c.irisCount} iris</span>
                       {!locked && styles.some((st) => st.id === c.styleId) && <button className="ml-2 text-[11.5px] font-normal text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); setEditComp(c); }}>Modifier</button>}</div>
                     {c.participantNames && <div className="truncate text-[12px] text-mist-400">{c.participantNames}</div>}
-                    {c.irisCount > 1 && (locked ? (c.orientation && <div className="text-[12px] text-mist-400">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>) : (
+                    {c.irisCount > 1 && !isSingle(c) && (locked ? (c.orientation && <div className="text-[12px] text-mist-400">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>) : (
                       <select onClick={(e) => e.stopPropagation()} value={c.orientation ?? ''} onChange={(e) => { const v = (e.target.value || null) as Orientation | null; update((x) => ({ ...x, compositions: x.compositions.map((k) => (k.key === c.key ? { ...k, orientation: v } : k)) })); }}
                         className="mt-0.5 rounded-md border border-ink-600 bg-ink-850 px-1.5 py-0.5 text-[11.5px] text-mist-300 outline-none">
                         <option value="">Disposition : au choix</option>
@@ -439,14 +443,14 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
       })()}
       {planOpen && <PaymentPlanDialog total={totals.total_cents} plan={cart.paymentPlan ?? null} onClose={() => setPlanOpen(false)}
         onSave={(pl) => { update((c) => ({ ...c, paymentPlan: pl })); setPlanOpen(false); }} />}
-      <FormatGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} current={comp?.irisCount} />
+      <FormatGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} current={fmtIris} />
       {sizeFor && (() => {
-        const adv = adviceFor(comp?.irisCount);
+        const adv = adviceFor(fmtIris);
         const formats = variants.filter((v) => v.product_id === sizeFor.productId).map((v) => {
           const d = variantDims(v.name, v.format);
           return d ? { label: v.name, dims: d, tag: sameDims(d, adv?.format) ? 'Conseillé' : sameDims(d, adv?.alt) ? 'Alternative' : undefined } : null;
         }).filter((x): x is { label: string; dims: [number, number]; tag: string | undefined } => !!x);
-        return <SizeViewer open onClose={() => setSizeFor(null)} formats={formats} initial={sizeFor.initial} n={comp?.irisCount ?? 1} orientation={comp?.orientation} />;
+        return <SizeViewer open onClose={() => setSizeFor(null)} formats={formats} initial={sizeFor.initial} n={fmtIris ?? 1} orientation={fmtOrient} />;
       })()}
       {pinFor && <PinDialog open onClose={() => setPinFor(null)} subtitle={pinFor === 'discount' ? 'Remise commerciale — réservé au photographe' : 'Validation de la commande — réservé au photographe'}
         onCode={async (c) => {
