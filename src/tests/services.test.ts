@@ -885,6 +885,10 @@ describe('mariages', () => {
     await W.saveWeddingLines(id, [line('Forfait photo journée', 180000), line('Film 10 min', 120000)], 'option drone à confirmer');
     w = (await W.getWedding(id))!;
     expect(w).toMatchObject({ order_status: 'brouillon', total_cents: 300000 });
+    // editing an existing line keeps the new label (regression: only prices were saved)
+    const lines = (await W.weddingCart(w)).items;
+    await W.saveWeddingLines(id, lines.map((i) => (i.productName === 'Film 10 min' ? { ...i, productName: 'Film 12 min' } : i)), 'option drone à confirmer');
+    expect((await W.weddingCart((await W.getWedding(id))!)).items.map((i) => i.productName)).toEqual(['Forfait photo journée', 'Film 12 min']);
     const q = await issueQuote(w.order_id!);
     expect(q.data.instalments?.map((x) => x.amount)).toEqual([90000, 210000]);
     expect(q.data.instalments?.[1].date).toBe('2027-06-12');

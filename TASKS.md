@@ -1,7 +1,8 @@
 # Tâches — MF12 Studio (branche main)
 
 ## État actuel (23/11/2026)
-- **Dernière version publiée : v2.5.0** (main = branche de travail `claude/gracious-gates-xu2t2t`, rien de non publié). 89 tests vitest OK.
+- **Dernière version publiée : v2.5.0** 89 tests vitest OK.
+- **Non publié (branche `claude/gracious-gates-xu2t2t`)** : correctif — le libellé modifié d’une ligne existante (devis mariage, commandes) n’était pas enregistré (seuls qté / prix l’étaient).
 - Toutes les étapes de la feuille de route sont faites. On travaille maintenant au fil des retours de l’utilisateur (il teste sur Mac et demande des améliorations).
 - Dernières versions : v2.5.0 postproduction : urgence, ordre de traitement (glisser-déposer), tri (migration 22) · v2.4.9 disposition « En un seul iris (puzzle) » · v2.4.8 style « un seul visuel » (puzzle → format d’1 iris, migration 21) · v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
 

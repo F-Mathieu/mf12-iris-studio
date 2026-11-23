@@ -145,7 +145,7 @@ export async function saveCart(cart: Cart, target: 'brouillon' | 'validee', corr
   }));
   cart.items.forEach((i, n) => stmts.push({
     sql: `INSERT INTO order_items (id, order_id, composition_id, variant_id, product_id, category, product_name, variant_name, qty, unit_price_cents, line_total_cents, unit_cost_cents, sort, parent_item_id, photos, photo_session_id, orientation)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, parent_item_id=excluded.parent_item_id, qty=excluded.qty,
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET composition_id=excluded.composition_id, parent_item_id=excluded.parent_item_id, product_name=excluded.product_name, variant_name=excluded.variant_name, qty=excluded.qty,
           unit_price_cents=excluded.unit_price_cents, line_total_cents=excluded.line_total_cents, unit_cost_cents=excluded.unit_cost_cents, sort=excluded.sort,
           photos=excluded.photos, photo_session_id=excluded.photo_session_id, orientation=excluded.orientation`,
     params: [i.key, id, i.compositionKey ?? null, i.variantId, i.productId, i.category, i.productName, i.variantName ?? null, i.qty, i.unitPriceCents, i.qty * i.unitPriceCents, i.unitCostCents, n, i.parentKey ?? null,
