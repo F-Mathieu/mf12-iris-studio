@@ -2,9 +2,8 @@
 
 ## État actuel (21/11/2026)
 - **Dernière version publiée : v2.4.8** 87 tests vitest OK.
-- **Non publié (branche `claude/gracious-gates-xu2t2t`)** : disposition « En un seul iris (puzzle) » proposée pour toute création de 2 iris et plus (format, croquis, PDF comme pour 1 iris) ; style « un seul visuel » = disposition par défaut.
 - Toutes les étapes de la feuille de route sont faites. On travaille maintenant au fil des retours de l’utilisateur (il teste sur Mac et demande des améliorations).
-- Dernières versions : v2.4.8 style « un seul visuel » (puzzle → format d’1 iris, migration 21) · v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
+- Dernières versions : v2.4.9 disposition « En un seul iris (puzzle) » · v2.4.8 style « un seul visuel » (puzzle → format d’1 iris, migration 21) · v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
 
 ## Règles de travail
 - Réponses courtes en français. Développer sur `claude/gracious-gates-xu2t2t`, avancer `main` en fast-forward seulement à la publication.
