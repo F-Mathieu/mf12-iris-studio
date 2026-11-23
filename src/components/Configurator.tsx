@@ -6,7 +6,7 @@ import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, St
 import { Lightbox, type LightItem } from './Lightbox';
 import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
-import { adviceFor, visualIris, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
+import { adviceFor, isSingleVisual, visualIris, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
 import { useApp } from '../store';
 import { listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
 import { getFamily } from '../services/families';
@@ -104,7 +104,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   };
   const comp = cart.compositions.find((c) => c.key === activeComp) ?? null;
   /** Iris count the print format is advised for (1 for a puzzle / fusion: a single visual). */
-  const isSingle = (c: CartComp | null) => !!c?.styleId && singleIds.has(c.styleId);
+  const isSingle = (c: CartComp | null) => !!c && isSingleVisual(c.orientation, !!c.styleId && singleIds.has(c.styleId));
   const fmtIris = comp ? visualIris(comp.irisCount, isSingle(comp)) : undefined;
   const fmtOrient = isSingle(comp) ? null : comp?.orientation;
   const variantPrice = (v: Variant, iris = comp?.irisCount ?? 0) => findPrice(ctx.rows, 'variant', v.id, iris);
@@ -155,7 +155,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     const price = stylePrice(st, count);
     if (price == null) { toast.error(`Prix non défini pour ${st.name} (${count} iris).`); return; }
     addComposition({ key: uid(), styleId: st.id, styleName: st.name, irisCount: count, feeCents: price, participantIds: sel,
-      participantNames: participants.filter((x) => sel.includes(x.id)).map((x) => x.first_name).join(', '), instructions: '', orientation: count > 1 ? 'horizontal' : null }, true);
+      participantNames: participants.filter((x) => sel.includes(x.id)).map((x) => x.first_name).join(', '), instructions: '', orientation: count > 1 ? (st.single_visual ? 'unique' : 'horizontal') : null }, true);
   };
   const removeComposition = async (key: string) => {
     const n = cart.items.filter((i) => i.compositionKey === key).length;
@@ -341,7 +341,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                     <div className="font-semibold">{c.styleName} <span className="font-normal text-mist-400">· {c.irisCount} iris</span>
                       {!locked && styles.some((st) => st.id === c.styleId) && <button className="ml-2 text-[11.5px] font-normal text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); setEditComp(c); }}>Modifier</button>}</div>
                     {c.participantNames && <div className="truncate text-[12px] text-mist-400">{c.participantNames}</div>}
-                    {c.irisCount > 1 && !isSingle(c) && (locked ? (c.orientation && <div className="text-[12px] text-mist-400">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>) : (
+                    {c.irisCount > 1 && (locked ? (c.orientation && <div className="text-[12px] text-mist-400">Disposition {ORIENTATION_LABEL[c.orientation].toLowerCase()}</div>) : (
                       <select onClick={(e) => e.stopPropagation()} value={c.orientation ?? ''} onChange={(e) => { const v = (e.target.value || null) as Orientation | null; update((x) => ({ ...x, compositions: x.compositions.map((k) => (k.key === c.key ? { ...k, orientation: v } : k)) })); }}
                         className="mt-0.5 rounded-md border border-ink-600 bg-ink-850 px-1.5 py-0.5 text-[11.5px] text-mist-300 outline-none">
                         <option value="">Disposition : au choix</option>
@@ -539,7 +539,7 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
   const move = (i: number, d: -1 | 1) => setSlots((s) => { const n = [...s]; [n[i], n[i + d]] = [n[i + d], n[i]]; return n; });
   const resize = (n: number) => setSlots((s) => (n > s.length ? [...s, ...Array.from({ length: n - s.length }, () => ({ id: null, name: '' }))] : s.slice(0, n)));
   const [instructions, setInstructions] = useState(initial?.instructions ?? '');
-  const [orientation, setOrientation] = useState<Orientation>(initial?.orientation ?? 'horizontal');
+  const [orientation, setOrientation] = useState<Orientation>(initial?.orientation ?? (style.single_visual ? 'unique' : 'horizontal'));
   const count = slots.length;
   const valid = count >= style.min_iris && count <= style.max_iris;
   const p = valid ? price(count) : null;
@@ -608,7 +608,7 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
               <div className="mb-2 text-[13px] font-semibold">Disposition des iris</div>
               <div className="grid grid-cols-3 gap-2">
                 {ORIENTATIONS.map((o) => {
-                  const [w, h, px] = o === 'ligne' ? [80, 30, 80] : o === 'colonne' ? [30, 80, 26] : o === 'vertical' ? [40, 60, 44] : o === 'diagonale' ? [45, 45, 56] : [60, 40, 72];
+                  const [w, h, px] = o === 'ligne' ? [80, 30, 80] : o === 'colonne' ? [30, 80, 26] : o === 'vertical' ? [40, 60, 44] : o === 'diagonale' || o === 'unique' ? [45, 45, 56] : [60, 40, 72];
                   return (
                   <button key={o} onClick={() => setOrientation(o)} className={cx('flex flex-col items-center justify-end gap-1.5 rounded-xl border p-2 text-center text-[12.5px] transition', orientation === o ? 'border-gold-500 bg-gold-500/10 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>
                     <IrisSketch n={count} w={w} h={h} width={px} orientation={o} numbered />

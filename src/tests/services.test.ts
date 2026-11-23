@@ -1081,9 +1081,16 @@ describe('style « un seul visuel » (puzzle, fusion)', () => {
     expect(ids.has(old) && ids.has(puzzle) && !ids.has(fusion.id) && !ids.has(collection.id)).toBe(true);
     expect(adviceFor(visualIris(2, ids.has(puzzle)))?.format).toEqual([20, 20]);
     expect(adviceFor(visualIris(2, ids.has(collection.id)))?.format).toEqual([30, 20]);
-    const comp = (styleId: string) => ({ key: styleId, styleId, styleName: 'x', irisCount: 2, feeCents: 0, participantIds: [], participantNames: 'Léa, Tom', instructions: '', orientation: 'horizontal' as const });
-    const sk = compositionSketches({ compositions: [comp(puzzle), comp(collection.id)], items: [] } as never, ids);
+    const comp = (styleId: string) => ({ key: styleId, styleId, styleName: 'x', irisCount: 2, feeCents: 0, participantIds: [], participantNames: 'Léa, Tom', instructions: '', orientation: 'horizontal' as 'horizontal' | 'unique' | null });
+    const sk = compositionSketches({ compositions: [{ ...comp(puzzle), orientation: 'unique' }, comp(collection.id)], items: [] } as never, ids);
     expect(sk[0]).toMatchObject({ iris: 1, format: [20, 20], orientation: null, names: ['Léa · Tom'] });
     expect(sk[1]).toMatchObject({ iris: 2, format: [30, 20] });
+    // sketch without disposition chosen on a single-visual style → one iris ; disposition « un seul iris » on any style → one iris ;
+    // another disposition chosen on a puzzle → the iris stay separate
+    const sk2 = compositionSketches({ compositions: [{ ...comp(puzzle), orientation: null }, { ...comp(collection.id), orientation: 'unique' as const }, comp(puzzle)].map((c, i) => ({ ...c, key: String(i) })), items: [] } as never, ids);
+    expect(sk2.map((x) => x.iris)).toEqual([1, 1, 2]);
+    expect(sk2[1].format).toEqual([20, 20]);
+    const { arrangementFor } = await import('../lib/formatsGuide');
+    expect(arrangementFor(3, 20, 20, 'unique').circles).toHaveLength(1);
   });
 });

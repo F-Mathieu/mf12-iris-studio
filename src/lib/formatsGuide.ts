@@ -63,14 +63,17 @@ export function arrangement(n: number, w: number, h: number, margin = 0.08) {
 }
 
 /** ligne / colonne: all iris on one row / one column; horizontal / vertical: grouped (e.g. 2 + 2); diagonale. */
-export type Orientation = 'ligne' | 'colonne' | 'horizontal' | 'vertical' | 'diagonale';
-export const ORIENTATIONS: Orientation[] = ['ligne', 'colonne', 'horizontal', 'vertical', 'diagonale'];
-export const ORIENTATION_LABEL: Record<Orientation, string> = { ligne: 'Côte à côte (en ligne)', colonne: 'En colonne', horizontal: 'Groupée horizontale', vertical: 'Groupée verticale', diagonale: 'Diagonale' };
+export type Orientation = 'ligne' | 'colonne' | 'horizontal' | 'vertical' | 'diagonale' | 'unique';
+export const ORIENTATIONS: Orientation[] = ['ligne', 'colonne', 'horizontal', 'vertical', 'diagonale', 'unique'];
+export const ORIENTATION_LABEL: Record<Orientation, string> = { ligne: 'Côte à côte (en ligne)', colonne: 'En colonne', horizontal: 'Groupée horizontale', vertical: 'Groupée verticale', diagonale: 'Diagonale', unique: 'En un seul iris (puzzle)' };
+/** The iris form a single visual: disposition « un seul iris », or a single-visual style without a chosen disposition. */
+export const isSingleVisual = (orientation: Orientation | null | undefined, styleSingle: boolean) => orientation === 'unique' || (styleSingle && !orientation);
 /** Orientations drawn in a portrait frame. */
 export const isPortrait = (o: Orientation | null | undefined) => o === 'vertical' || o === 'colonne';
 
 /** Circles for a given disposition: vertical = horizontal layout turned 90°, diagonal = iris along the diagonal. */
 export function arrangementFor(n: number, w: number, h: number, orientation?: Orientation | null) {
+  if (orientation === 'unique') return arrangement(1, w, h);
   if ((orientation === 'ligne' || orientation === 'colonne') && n > 1) {
     const row = orientation === 'ligne';
     const L = row ? w : h, S = row ? h : w;

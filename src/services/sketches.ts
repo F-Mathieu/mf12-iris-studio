@@ -1,11 +1,11 @@
 /** Layout sketches of the creations of a cart (for the quote and the selection recap). */
 import type { Cart } from './orders';
-import { adviceFor, isPortrait, parseDims, visualIris } from '../lib/formatsGuide';
+import { adviceFor, isPortrait, isSingleVisual, parseDims, visualIris } from '../lib/formatsGuide';
 import type { CompositionSketch } from '../lib/pdfSketch';
 
 export function compositionSketches(cart: Pick<Cart, 'compositions' | 'items'>, singleVisual: Set<string> = new Set()): CompositionSketch[] {
   return cart.compositions.map((c) => {
-    const single = !!c.styleId && singleVisual.has(c.styleId);
+    const single = isSingleVisual(c.orientation, !!c.styleId && singleVisual.has(c.styleId));
     const n = Math.max(1, visualIris(c.irisCount, single));
     const print = cart.items.find((i) => i.compositionKey === c.key && i.category === 'impression' && !i.parentKey && parseDims(i.variantName));
     let dims: [number, number] = print ? parseDims(print.variantName)!
