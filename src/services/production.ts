@@ -14,7 +14,7 @@ export const flowFor = (hasPrint: boolean) => (hasPrint ? FULL_FLOW : DIGITAL_FL
 
 export interface TaskItem { id: string; product_name: string; variant_name: string | null; category: string; qty: number; variant_id: string | null; supplier_name?: string }
 export interface Task {
-  id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string;
+  id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string; priority: number; rank: number | null;
   order_id: string; order_number: string; internal_notes: string | null; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
   composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: import('../lib/formatsGuide').Orientation | null;
   order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null; item_photos: string | null; item_ppu: number | null; item_orientation: string | null;
@@ -64,6 +64,25 @@ export async function setTaskStatus(ids: string[], status: TaskStatus) {
   const now = nowIso();
   await batch(ids.flatMap((id) => [updateStmt('production_tasks', id, { status, updated_at: now }), auditStmt('task', id, 'status', { status })]));
 }
+/* ---------- order of treatment */
+export const PRIORITY_LABEL = ['Normale', 'Prioritaire', 'Urgent'] as const;
+export type TaskSort = 'manuel' | 'urgence' | 'livraison';
+export const TASK_SORT_LABEL: Record<TaskSort, string> = { manuel: 'Mon ordre', urgence: 'Urgence', livraison: 'Date de livraison' };
+const nullsLast = (a: string | number | null | undefined, b: string | number | null | undefined) => (a == null ? (b == null ? 0 : 1) : b == null ? -1 : a < b ? -1 : a > b ? 1 : 0);
+/** Stable sort: « Mon ordre » = rang choisi puis urgence ; « Urgence » = urgent d’abord puis livraison la plus proche ; « Livraison » = date souhaitée. */
+export function sortTasks<T extends Pick<Task, 'priority' | 'rank' | 'desired_delivery'>>(tasks: T[], mode: TaskSort): T[] {
+  const cmp = (a: T, b: T) => {
+    const prio = (b.priority ?? 0) - (a.priority ?? 0), rank = nullsLast(a.rank, b.rank), due = nullsLast(a.desired_delivery, b.desired_delivery);
+    if (mode === 'manuel') return rank || prio || due;
+    if (mode === 'urgence') return prio || due || rank;
+    return due || prio || rank;
+  };
+  return tasks.map((t, i) => [t, i] as const).sort(([a, i], [b, j]) => cmp(a, b) || i - j).map(([t]) => t);
+}
+export const setTaskPriority = (ids: string[], priority: number) => batch(ids.map((id) => updateStmt('production_tasks', id, { priority: Math.max(0, Math.min(2, priority)) })));
+/** Saves the order of treatment: the given tasks get ranks 1..n in this order. */
+export const setTaskOrder = (ids: string[]) => batch(ids.map((id, i) => updateStmt('production_tasks', id, { rank: i + 1 })));
+
 export const setTaskNotes = (id: string, notes: string) => batch([updateStmt('production_tasks', id, { notes, updated_at: nowIso() })]);
 
 /* ---------- prints to order from suppliers */

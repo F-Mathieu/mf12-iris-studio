@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
-import { CheckSquare, Download, FileDown, ImageOff, PackagePlus, Square, Truck, Wand2 } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { ArrowUpToLine, CheckSquare, Download, FileDown, Flag, ImageOff, PackagePlus, Square, Truck, Wand2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, Input, Loading, Modal, MoneyInput, PageHeader, SearchInput, Segmented, Select, Tabs, Textarea, useAsync, cx } from '../components/ui';
 import { TaskBadge } from '../components/badges';
-import { taskPhotos, createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, listTasks, setTaskNotes, setTaskStatus, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
+import { taskPhotos, createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, listTasks, setTaskNotes, setTaskOrder, setTaskPriority, setTaskStatus, sortTasks, PRIORITY_LABEL, TASK_SORT_LABEL, type TaskSort, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
 import { listSessions } from '../services/sessions';
 import { listSuppliers } from '../services/suppliers';
 import { brand, productionPdf } from '../services/documents';
@@ -50,13 +50,34 @@ function TasksView({ sessionId }: { sessionId?: string }) {
   const [noteTask, setNoteTask] = useState<Task | null>(null);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<TaskStatus | null>(null);
+  const [overCard, setOverCard] = useState<string | null>(null);
+  const [sortMode, setSortModeState] = useState<TaskSort>(() => { try { return (localStorage.getItem('production_sort') as TaskSort) || 'manuel'; } catch { return 'manuel'; } });
+  const setSortMode = (m: TaskSort) => { setSortModeState(m); try { localStorage.setItem('production_sort', m); } catch { /* ignore */ } };
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return (data.data ?? []).filter((t) => (!status || (status === 'open' ? t.status !== 'livre' : t.status === status)) &&
-      (!s || [t.family_name, t.order_number, t.style_name, t.item_product, t.participant_names, ...t.refs.map((r) => r.reference)].some((x) => x?.toLowerCase().includes(s))));
-  }, [data.data, q, status]);
+    return sortTasks((data.data ?? []).filter((t) => (!status || (status === 'open' ? t.status !== 'livre' : t.status === status)) &&
+      (!s || [t.family_name, t.order_number, t.style_name, t.item_product, t.participant_names, ...t.refs.map((r) => r.reference)].some((x) => x?.toLowerCase().includes(s)))), sortMode);
+  }, [data.data, q, status, sortMode]);
   if (!data.data) return <Loading />;
   const change = (ids: string[], s: TaskStatus) => act(() => setTaskStatus(ids, s).then(data.reload), `${ids.length} tâche(s) : ${TASK_STATUS[s]}`);
+  /** Moves a task in the order of treatment: before `beforeId` (null = end of the column), in column `to` (status change if needed). */
+  const reorder = (id: string, beforeId: string | null, to: TaskStatus) => act(async () => {
+    const t = tasks.find((x) => x.id === id); if (!t || id === beforeId) return;
+    if (t.status !== to) await setTaskStatus([id], to);
+    const col = tasks.filter((x) => x.status === to && x.id !== id).map((x) => x.id);
+    const at = beforeId ? col.indexOf(beforeId) : -1;
+    col.splice(at < 0 ? col.length : at, 0, id);
+    await setTaskOrder(col);
+    if (sortMode !== 'manuel') setSortMode('manuel');
+    await data.reload();
+  });
+  const cyclePriority = (t: Task) => act(() => setTaskPriority([t.id], ((t.priority ?? 0) + 1) % 3).then(data.reload), `${t.family_name} : ${PRIORITY_LABEL[((t.priority ?? 0) + 1) % 3]}`);
+  const PriorityButton = ({ t }: { t: Task }) => (
+    <button title="Urgence : cliquer pour changer (Normale → Prioritaire → Urgent)" onClick={(e) => { e.stopPropagation(); cyclePriority(t); }}
+      className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-medium transition', t.priority === 2 ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/30' : t.priority === 1 ? 'bg-amber-500/12 text-amber-300 ring-1 ring-amber-500/25' : 'text-mist-500 hover:text-mist-200')}>
+      <Flag className="size-3" />{t.priority ? PRIORITY_LABEL[t.priority] : ''}
+    </button>
+  );
   const exportCsv = () => act(() => saveFile(`postproduction-${todayIso()}.csv`, toCsv(['Commande', 'Séance', 'Famille', 'Création', 'Iris', 'Participants', 'Références', 'Produits', 'Instructions', 'Statut', 'Notes'],
     tasks.map((t) => [t.order_number, t.session_name, t.family_name, t.style_name ?? t.item_product, t.iris_count ?? '', t.participant_names ?? '', t.refs.map((r) => r.reference).join(' '), t.items.map((i) => `${i.product_name} ${i.variant_name ?? ''} x${i.qty}`).join(' ; '), t.instructions ?? '', TASK_STATUS[t.status], t.notes ?? ''])), [{ name: 'CSV', extensions: ['csv'] }]), 'Export CSV enregistré');
   const pdf = () => act(async () => saveFile(`fiche-production-${todayIso()}.pdf`, await productionPdf({ sessionId, taskIds: sel.length ? sel : tasks.map((t) => t.id) }, sel.length ? `${sel.length} création(s)` : 'Toutes les créations'), PDF_FILTER), 'Fiche de production enregistrée');
@@ -73,8 +94,11 @@ function TasksView({ sessionId }: { sessionId?: string }) {
     </Select>
   );
   const TaskCard = ({ t }: { t: Task }) => (
-    <div draggable={view === 'kanban'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setDrag(t.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
-      className={cx('rounded-xl border bg-ink-850 p-3 transition', view === 'kanban' && 'cursor-grab active:cursor-grabbing', drag === t.id && 'opacity-40', sel.includes(t.id) ? 'border-gold-500/60' : 'border-ink-700 hover:border-ink-500')}>
+    <div draggable={view === 'kanban'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setDrag(t.id); }} onDragEnd={() => { setDrag(null); setOver(null); setOverCard(null); }}
+      onDragOver={view === 'kanban' ? (e) => { e.preventDefault(); if (overCard !== t.id) setOverCard(t.id); } : undefined}
+      onDrop={view === 'kanban' ? (e) => { e.preventDefault(); e.stopPropagation(); const id = drag ?? e.dataTransfer.getData('text/plain'); if (id) reorder(id, t.id, t.status); setDrag(null); setOver(null); setOverCard(null); } : undefined}
+      className={cx('rounded-xl border border-l-4 bg-ink-850 p-3 transition', view === 'kanban' && 'cursor-grab active:cursor-grabbing', drag === t.id && 'opacity-40', overCard === t.id && drag && drag !== t.id && 'shadow-[0_-3px_0_0] shadow-gold-400',
+        sel.includes(t.id) ? 'border-gold-500/60' : 'border-ink-700 hover:border-ink-500', t.priority === 2 ? '!border-l-red-500/80' : t.priority === 1 ? '!border-l-amber-400/80' : '')}>
       <div className="flex gap-3">
         <button onClick={() => setSel((s) => (s.includes(t.id) ? s.filter((x) => x !== t.id) : [...s, t.id]))} className="mt-0.5 text-mist-400">{sel.includes(t.id) ? <CheckSquare className="size-4 text-gold-400" /> : <Square className="size-4" />}</button>
         {t.example_thumb ? <img src={t.example_thumb} className="size-14 shrink-0 rounded-lg object-cover" alt="" /> : t.kind === 'composition' && <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-ink-800"><ImageOff className="size-4 text-mist-400/50" /></div>}
@@ -87,7 +111,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
           {t.instructions && <div className="mt-1 text-[12px] text-mist-300 italic">« {t.instructions} »</div>}
           {t.notes && <div className="mt-1 rounded bg-ink-800 px-2 py-1 text-[12px] text-amber-200/90">{t.notes}</div>}
           {t.internal_notes && <div className="mt-1.5 line-clamp-3 whitespace-pre-line text-[12px] text-amber-200/90" title="Note interne de la commande">📝 {t.internal_notes}</div>}
-          <div className="mt-2 flex items-center gap-2">{view !== 'kanban' && <StatusSelect t={t} />}<button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>Note</button>{t.desired_delivery && <span className="text-[11.5px] text-mist-400">Livraison {fmtDate(t.desired_delivery)}</span>}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2"><PriorityButton t={t} />{view === 'kanban' && <button title="Mettre en haut de la colonne" className="text-mist-500 hover:text-gold-300" onClick={() => { const first = tasks.find((x) => x.status === t.status); if (first && first.id !== t.id) reorder(t.id, first.id, t.status); }}><ArrowUpToLine className="size-3.5" /></button>}{view !== 'kanban' && <StatusSelect t={t} />}<button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>Note</button>{t.desired_delivery && <span className="text-[11.5px] text-mist-400">Livraison {fmtDate(t.desired_delivery)}</span>}</div>
         </div>
       </div>
     </div>
@@ -100,7 +124,9 @@ function TasksView({ sessionId }: { sessionId?: string }) {
         {view === 'groupes' && <Select className="w-44" value={group} onChange={(e) => setGroup(e.target.value as Group)}><option value="session">Par séance</option><option value="family">Par famille</option><option value="style">Par montage</option><option value="status">Par statut</option></Select>}
         <SearchInput value={q} onChange={setQ} className="w-60" placeholder="Famille, référence, style…" />
         <Select className="w-48" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous statuts</option><option value="open">Non livrés</option>{Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
+        <Select className="w-48" value={sortMode} onChange={(e) => setSortMode(e.target.value as TaskSort)} title="Ordre de traitement">{(Object.keys(TASK_SORT_LABEL) as TaskSort[]).map((k) => <option key={k} value={k}>Tri : {TASK_SORT_LABEL[k]}</option>)}</Select>
         <div className="flex-1" />
+        {sel.length > 0 && <Select className="w-44" value="" onChange={(e) => e.target.value && act(() => setTaskPriority(sel, Number(e.target.value)).then(data.reload))}><option value="">Urgence…</option>{PRIORITY_LABEL.map((l, i) => <option key={l} value={i}>{l}</option>)}</Select>}
         {sel.length > 0 && <Select className="w-56" value="" onChange={(e) => e.target.value && change(sel, e.target.value as TaskStatus).then(() => setSel([]))}><option value="">{sel.length} sélection(s) → statut…</option>{Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>}
         <Button variant="ghost" icon={<Download className="size-4" />} onClick={exportCsv}>CSV</Button>
         <Button icon={<FileDown className="size-4" />} onClick={pdf}>Fiche de production</Button>
@@ -109,6 +135,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
       {tasks.length > 0 && view === 'tableau' && (
         <Card>
           <DataTable<Task> rows={tasks} rowKey={(t) => t.id} dense columns={[
+            { key: 'u', header: 'Urgence', sort: (t) => -(t.priority ?? 0), cell: (t) => <PriorityButton t={t} /> },
             { key: 'img', header: '', cell: (t) => (t.example_thumb ? <img src={t.example_thumb} className="size-10 rounded-md object-cover" alt="" /> : null) },
             { key: 'f', header: 'Famille', sort: (t) => t.family_name, cell: (t) => <div><div className="font-medium">{t.family_name}</div><div className="text-[11.5px] text-mist-400">{t.order_number}{!sessionId && ` · ${t.session_name}`}</div></div> },
             { key: 'c', header: 'Création', sort: (t) => t.style_name ?? '', cell: (t) => (t.kind === 'composition' ? `${t.style_name} · ${t.iris_count} iris${t.orientation ? ` · ${ORIENTATION_LABEL[t.orientation].toLowerCase()}` : ''}` : `${t.item_product} ${t.item_variant ?? ''} ×${t.item_qty}${taskPhotos(t) ? ` — ${taskPhotos(t)}` : ''}`) },
@@ -123,10 +150,10 @@ function TasksView({ sessionId }: { sessionId?: string }) {
         <div className="flex gap-3 overflow-x-auto pb-4">
           {(Object.keys(TASK_STATUS) as TaskStatus[]).map((s) => (
             <div key={s} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== s) setOver(s); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(null); }}
-              onDrop={(e) => { e.preventDefault(); const id = drag ?? e.dataTransfer.getData('text/plain'); const t = tasks.find((x) => x.id === id); if (t && t.status !== s) change([id], s); setDrag(null); setOver(null); }}
+              onDrop={(e) => { e.preventDefault(); const id = drag ?? e.dataTransfer.getData('text/plain'); if (id) reorder(id, null, s); setDrag(null); setOver(null); setOverCard(null); }}
               className={cx('min-h-[200px] w-[290px] shrink-0 rounded-2xl bg-ink-900 p-2.5 transition', over === s && drag && 'bg-ink-800 ring-2 ring-gold-500/60')}>
               <div className="mb-2 flex items-center justify-between px-1"><TaskBadge s={s} /><span className="text-[12px] text-mist-400">{tasks.filter((t) => t.status === s).length}</span></div>
-              <div className="space-y-2">{tasks.filter((t) => t.status === s).map((t) => <TaskCard key={t.id} t={t} />)}</div>
+              <div className="space-y-2">{tasks.filter((t) => t.status === s).map((t) => <Fragment key={t.id}>{TaskCard({ t })}</Fragment>)}</div>
             </div>
           ))}
         </div>
@@ -134,7 +161,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
       {tasks.length > 0 && view === 'groupes' && (
         <div className="space-y-6">{groups.map(([k, ts]) => (
           <div key={k}><div className="mb-2 flex items-center gap-2 text-[14px] font-semibold">{k}<span className="text-[12px] font-normal text-mist-400">{ts.length}</span></div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(420px,1fr))] gap-2">{ts.map((t) => <TaskCard key={t.id} t={t} />)}</div></div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(420px,1fr))] gap-2">{ts.map((t) => <Fragment key={t.id}>{TaskCard({ t })}</Fragment>)}</div></div>
         ))}</div>
       )}
       <NoteDialog task={noteTask} onClose={() => setNoteTask(null)} onSave={(n) => act(() => setTaskNotes(noteTask!.id, n).then(data.reload)).then(() => setNoteTask(null))} />

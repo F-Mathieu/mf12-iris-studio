@@ -1094,3 +1094,28 @@ describe('style « un seul visuel » (puzzle, fusion)', () => {
     expect(arrangementFor(3, 20, 20, 'unique').circles).toHaveLength(1);
   });
 });
+
+describe('postproduction : ordre de traitement', () => {
+  it('tri manuel, urgence, livraison', async () => {
+    const { sortTasks } = await import('../services/production');
+    const t = (id: string, priority: number, rank: number | null, desired_delivery: string | null) => ({ id, priority, rank, desired_delivery });
+    const list = [t('a', 0, null, '2026-12-20'), t('b', 2, null, '2026-12-30'), t('c', 0, 1, null), t('d', 1, 2, '2026-12-10'), t('e', 2, null, '2026-12-05')];
+    expect(sortTasks(list, 'manuel').map((x) => x.id)).toEqual(['c', 'd', 'e', 'b', 'a']);
+    expect(sortTasks(list, 'urgence').map((x) => x.id)).toEqual(['e', 'b', 'd', 'a', 'c']);
+    expect(sortTasks(list, 'livraison').map((x) => x.id)).toEqual(['e', 'd', 'a', 'b', 'c']);
+  });
+  it('enregistre urgence et rang des tâches', async () => {
+    const { listTasks, setTaskOrder, setTaskPriority, sortTasks } = await import('../services/production');
+    const x = await setupSale();
+    const comp = () => ({ key: uid(), styleId: x.fusion.id, styleName: 'Fusion', irisCount: 2, feeCents: 0, participantIds: [], participantNames: '', instructions: '' });
+    await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), compositions: [comp(), comp(), comp()], items: [] }, 'validee');
+    const ids = (await listTasks({ sessionId: x.sid })).map((t) => t.id);
+    expect(ids).toHaveLength(3);
+    await setTaskOrder([ids[2], ids[0], ids[1]]);
+    await setTaskPriority([ids[1]], 2);
+    const tasks = await listTasks({ sessionId: x.sid });
+    expect(sortTasks(tasks, 'manuel').map((t) => t.id)).toEqual([ids[2], ids[0], ids[1]]);
+    expect(sortTasks(tasks, 'urgence')[0].id).toBe(ids[1]);
+    expect(tasks.find((t) => t.id === ids[1])!.priority).toBe(2);
+  });
+});

@@ -12,7 +12,7 @@
   `curl -fL -o /tmp/mf12.zip https://github.com/F-Mathieu/mf12-iris-studio/releases/latest/download/MF12-Studio-macOS.zip && rm -rf "/Applications/MF12 Studio.app" && ditto -x -k /tmp/mf12.zip /Applications && rm /tmp/mf12.zip && xattr -dr com.apple.quarantine "/Applications/MF12 Studio.app" && open "/Applications/MF12 Studio.app"`
 - Données de l’app sur le Mac : `~/Library/Application Support/fr.mf12.studio/` (studio.db, apercus/, backups/, envois/).
 - Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux. Changements d’interface : vérification Playwright sur `npm run dev` (vite port 5199) ; vitest + tsc systématiques.
-- Prochaine migration : **22** (dernière : 21 `composition_styles.single_visual`).
+- Prochaine migration : **23** (dernière : 22 `production_tasks.priority / rank`).
 
 ## Feuille de route (validée avec l’utilisateur)
 | Étape | Contenu | État |

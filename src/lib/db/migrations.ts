@@ -395,6 +395,10 @@ ALTER TABLE orders ADD COLUMN internal_notes TEXT;
   /* 21 — style dont les iris forment un seul visuel (puzzle, fusion) : format conseillé = celui d’un iris. */ `
 ALTER TABLE composition_styles ADD COLUMN single_visual INTEGER NOT NULL DEFAULT 0;
 `,
+  /* 22 — postproduction : urgence (0 normale, 1 prioritaire, 2 urgent) et ordre de traitement choisi (rang, NULL = non classé). */ `
+ALTER TABLE production_tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE production_tasks ADD COLUMN rank REAL;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {
