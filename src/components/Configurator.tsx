@@ -66,6 +66,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const setEditComp = (c: CartComp | null) => { setEditCompState(c); setEditStyleId(null); };
   const [light, setLight] = useState<{ items: LightItem[]; i: number } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
+  /** Free digital-files line being created ('new') or edited (item key). */
+  const [filesFor, setFilesFor] = useState<string | null>(null);
   const [pinFor, setPinFor] = useState<'discount' | 'validate' | null>(null);
   const [savedSnap, setSavedSnap] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -133,7 +135,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     const offer = !locked && !kids.length ? frameOffer(i) : null;
     return (
       <div key={i.key} className="space-y-1">
-        <ItemLine i={i} locked={locked} update={update} onPhotos={i.photosPerUnit != null && !isValidated ? () => setPhotoFor(i.key) : undefined} />
+        <ItemLine i={i} locked={locked} update={update} onPhotos={i.photosPerUnit != null && !isValidated ? () => setPhotoFor(i.key) : undefined}
+          onEdit={isFreeFiles(i) && mode === 'admin' && !locked ? () => setFilesFor(i.key) : undefined} />
         {kids.map((k) => <div key={k.key} className="ml-3 border-l border-gold-500/40 pl-2"><ItemLine i={k} locked={locked} update={update} child /></div>)}
         {offer && (offer.price != null
           ? <button className="ml-3 text-[12px] text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); addFrame(i); }}>+ Ajouter un cadre ({frameProduct!.name.replace(/^Cadre /, '')}) · {eur(offer.price)}</button>
@@ -277,6 +280,15 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
           )}
           {tab !== 'creations' && (
             <div className="space-y-3">
+              {tab === 'numerique' && mode === 'admin' && !locked && (
+                <div className="flex items-center gap-4 rounded-2xl border border-dashed border-gold-500/40 bg-gold-500/[0.04] p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className={cx('font-semibold', big ? 'text-[18px]' : 'text-[15px]')}>Fichiers numériques — prix libre</div>
+                    <div className="mt-0.5 text-[12.5px] text-mist-400">Une ligne à votre prix, sans choisir de montage : précisez les fichiers inclus (iris, photos de séance…). Évite une remise commerciale.</div>
+                  </div>
+                  <Button variant="gold" icon={<Plus className="size-4" />} onClick={() => setFilesFor('new')}>Ajouter</Button>
+                </div>
+              )}
               {productsOf(tab).map((p) => {
                 const vs = variants.filter((v) => v.product_id === p.id);
                 return (
@@ -443,6 +455,16 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
         onClose={() => setStyleOpen(null)} onZoom={(items, i) => setLight({ items, i })}
         onAdd={(c) => { addComposition(c); setStyleOpen(null); }} />}
       <Lightbox items={light?.items ?? []} index={light?.i ?? null} onClose={() => setLight(null)} />
+      {filesFor && (() => {
+        const line = filesFor === 'new' ? null : cart.items.find((x) => x.key === filesFor) ?? null;
+        const suggestions = [...cart.compositions.map((c) => `${c.styleName}${c.participantNames ? ` (${c.participantNames})` : ''}`), ...participants.map((x) => `Iris ${x.first_name}`)];
+        return <FreeFilesDialog line={line} suggestions={suggestions} onClose={() => setFilesFor(null)} onSave={(v) => {
+          update((c) => line
+            ? { ...c, items: c.items.map((x) => (x.key === line.key ? { ...x, productName: v.label, variantName: v.files || null, unitPriceCents: v.price } : x)) }
+            : { ...c, items: [...c.items, { key: uid(), variantId: null, productId: null, category: 'numerique', productName: v.label, variantName: v.files || null, compositionKey: null, qty: 1, unitPriceCents: v.price, unitCostCents: 0 }] });
+          setFilesFor(null); toast.success(line ? 'Ligne mise à jour' : `${v.label} ajouté · ${eur(v.price)}`);
+        }} />;
+      })()}
       {photoFor && (() => {
         const line = cart.items.find((x) => x.key === photoFor);
         return line ? <PhotoPicker familyId={familyId} sessionId={sessionId} line={line} onClose={() => setPhotoFor(null)}
@@ -493,13 +515,37 @@ function defaultIris(style: Style, participants: { id: string }[]) {
   return participants.slice(0, style.max_iris).map((p) => p.id);
 }
 
-function ItemLine({ i, locked, update, child, onPhotos }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void; child?: boolean; onPhotos?: () => void }) {
+/** Free digital-files line (« Fichiers numériques — prix libre »): no catalogue product, no creation. */
+const isFreeFiles = (i: Cart['items'][number]) => i.category === 'numerique' && !i.variantId && !i.productId && !i.compositionKey;
+
+/** Price and content of a free digital-files line. */
+function FreeFilesDialog({ line, suggestions, onClose, onSave }: { line: Cart['items'][number] | null; suggestions: string[]; onClose: () => void; onSave: (v: { label: string; files: string; price: number }) => void }) {
+  const [label, setLabel] = useState(line?.productName ?? 'Fichiers numériques');
+  const [files, setFiles] = useState(line?.variantName ?? '');
+  const [price, setPrice] = useState<number | null>(line?.unitPriceCents ?? null);
+  const addTo = (t: string) => setFiles((f) => (f.split(/\s*,\s*/).includes(t) ? f : f.trim() ? `${f.trim().replace(/,$/, '')}, ${t}` : t));
+  return (
+    <Modal open onClose={onClose} size="md" title="Fichiers numériques — prix libre" subtitle="Une ligne du panier à votre prix, sans montage. Le contenu apparaît sur le récapitulatif, le devis, la facture et en postproduction."
+      footer={<><Button variant="ghost" onClick={onClose}>Annuler</Button><Button variant="gold" disabled={price == null || !label.trim()} onClick={() => onSave({ label: label.trim(), files: files.trim(), price: price ?? 0 })}>{line ? 'Enregistrer' : 'Ajouter au panier'}</Button></>}>
+      <div className="space-y-4">
+        <Field label="Intitulé"><Input value={label} onChange={(e) => setLabel(e.target.value)} /></Field>
+        <Field label="Fichiers inclus" hint="Ex. : Iris Léa HD, Iris Tom HD, Fusion HD, photos de séance n° 12, 15, 18">
+          <Textarea rows={3} value={files} onChange={(e) => setFiles(e.target.value)} placeholder="Liste des fichiers numériques inclus" />
+        </Field>
+        {suggestions.length > 0 && <div className="flex flex-wrap gap-1.5">{suggestions.map((t) => <button key={t} type="button" onClick={() => addTo(t)} className="rounded-full border border-ink-600 px-2.5 py-1 text-[12px] text-mist-300 hover:border-gold-500/60 hover:text-gold-200">+ {t}</button>)}</div>}
+        <Field label="Prix (TTC)"><MoneyInput value={price} onChange={setPrice} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+function ItemLine({ i, locked, update, child, onPhotos, onEdit }: { i: Cart['items'][number]; locked: boolean; update: (fn: (c: Cart) => Cart) => void; child?: boolean; onPhotos?: () => void; onEdit?: () => void }) {
   // A print's quantity is followed by its attached options (frame); removing it removes them.
   const setQty = (q: number) => update((c) => ({ ...c, items: c.items.map((x) => (x.key === i.key || x.parentKey === i.key ? { ...x, qty: q } : x)) }));
   return (
     <>
     <div className="flex items-center gap-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
-      <div className="min-w-0 flex-1"><div className="truncate">{i.productName}</div><div className="text-[11.5px] text-mist-400">{i.variantName} · {eur(i.unitPriceCents)}</div></div>
+      <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate">{i.productName}</span>{onEdit && <button className="shrink-0 text-[11.5px] text-gold-300/90 hover:text-gold-200" onClick={onEdit}>Modifier</button>}</div><div className={cx('text-[11.5px] text-mist-400', isFreeFiles(i) ? 'whitespace-pre-line' : '')}>{i.variantName}{i.variantName ? ' · ' : ''}{eur(i.unitPriceCents)}</div></div>
       {locked || child ? <span className="tabular">× {i.qty}</span> : <Stepper value={i.qty} onChange={setQty} />}
       <span className="w-[72px] text-right font-medium tabular">{eur(i.qty * i.unitPriceCents)}</span>
       {!locked && <IconButton title="Retirer" className="size-7" onClick={() => update((c) => ({ ...c, items: c.items.filter((x) => x.key !== i.key && x.parentKey !== i.key) }))}><Minus className="size-3.5" /></IconButton>}

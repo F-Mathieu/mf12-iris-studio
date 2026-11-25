@@ -1123,3 +1123,17 @@ describe('postproduction : ordre de traitement', () => {
     expect(tasks.find((t) => t.id === ids[1])!.priority).toBe(2);
   });
 });
+
+describe('fichiers numériques à prix libre', () => {
+  it('ligne sans montage : prix choisi, fichiers inclus, tâche de postproduction', async () => {
+    const { listTasks } = await import('../services/production');
+    const x = await setupSale();
+    const line = { key: uid(), variantId: null, productId: null, category: 'numerique', productName: 'Fichiers numériques', variantName: 'Iris Léa HD, Iris Tom HD, photos n° 12, 15', compositionKey: null, qty: 1, unitPriceCents: 4500, unitCostCents: 0 };
+    const r = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), compositions: [], items: [line] }, 'validee');
+    const d = (await getOrderDetail(r.id))!;
+    expect(d.order.total_cents).toBe(4500);
+    expect(d.cart.items[0]).toMatchObject({ productName: 'Fichiers numériques', variantName: 'Iris Léa HD, Iris Tom HD, photos n° 12, 15', unitPriceCents: 4500 });
+    const [t] = await listTasks({ sessionId: x.sid });
+    expect(t).toMatchObject({ kind: 'item', item_product: 'Fichiers numériques', item_variant: 'Iris Léa HD, Iris Tom HD, photos n° 12, 15', status: 'a_realiser' });
+  });
+});
