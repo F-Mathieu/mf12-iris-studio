@@ -11,6 +11,8 @@
 export type ProofStyle = 'bande' | 'discret' | 'normal' | 'fort';
 export const PROOF_STYLES: Record<ProofStyle, string> = { bande: 'Bande centrale — « BAT · NE PAS UTILISER » sur les visages (conseillé)', discret: 'Discret — un grand « BAT » transparent', normal: 'Normal — motif espacé', fort: 'Fort — motif serré' };
 export const DEFAULT_PROOF_STYLE: ProofStyle = 'bande';
+/** Short names for the choice made when adding a BAT. */
+export const PROOF_STYLE_SHORT: Record<ProofStyle, string> = { bande: 'Bande centrale', discret: 'Discret', normal: 'Normal', fort: 'Fort' };
 
 const STYLE: Record<ProofStyle, { max: number; quality: number; size: number; fill: number; stroke: number; spacing: number | null; hatch: number; scatter: number; band?: number }> = {
   // band: opacity of a dark strip (20 % of the height) across the centre, where faces usually are

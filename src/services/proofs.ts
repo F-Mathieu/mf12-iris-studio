@@ -45,7 +45,7 @@ export async function proofImage(id: string): Promise<Uint8Array | null> {
 }
 
 /** Adds BAT files: watermarked copy; same label as an existing BAT = new version (the previous one is « remplacé »). */
-export async function addProofs(orderId: string, files: { name: string; bytes: Uint8Array }[], label?: string): Promise<number> {
+export async function addProofs(orderId: string, files: { name: string; bytes: Uint8Array }[], label?: string, style?: ProofStyle): Promise<number> {
   const o = await one<{ number: string }>('SELECT number FROM orders WHERE id=?', [orderId]);
   if (!o) throw new Error('Commande introuvable');
   const s = await getSettings();
@@ -56,7 +56,7 @@ export async function addProofs(orderId: string, files: { name: string; bytes: U
     const lbl = (files.length === 1 && label?.trim()) || f.name.replace(/\.[a-z0-9]+$/i, '');
     const prev = await one<{ v: number }>('SELECT max(version) v FROM proofs WHERE order_id=? AND label=?', [orderId, lbl]);
     const version = (prev?.v ?? 0) + 1;
-    const img = await makeProof(f.bytes, { mark: `BAT · ${brand} · ${o.number}`, banner: `BON À TIRER — ${lbl} — v${version} — aperçu non imprimable, à valider`, style: (s.proof_style as ProofStyle) || DEFAULT_PROOF_STYLE });
+    const img = await makeProof(f.bytes, { mark: `BAT · ${brand} · ${o.number}`, banner: `BON À TIRER — ${lbl} — v${version} — aperçu non imprimable, à valider`, style: style || (s.proof_style as ProofStyle) || DEFAULT_PROOF_STYLE });
     await batch([
       { sql: "UPDATE proofs SET status='remplace' WHERE order_id=? AND label=? AND status<>'valide'", params: [orderId, lbl] },
       insertStmt('proofs', { id: uid(), order_id: orderId, label: lbl, version, file_name: f.name, data: toBase64(img), status: 'a_envoyer', created_at: nowIso() }),
