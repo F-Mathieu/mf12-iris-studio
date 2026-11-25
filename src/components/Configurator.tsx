@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { parsePrintFrame } from '../services/onelab';
 import { ArrowDown, ArrowUp, BadgePercent, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, Stepper, Textarea, useAsync, useConfirm, cx } from './ui';
+import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, Select, Stepper, Textarea, useAsync, useConfirm, cx } from './ui';
 import { Lightbox, type LightItem } from './Lightbox';
 import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
@@ -60,7 +60,10 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const [activeComp, setActiveComp] = useState<string | null>(null);
   const [tab, setTab] = useState<LeftTab>('creations');
   const [styleOpen, setStyleOpen] = useState<Style | null>(null);
-  const [editComp, setEditComp] = useState<CartComp | null>(null);
+  const [editComp, setEditCompState] = useState<CartComp | null>(null);
+  /** Montage chosen while editing a creation (null = unchanged). */
+  const [editStyleId, setEditStyleId] = useState<string | null>(null);
+  const setEditComp = (c: CartComp | null) => { setEditCompState(c); setEditStyleId(null); };
   const [light, setLight] = useState<{ items: LightItem[]; i: number } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [pinFor, setPinFor] = useState<'discount' | 'validate' | null>(null);
@@ -418,8 +421,9 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
       </aside>
 
       {editComp && (() => {
-        const st = styles.find((x) => x.id === editComp.styleId)!;
+        const st = styles.find((x) => x.id === (editStyleId ?? editComp.styleId)) ?? styles.find((x) => x.id === editComp.styleId)!;
         return <StyleDialog style={st} examples={exOf(st.id)} participants={participants} price={(n) => stylePrice(st, n)} big={big} initial={editComp}
+          styleChoices={styles} onStyleChange={setEditStyleId}
           onClose={() => setEditComp(null)} onZoom={(items, i) => setLight({ items, i })}
           onAdd={(c) => {
             // Same creation (same key): products stay attached; their price follows the new number of iris when the grid has one.
@@ -429,7 +433,10 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
               items: x.items.map((i) => (i.compositionKey === editComp.key && i.variantId ? { ...i, unitPriceCents: findPrice(ctx.rows, 'variant', i.variantId, c.irisCount) ?? i.unitPriceCents } : i)),
             }));
             setActiveComp(editComp.key); setEditComp(null);
-            toast.success(`Création ${c.styleName} mise à jour — ${c.irisCount} iris`);
+            toast.success(c.styleId !== editComp.styleId ? `Montage changé : ${editComp.styleName} → ${c.styleName} (prénoms, disposition et souhaits conservés)` : `Création ${c.styleName} mise à jour — ${c.irisCount} iris`);
+            // Products made for the former montage only (e.g. « Fusion HD ») stay in the cart: point them out.
+            const stale = c.styleId !== editComp.styleId ? cart.items.filter((i) => i.compositionKey === editComp.key && products.some((p) => p.id === i.productId && p.style_id && p.style_id === editComp.styleId)) : [];
+            if (stale.length) toast.warning(`À vérifier : ${stale.map((i) => i.productName).join(', ')} correspond à l’ancien montage (${editComp.styleName}).`);
           }} />;
       })()}
       {styleOpen && <StyleDialog style={styleOpen} examples={exOf(styleOpen.id)} participants={participants} price={(n) => stylePrice(styleOpen, n)} big={big}
@@ -526,11 +533,13 @@ export function PhotoLineInfo({ i, onPhotos, onOrientation }: { i: { qty: number
   );
 }
 
-function StyleDialog({ style, examples, participants, price, big, onClose, onAdd, onZoom, initial }: {
+function StyleDialog({ style, examples, participants, price, big, onClose, onAdd, onZoom, initial, styleChoices, onStyleChange }: {
   style: Style; examples: Example[]; participants: { id: string; first_name: string }[]; price: (n: number) => number | null; big: boolean;
   onClose: () => void; onAdd: (c: CartComp) => void; onZoom: (items: LightItem[], i: number) => void;
   /** Editing an existing creation of the cart. */
   initial?: CartComp;
+  /** Editing: other montages the creation can switch to (names, disposition and wishes are kept). */
+  styleChoices?: Style[]; onStyleChange?: (styleId: string) => void;
 }) {
   // Iris in the order of the montage (left → right, top → bottom), each with a name the client can change.
   const [slots, setSlots] = useState<Slot[]>(() => initialSlots(style, participants, initial));
@@ -572,6 +581,15 @@ function StyleDialog({ style, examples, participants, price, big, onClose, onAdd
           <div className="mt-3 text-[12px] text-mist-400">Exemples de réalisations — votre création sera réalisée à partir de vos propres iris.</div>
         </div>
         <div className="space-y-5">
+          {initial && styleChoices && onStyleChange && styleChoices.length > 1 && (
+            <div>
+              <div className="mb-2 text-[13px] font-semibold">Montage</div>
+              <Select value={style.id} onChange={(e) => onStyleChange(e.target.value)}>
+                {styleChoices.map((x) => <option key={x.id} value={x.id}>{x.name}{x.min_iris === x.max_iris ? ` · ${x.min_iris} iris` : ` · ${x.min_iris} à ${x.max_iris} iris`}</option>)}
+              </Select>
+              {style.id !== initial.styleId && <div className="mt-1 text-[12px] text-gold-300">Au lieu de {initial.styleName} : prénoms, disposition et souhaits conservés.</div>}
+            </div>
+          )}
           <div>
             <div className="mb-2 text-[13px] font-semibold">Iris à inclure</div>
             {participants.length ? (
