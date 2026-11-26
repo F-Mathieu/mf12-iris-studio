@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowUpToLine, CheckSquare, Download, FileDown, Flag, ImageOff, PackagePlus, RotateCcw, Square, Trash2, Truck, Wand2 } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, Input, Loading, Modal, MoneyInput, PageHeader, SearchInput, Segmented, Select, Tabs, Textarea, useAsync, useConfirm, cx } from '../components/ui';
 import { TaskBadge } from '../components/badges';
@@ -45,6 +46,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
   const showDeleted = status === 'deleted';
   const data = useAsync(() => listTasks({ sessionId, deleted: showDeleted }), [sessionId, showDeleted]);
   const confirm = useConfirm();
+  const nav = useNavigate();
   const [view, setView] = useState<View>('tableau');
   const [group, setGroup] = useState<Group>('family');
   const [q, setQ] = useState('');
@@ -106,6 +108,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
   );
   const TaskCard = ({ t }: { t: Task }) => (
     <div draggable={view === 'kanban'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; setDrag(t.id); }} onDragEnd={() => { setDrag(null); setOver(null); setOverCard(null); }}
+      onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest('button, select, input, a')) nav(`/commandes/${t.order_id}`); }} title="Double-clic : ouvrir la commande"
       onDragOver={view === 'kanban' ? (e) => { e.preventDefault(); if (overCard !== t.id) setOverCard(t.id); } : undefined}
       onDrop={view === 'kanban' ? (e) => { e.preventDefault(); e.stopPropagation(); const id = drag ?? e.dataTransfer.getData('text/plain'); if (id) reorder(id, t.id, t.status); setDrag(null); setOver(null); setOverCard(null); } : undefined}
       className={cx('rounded-xl border border-l-4 bg-ink-850 p-3 transition', view === 'kanban' && 'cursor-grab active:cursor-grabbing', drag === t.id && 'opacity-40', overCard === t.id && drag && drag !== t.id && 'shadow-[0_-3px_0_0] shadow-gold-400',
