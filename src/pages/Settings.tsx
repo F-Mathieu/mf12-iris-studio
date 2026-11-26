@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ACTION_DELAYS } from '../services/actions';
 import { DEFAULT_INVOICE_MAIL, DEFAULT_OFFERS_MAIL, DEFAULT_QUOTE_MAIL, DEFAULT_RECAP_MAIL, MAIL_PLACEHOLDERS, OFFERS_PLACEHOLDERS, QUOTE_PLACEHOLDERS, RECAP_PLACEHOLDERS } from '../lib/invoiceMail';
 import { DatabaseBackup, Download, FolderOpen, HardDriveDownload, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Textarea, Toggle, useAsync, useConfirm } from '../components/ui';
@@ -128,6 +129,14 @@ export default function Settings() {
             <div className="p-5 text-[13px] text-mist-300">Seul le nom de famille est obligatoire. Depuis la fiche d’une famille : correction, export CSV, suppression (si aucune commande) ou anonymisation (commandes conservées). Aucune donnée bancaire n’est stockée.</div>
           </Card>
         </div>
+        <Card className="col-span-2">
+          <CardHeader title="Tableau de bord — actions requises" subtitle="Délais (en jours) au-delà desquels une situation apparaît dans « Actions requises ». Le double du délai la rend prioritaire." />
+          <div className="grid grid-cols-5 items-end gap-4 p-5">
+            {Object.values(ACTION_DELAYS).map((x) => (
+              <Field key={x.key} label={x.label}><Input type="number" min={1} value={v(x.key) || String(x.def)} onChange={(e) => setDraft({ ...draft, [x.key]: e.target.value })} /></Field>
+            ))}
+          </div>
+        </Card>
         <Card className="col-span-2">
           <CardHeader title="Relances, avis & BAT" subtitle={`E-mails préparés en un clic depuis le tableau de bord. Variables : ${FOLLOWUP_VARS}.`} />
           <div className="grid grid-cols-3 gap-4 p-5">

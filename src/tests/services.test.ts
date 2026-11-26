@@ -1156,3 +1156,40 @@ describe('postproduction : suppression de tâches', () => {
     expect(await listTasks({ sessionId: x.sid, deleted: true })).toHaveLength(0);
   });
 });
+
+describe('tableau de bord : actions requises', () => {
+  it('brouillon ancien, commande non livrée, tâche urgente, séance sans suite, sauvegarde ; reporter / ignorer', async () => {
+    const A = await import('../services/actions');
+    const { listTasks, setTaskPriority } = await import('../services/production');
+    const { setSetting } = await import('../services/base');
+    const x = await setupSale();
+    const today = '2027-03-01';
+    // no backup yet → backup action ; session in the past with a family received and no order
+    await run('UPDATE sessions SET date=? WHERE id=?', ['2027-02-10', x.sid]);
+    let r = await A.requiredActions(today);
+    expect(r.list.map((a) => a.kind).sort()).toEqual(['sauvegarde', 'seance']);
+    // a draft cart for that family, last touched 5 days ago (delay 3) → draft action, session no longer « sans suite »
+    const comp = { key: uid(), styleId: x.fusion.id, styleName: 'Fusion', irisCount: 2, feeCents: 5000, participantIds: [], participantNames: '', instructions: '' };
+    const d = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), compositions: [comp], items: [] }, 'brouillon');
+    await run('UPDATE orders SET updated_at=? WHERE id=?', ['2027-02-24T10:00:00.000Z', d.id]);
+    await setSetting('last_backup', '2027-02-28T09:00:00.000Z');
+    r = await A.requiredActions(today);
+    expect(r.list.map((a) => a.kind)).toEqual(['brouillon']);
+    expect(r.list[0]).toMatchObject({ days: 5, late: false, link: `/vente/commande/${d.id}` });
+    // validated 30 days ago (delay 21), not delivered, one task marked urgent
+    await saveCart({ ...(await loadCart(d.id)) }, 'validee');
+    await run('UPDATE orders SET validated_at=? WHERE id=?', ['2027-01-30T10:00:00.000Z', d.id]);
+    const [t] = await listTasks({ sessionId: x.sid });
+    await setTaskPriority([t.id], 2);
+    r = await A.requiredActions(today);
+    expect(r.list.map((a) => a.kind)).toEqual(['urgent', 'livraison']);
+    expect(r.list[1]).toMatchObject({ days: 30, late: false });
+    // snooze 7 days, ignore for good, show again
+    await A.snoozeAction(r.list[1].key, 7, today);
+    await A.snoozeAction(r.list[0].key, null, today);
+    expect((await A.requiredActions(today))).toMatchObject({ list: [], hidden: 2 });
+    expect((await A.requiredActions('2027-03-09')).list.map((a) => a.kind)).toContain('livraison');
+    await A.showAllActions();
+    expect((await A.requiredActions(today)).list).toHaveLength(2);
+  });
+});

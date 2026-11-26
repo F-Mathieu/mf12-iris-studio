@@ -14,7 +14,9 @@ import { todayIso } from '../lib/ids';
 import { reminders, type Reminder } from '../services/agenda';
 import { dismissFollowUp, followUps, sendFollowUp, type FollowUp } from '../services/followups';
 import { act } from '../lib/act';
-import { Mail, X } from 'lucide-react';
+import { CheckCircle2, Clock, Mail, X } from 'lucide-react';
+import { ACTION_KIND_LABEL, requiredActions, showAllActions, snoozeAction, type RequiredAction } from '../services/actions';
+import { Badge } from '../components/ui';
 import { cx } from '../components/ui';
 
 export default function Dashboard() {
@@ -25,6 +27,7 @@ export default function Dashboard() {
   const decl = useAsync(() => nextDeclaration(todayIso()), []);
   const rem = useAsync(() => reminders(), []);
   const fu = useAsync(() => followUps(), []);
+  const acts = useAsync(() => requiredActions(), []);
   const { data } = useAsync(() => dashboard(f), [f.from, f.to, f.sessionId]);
   const upcoming = (sessions.data ?? []).filter((s) => s.status === 'preparation' || s.status === 'active').slice(0, 5);
   return (
@@ -45,6 +48,7 @@ export default function Dashboard() {
               <Button size="sm" variant="gold" onClick={() => nav('/compta')}>Préparer la déclaration</Button>
             </Card>
           )}
+          {acts.data && <ActionsCard data={acts.data} onOpen={(l) => nav(l)} reload={acts.reload} />}
           {!!fu.data?.length && <FollowUpsCard list={fu.data} onOpen={(l) => nav(l)} reload={fu.reload} />}
           {!!rem.data?.filter((r) => r.group !== 'devis').length && <RemindersCard list={rem.data.filter((r) => r.group !== 'devis')} onOpen={(l) => nav(l)} onAgenda={() => nav('/agenda')} />}
           <div className="grid grid-cols-4 gap-4">
@@ -78,6 +82,44 @@ export default function Dashboard() {
 }
 
 const GROUPS: Record<Reminder['group'], string> = { livraison: 'Livraisons', fiche: 'Fiches jour J', echeance: 'Échéances de paiement', devis: 'Devis expirés', bat: 'BAT en attente de validation', rappel: 'Rappels d’agenda' };
+
+const KIND_TONE: Record<RequiredAction['kind'], 'red' | 'amber' | 'blue' | 'violet' | 'neutral' | 'gold'> = {
+  urgent: 'red', sauvegarde: 'red', livraison: 'amber', brouillon: 'gold', fournisseur: 'blue', seance: 'violet',
+};
+
+/** « Actions requises » : what has been waiting too long for you (delays in Paramètres), most urgent first. */
+function ActionsCard({ data, onOpen, reload }: { data: { list: RequiredAction[]; hidden: number }; onOpen: (link: string) => void; reload: () => void }) {
+  const [all, setAll] = useState(false);
+  const { list, hidden } = data;
+  const late = list.filter((a) => a.late).length;
+  const shown = all ? list : list.slice(0, 8);
+  return (
+    <Card className={cx(late > 0 && 'border-red-400/40')}>
+      <CardHeader title={list.length ? `Actions requises — ${list.length}${late ? ` dont ${late} prioritaire(s)` : ''}` : 'Actions requises'}
+        subtitle="Ce qui attend une action de votre part depuis trop longtemps. Délais réglables dans Paramètres → Tableau de bord."
+        actions={hidden > 0 && <Button size="sm" variant="ghost" onClick={() => act(() => showAllActions().then(reload))}>{hidden} masquée(s) · Réafficher</Button>} />
+      {!list.length ? (
+        <div className="flex items-center gap-2 px-5 py-4 text-[13px] text-emerald-300"><CheckCircle2 className="size-4" />Rien en attente.</div>
+      ) : (
+        <div className="divide-y divide-ink-700/50">
+          {shown.map((a) => (
+            <div key={a.key} className="flex items-center gap-3 px-5 py-2.5 text-[13px]">
+              <Badge tone={KIND_TONE[a.kind]} className="w-36 shrink-0 justify-center">{ACTION_KIND_LABEL[a.kind]}</Badge>
+              <button type="button" disabled={!a.link} onClick={() => a.link && onOpen(a.link)} className="min-w-0 flex-1 text-left hover:text-gold-300 disabled:hover:text-inherit">
+                <div className="truncate font-medium">{a.title}</div>
+                {a.detail && <div className="truncate text-[11.5px] text-mist-400">{a.detail}</div>}
+              </button>
+              {a.days > 0 && <span className={cx('shrink-0 tabular text-[12px]', a.late ? 'text-red-300' : 'text-amber-300')}>depuis {a.days} j</span>}
+              <button type="button" title="Reporter de 7 jours" className="flex shrink-0 items-center gap-1 text-[12px] text-mist-400 hover:text-mist-100" onClick={() => act(() => snoozeAction(a.key, 7).then(reload), 'Reporté de 7 jours')}><Clock className="size-3.5" />7 j</button>
+              <button type="button" title="Ignorer cette action" className="shrink-0 text-mist-500 hover:text-mist-200" onClick={() => act(() => snoozeAction(a.key, null).then(reload), 'Action ignorée')}><X className="size-4" /></button>
+            </div>
+          ))}
+          {list.length > 8 && <button type="button" className="w-full px-5 py-2 text-left text-[12.5px] text-gold-300 hover:text-gold-200" onClick={() => setAll(!all)}>{all ? 'Réduire' : `Tout voir (${list.length})`}</button>}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 /** « À faire » : overdue first (amber), then what is coming soon. */
 function RemindersCard({ list, onOpen, onAgenda }: { list: Reminder[]; onOpen: (link: string) => void; onAgenda: () => void }) {
