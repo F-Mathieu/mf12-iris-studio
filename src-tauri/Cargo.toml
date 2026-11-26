@@ -1,6 +1,6 @@
 [package]
 name = "iris-studio"
-version = "2.5.3"
+version = "2.5.4"
 description = "MF/1.2 Studio"
 authors = ["MF/1.2"]
 edition = "2021"
