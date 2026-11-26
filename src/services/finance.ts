@@ -74,7 +74,7 @@ export async function dashboard(f: DashboardFilters = {}) {
     one<{ n: number }>(`SELECT COALESCE(sum(i.qty),0) n FROM order_items i JOIN orders o ON o.id=i.order_id JOIN sessions s ON s.id=o.session_id WHERE ${W}`, p),
     sel<{ label: string; n: number }>(`SELECT c.style_name label, count(*) n FROM order_compositions c JOIN orders o ON o.id=c.order_id JOIN sessions s ON s.id=o.session_id WHERE ${W} GROUP BY c.style_name ORDER BY n DESC`, p),
     sel<{ label: string; n: number; amount: number }>(`SELECT i.product_name label, sum(i.qty) n, sum(i.line_total_cents) amount FROM order_items i JOIN orders o ON o.id=i.order_id JOIN sessions s ON s.id=o.session_id WHERE ${W} AND i.category='impression' GROUP BY i.product_name ORDER BY n DESC`, p),
-    one<{ todo: number; done: number }>(`SELECT sum(CASE WHEN t.status<>'livre' THEN 1 ELSE 0 END) todo, sum(CASE WHEN t.status='livre' THEN 1 ELSE 0 END) done FROM production_tasks t JOIN orders o ON o.id=t.order_id JOIN sessions s ON s.id=o.session_id WHERE ${W}`, p),
+    one<{ todo: number; done: number }>(`SELECT sum(CASE WHEN t.status<>'livre' THEN 1 ELSE 0 END) todo, sum(CASE WHEN t.status='livre' THEN 1 ELSE 0 END) done FROM production_tasks t JOIN orders o ON o.id=t.order_id JOIN sessions s ON s.id=o.session_id WHERE t.deleted_at IS NULL AND ${W}`, p),
     one<{ t: number }>(`SELECT COALESCE(sum(e.amount_cents),0) t FROM session_expenses e JOIN sessions s ON s.id=e.session_id ${SW.replace('WHERE', 'WHERE e.category<>\'temps\' AND') || "WHERE e.category<>'temps'"}`, sp),
   ]);
   const sales = k?.sales ?? 0, cost = k?.cost ?? 0;

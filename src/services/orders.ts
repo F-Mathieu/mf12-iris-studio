@@ -204,7 +204,7 @@ export async function deleteOrder(id: string, reason?: string | null) {
 export async function orderDeletionImpact(id: string) {
   return (await one<{ payments: number; paid: number; tasks: number; supplier_lines: number; attachments: number }>(
     `SELECT (SELECT count(*) FROM payments WHERE order_id=?) payments, (SELECT COALESCE(sum(amount_cents),0) FROM payments WHERE order_id=?) paid,
-       (SELECT count(*) FROM production_tasks WHERE order_id=?) tasks,
+       (SELECT count(*) FROM production_tasks WHERE order_id=? AND deleted_at IS NULL) tasks,
        (SELECT count(*) FROM supplier_order_items soi JOIN order_items i ON i.id=soi.order_item_id WHERE i.order_id=?) supplier_lines,
        (SELECT count(*) FROM order_attachments WHERE order_id=?) attachments`, [id, id, id, id, id]))!;
 }

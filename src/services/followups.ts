@@ -63,8 +63,8 @@ export async function followUps(today = todayIso()): Promise<FollowUp[]> {
   for (const o of await sel<{ id: string; family: string; session: string; delivered: string | null; wedding_id: string | null }>(
     `SELECT o.id, f.name family, s.name session, w.id wedding_id,
        COALESCE(w.final_delivered_at, o.delivered_at,
-         CASE WHEN EXISTS (SELECT 1 FROM production_tasks t WHERE t.order_id=o.id) AND NOT EXISTS (SELECT 1 FROM production_tasks t WHERE t.order_id=o.id AND t.status<>'livre')
-           THEN (SELECT substr(max(t.updated_at),1,10) FROM production_tasks t WHERE t.order_id=o.id) END) delivered
+         CASE WHEN EXISTS (SELECT 1 FROM production_tasks t WHERE t.order_id=o.id AND t.deleted_at IS NULL) AND NOT EXISTS (SELECT 1 FROM production_tasks t WHERE t.order_id=o.id AND t.deleted_at IS NULL AND t.status<>'livre')
+           THEN (SELECT substr(max(t.updated_at),1,10) FROM production_tasks t WHERE t.order_id=o.id AND t.deleted_at IS NULL) END) delivered
      FROM orders o JOIN families f ON f.id=o.family_id JOIN sessions s ON s.id=o.session_id LEFT JOIN weddings w ON w.order_id=o.id
      WHERE o.status='validee'`)) {
     if (!o.delivered || lr.has(o.id)) continue;

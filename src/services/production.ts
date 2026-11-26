@@ -14,7 +14,7 @@ export const flowFor = (hasPrint: boolean) => (hasPrint ? FULL_FLOW : DIGITAL_FL
 
 export interface TaskItem { id: string; product_name: string; variant_name: string | null; category: string; qty: number; variant_id: string | null; supplier_name?: string }
 export interface Task {
-  id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string; priority: number; rank: number | null;
+  id: string; kind: 'composition' | 'item'; status: TaskStatus; notes: string | null; updated_at: string; priority: number; rank: number | null; deleted_at: string | null;
   order_id: string; order_number: string; internal_notes: string | null; session_id: string; session_name: string; family_id: string; family_name: string; desired_delivery: string | null;
   composition_id: string | null; style_id: string | null; style_name: string | null; iris_count: number | null; participant_ids: string | null; participant_names: string | null; instructions: string | null; orientation: import('../lib/formatsGuide').Orientation | null;
   order_item_id: string | null; item_product: string | null; item_variant: string | null; item_qty: number | null; item_category: string | null; item_photos: string | null; item_ppu: number | null; item_orientation: string | null;
@@ -22,8 +22,8 @@ export interface Task {
   items: TaskItem[]; refs: { participant: string; reference: string; file_path: string | null }[]; hasPrint: boolean;
 }
 
-export async function listTasks(f: { sessionId?: string; status?: string } = {}): Promise<Task[]> {
-  const w = ["o.status='validee'"], p: string[] = [];
+export async function listTasks(f: { sessionId?: string; status?: string; deleted?: boolean } = {}): Promise<Task[]> {
+  const w = ["o.status='validee'", f.deleted ? 't.deleted_at IS NOT NULL' : 't.deleted_at IS NULL'], p: string[] = [];
   if (f.sessionId) { w.push('o.session_id=?'); p.push(f.sessionId); }
   if (f.status) { w.push('t.status=?'); p.push(f.status); }
   const tasks = await sel<Task>(
@@ -82,6 +82,10 @@ export function sortTasks<T extends Pick<Task, 'priority' | 'rank' | 'desired_de
 export const setTaskPriority = (ids: string[], priority: number) => batch(ids.map((id) => updateStmt('production_tasks', id, { priority: Math.max(0, Math.min(2, priority)) })));
 /** Saves the order of treatment: the given tasks get ranks 1..n in this order. */
 export const setTaskOrder = (ids: string[]) => batch(ids.map((id, i) => updateStmt('production_tasks', id, { rank: i + 1 })));
+
+/** Removes tasks from the follow-up (kept in base, not re-created when the order is corrected; can be restored). */
+export const deleteTasks = (ids: string[]) => { const now = nowIso(); return batch(ids.flatMap((id) => [updateStmt('production_tasks', id, { deleted_at: now }), auditStmt('task', id, 'suppression', {})])); };
+export const restoreTasks = (ids: string[]) => batch(ids.flatMap((id) => [updateStmt('production_tasks', id, { deleted_at: null }), auditStmt('task', id, 'restauration', {})]));
 
 export const setTaskNotes = (id: string, notes: string) => batch([updateStmt('production_tasks', id, { notes, updated_at: nowIso() })]);
 

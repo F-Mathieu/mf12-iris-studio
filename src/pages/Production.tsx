@@ -1,8 +1,8 @@
 import { Fragment, useMemo, useState } from 'react';
-import { ArrowUpToLine, CheckSquare, Download, FileDown, Flag, ImageOff, PackagePlus, Square, Truck, Wand2 } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, Input, Loading, Modal, MoneyInput, PageHeader, SearchInput, Segmented, Select, Tabs, Textarea, useAsync, cx } from '../components/ui';
+import { ArrowUpToLine, CheckSquare, Download, FileDown, Flag, ImageOff, PackagePlus, RotateCcw, Square, Trash2, Truck, Wand2 } from 'lucide-react';
+import { Badge, Button, Card, CardHeader, DataTable, Empty, Field, Input, Loading, Modal, MoneyInput, PageHeader, SearchInput, Segmented, Select, Tabs, Textarea, useAsync, useConfirm, cx } from '../components/ui';
 import { TaskBadge } from '../components/badges';
-import { taskPhotos, createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, listTasks, setTaskNotes, setTaskOrder, setTaskPriority, setTaskStatus, sortTasks, PRIORITY_LABEL, TASK_SORT_LABEL, type TaskSort, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
+import { taskPhotos, createSupplierOrder, flowFor, listPrintLines, listSupplierOrders, deleteTasks, listTasks, restoreTasks, setTaskNotes, setTaskOrder, setTaskPriority, setTaskStatus, sortTasks, PRIORITY_LABEL, TASK_SORT_LABEL, type TaskSort, supplierOrderLines, SUPPLIER_ORDER_STATUS, TASK_STATUS, updateSupplierOrder, type PrintLine, type SupplierOrder, type Task, type TaskStatus } from '../services/production';
 import { listSessions } from '../services/sessions';
 import { listSuppliers } from '../services/suppliers';
 import { brand, productionPdf } from '../services/documents';
@@ -41,11 +41,13 @@ export function ProductionBoard({ sessionId }: { sessionId?: string }) {
 }
 
 function TasksView({ sessionId }: { sessionId?: string }) {
-  const data = useAsync(() => listTasks({ sessionId }), [sessionId]);
+  const [status, setStatus] = useState('');
+  const showDeleted = status === 'deleted';
+  const data = useAsync(() => listTasks({ sessionId, deleted: showDeleted }), [sessionId, showDeleted]);
+  const confirm = useConfirm();
   const [view, setView] = useState<View>('tableau');
   const [group, setGroup] = useState<Group>('family');
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
   const [sel, setSel] = useState<string[]>([]);
   const [noteTask, setNoteTask] = useState<Task | null>(null);
   const [drag, setDrag] = useState<string | null>(null);
@@ -55,7 +57,7 @@ function TasksView({ sessionId }: { sessionId?: string }) {
   const setSortMode = (m: TaskSort) => { setSortModeState(m); try { localStorage.setItem('production_sort', m); } catch { /* ignore */ } };
   const tasks = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return sortTasks((data.data ?? []).filter((t) => (!status || (status === 'open' ? t.status !== 'livre' : t.status === status)) &&
+    return sortTasks((data.data ?? []).filter((t) => (!status || showDeleted || (status === 'open' ? t.status !== 'livre' : t.status === status)) &&
       (!s || [t.family_name, t.order_number, t.style_name, t.item_product, t.participant_names, ...t.refs.map((r) => r.reference)].some((x) => x?.toLowerCase().includes(s)))), sortMode);
   }, [data.data, q, status, sortMode]);
   if (!data.data) return <Loading />;
@@ -71,6 +73,15 @@ function TasksView({ sessionId }: { sessionId?: string }) {
     if (sortMode !== 'manuel') setSortMode('manuel');
     await data.reload();
   });
+  const label = (t: Task) => `${t.family_name} — ${t.kind === 'composition' ? t.style_name : t.item_product}`;
+  const removeTasks = async (ids: string[]) => {
+    const one = ids.length === 1 ? tasks.find((t) => t.id === ids[0]) : null;
+    if (!(await confirm({ title: one ? `Supprimer la tâche « ${label(one)} » ?` : `Supprimer ${ids.length} tâches ?`, danger: true, confirm: 'Supprimer',
+      text: 'Elle disparaît de la postproduction (la commande n’est pas modifiée). Retrouvez-la avec le filtre « Tâches supprimées » pour la restaurer.' }))) return;
+    await act(() => deleteTasks(ids).then(data.reload), ids.length > 1 ? `${ids.length} tâches supprimées` : 'Tâche supprimée');
+    setSel((s) => s.filter((x) => !ids.includes(x)));
+  };
+  const restore = (ids: string[]) => act(() => restoreTasks(ids).then(data.reload), ids.length > 1 ? `${ids.length} tâches restaurées` : 'Tâche restaurée').then(() => setSel([]));
   const cyclePriority = (t: Task) => act(() => setTaskPriority([t.id], ((t.priority ?? 0) + 1) % 3).then(data.reload), `${t.family_name} : ${PRIORITY_LABEL[((t.priority ?? 0) + 1) % 3]}`);
   const PriorityButton = ({ t }: { t: Task }) => (
     <button title="Urgence : cliquer pour changer (Normale → Prioritaire → Urgent)" onClick={(e) => { e.stopPropagation(); cyclePriority(t); }}
@@ -111,7 +122,9 @@ function TasksView({ sessionId }: { sessionId?: string }) {
           {t.instructions && <div className="mt-1 text-[12px] text-mist-300 italic">« {t.instructions} »</div>}
           {t.notes && <div className="mt-1 rounded bg-ink-800 px-2 py-1 text-[12px] text-amber-200/90">{t.notes}</div>}
           {t.internal_notes && <div className="mt-1.5 line-clamp-3 whitespace-pre-line text-[12px] text-amber-200/90" title="Note interne de la commande">📝 {t.internal_notes}</div>}
-          <div className="mt-2 flex flex-wrap items-center gap-2"><PriorityButton t={t} />{view === 'kanban' && <button title="Mettre en haut de la colonne" className="text-mist-500 hover:text-gold-300" onClick={() => { const first = tasks.find((x) => x.status === t.status); if (first && first.id !== t.id) reorder(t.id, first.id, t.status); }}><ArrowUpToLine className="size-3.5" /></button>}{view !== 'kanban' && <StatusSelect t={t} />}<button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>Note</button>{t.desired_delivery && <span className="text-[11.5px] text-mist-400">Livraison {fmtDate(t.desired_delivery)}</span>}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2"><PriorityButton t={t} />{view === 'kanban' && <button title="Mettre en haut de la colonne" className="text-mist-500 hover:text-gold-300" onClick={() => { const first = tasks.find((x) => x.status === t.status); if (first && first.id !== t.id) reorder(t.id, first.id, t.status); }}><ArrowUpToLine className="size-3.5" /></button>}{view !== 'kanban' && <StatusSelect t={t} />}<button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>Note</button>
+            {showDeleted ? <button className="flex items-center gap-1 text-[12px] text-gold-300 hover:text-gold-200" onClick={() => restore([t.id])}><RotateCcw className="size-3" />Restaurer</button>
+              : <button title="Supprimer la tâche" className="text-mist-500 hover:text-red-300" onClick={() => removeTasks([t.id])}><Trash2 className="size-3.5" /></button>}{t.desired_delivery && <span className="text-[11.5px] text-mist-400">Livraison {fmtDate(t.desired_delivery)}</span>}</div>
         </div>
       </div>
     </div>
@@ -123,15 +136,18 @@ function TasksView({ sessionId }: { sessionId?: string }) {
         <Segmented value={view} onChange={setView} options={[{ id: 'tableau', label: 'Tableau' }, { id: 'kanban', label: 'Kanban' }, { id: 'groupes', label: 'Regroupé' }]} />
         {view === 'groupes' && <Select className="w-44" value={group} onChange={(e) => setGroup(e.target.value as Group)}><option value="session">Par séance</option><option value="family">Par famille</option><option value="style">Par montage</option><option value="status">Par statut</option></Select>}
         <SearchInput value={q} onChange={setQ} className="w-60" placeholder="Famille, référence, style…" />
-        <Select className="w-48" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous statuts</option><option value="open">Non livrés</option>{Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>
+        <Select className="w-48" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous statuts</option><option value="open">Non livrés</option>{Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}<option value="deleted">Tâches supprimées</option></Select>
         <Select className="w-48" value={sortMode} onChange={(e) => setSortMode(e.target.value as TaskSort)} title="Ordre de traitement">{(Object.keys(TASK_SORT_LABEL) as TaskSort[]).map((k) => <option key={k} value={k}>Tri : {TASK_SORT_LABEL[k]}</option>)}</Select>
         <div className="flex-1" />
+        {sel.length > 0 && (showDeleted
+          ? <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => restore(sel)}>Restaurer ({sel.length})</Button>
+          : <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => removeTasks(sel)}>Supprimer ({sel.length})</Button>)}
         {sel.length > 0 && <Select className="w-44" value="" onChange={(e) => e.target.value && act(() => setTaskPriority(sel, Number(e.target.value)).then(data.reload))}><option value="">Urgence…</option>{PRIORITY_LABEL.map((l, i) => <option key={l} value={i}>{l}</option>)}</Select>}
         {sel.length > 0 && <Select className="w-56" value="" onChange={(e) => e.target.value && change(sel, e.target.value as TaskStatus).then(() => setSel([]))}><option value="">{sel.length} sélection(s) → statut…</option>{Object.entries(TASK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</Select>}
         <Button variant="ghost" icon={<Download className="size-4" />} onClick={exportCsv}>CSV</Button>
         <Button icon={<FileDown className="size-4" />} onClick={pdf}>Fiche de production</Button>
       </div>
-      {!tasks.length && <Card><Empty icon={<Wand2 className="size-5" />} title="Rien à produire" text="Les tâches apparaissent à la validation des commandes." /></Card>}
+      {!tasks.length && <Card><Empty icon={<Wand2 className="size-5" />} title={showDeleted ? 'Aucune tâche supprimée' : 'Rien à produire'} text={showDeleted ? 'Les tâches supprimées du suivi apparaissent ici et peuvent être restaurées.' : 'Les tâches apparaissent à la validation des commandes.'} /></Card>}
       {tasks.length > 0 && view === 'tableau' && (
         <Card>
           <DataTable<Task> rows={tasks} rowKey={(t) => t.id} dense columns={[
@@ -142,7 +158,9 @@ function TasksView({ sessionId }: { sessionId?: string }) {
             { key: 'p', header: 'Participants / réf.', cell: (t) => <div className="max-w-[240px] text-[12.5px]"><div className="truncate">{t.participant_names}</div><div className="truncate font-mono text-mist-400">{t.refs.map((r) => r.reference).join(' ')}</div></div> },
             { key: 'i', header: 'Produits', cell: (t) => <div className="max-w-[260px] truncate text-[12.5px] text-mist-300">{t.items.map((i) => `${i.product_name} ${i.variant_name ?? ''} ×${i.qty}`).join(' · ')}</div> },
             { key: 's', header: 'Statut', sort: (t) => t.status, cell: (t) => <StatusSelect t={t} /> },
-            { key: 'n', header: '', cell: (t) => <button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>{t.notes ? 'Note ✎' : 'Note'}</button> },
+            { key: 'n', header: '', cell: (t) => <div className="flex items-center gap-3"><button className="text-[12px] text-mist-400 hover:text-mist-100" onClick={() => setNoteTask(t)}>{t.notes ? 'Note ✎' : 'Note'}</button>
+              {showDeleted ? <button className="text-[12px] text-gold-300 hover:text-gold-200" onClick={() => restore([t.id])}>Restaurer</button>
+                : <button title="Supprimer la tâche" className="text-mist-500 hover:text-red-300" onClick={() => removeTasks([t.id])}><Trash2 className="size-3.5" /></button>}</div> },
           ]} />
         </Card>
       )}

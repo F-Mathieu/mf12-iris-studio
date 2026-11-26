@@ -399,6 +399,9 @@ ALTER TABLE composition_styles ADD COLUMN single_visual INTEGER NOT NULL DEFAULT
 ALTER TABLE production_tasks ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE production_tasks ADD COLUMN rank REAL;
 `,
+  /* 23 — tâche de postproduction retirée du suivi (non recréée si la commande est corrigée ; restaurable). */ `
+ALTER TABLE production_tasks ADD COLUMN deleted_at TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

@@ -1137,3 +1137,22 @@ describe('fichiers numériques à prix libre', () => {
     expect(t).toMatchObject({ kind: 'item', item_product: 'Fichiers numériques', item_variant: 'Iris Léa HD, Iris Tom HD, photos n° 12, 15', status: 'a_realiser' });
   });
 });
+
+describe('postproduction : suppression de tâches', () => {
+  it('supprimée = retirée du suivi, pas recréée à la correction, restaurable', async () => {
+    const { listTasks, deleteTasks, restoreTasks } = await import('../services/production');
+    const x = await setupSale();
+    const comp = () => ({ key: uid(), styleId: x.fusion.id, styleName: 'Fusion', irisCount: 2, feeCents: 0, participantIds: [], participantNames: '', instructions: '' });
+    const r = await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), compositions: [comp(), comp()], items: [] }, 'validee');
+    const [a, b] = await listTasks({ sessionId: x.sid });
+    await deleteTasks([a.id]);
+    expect((await listTasks({ sessionId: x.sid })).map((t) => t.id)).toEqual([b.id]);
+    expect((await listTasks({ sessionId: x.sid, deleted: true })).map((t) => t.id)).toEqual([a.id]);
+    // correcting the order does not bring the task back
+    await saveCart(await loadCart(r.id), 'validee', 'correction');
+    expect(await listTasks({ sessionId: x.sid })).toHaveLength(1);
+    await restoreTasks([a.id]);
+    expect(await listTasks({ sessionId: x.sid })).toHaveLength(2);
+    expect(await listTasks({ sessionId: x.sid, deleted: true })).toHaveLength(0);
+  });
+});
