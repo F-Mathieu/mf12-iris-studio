@@ -48,6 +48,7 @@ function Shell() {
             <Route path="/vente/commande/:orderId" element={<Sale />} />
             <Route path="/postproduction" element={<Production />} />
             <Route path="/catalogue" element={<Catalog />} />
+            <Route path="/catalogue/:key" element={<Catalog />} />
             <Route path="/tarifs" element={<Templates />} />
             <Route path="/tarifs/:id" element={<Templates />} />
             <Route path="/fournisseurs" element={<Suppliers />} />

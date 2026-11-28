@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { BookOpenText, Copy, Eye, FileUp, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { BookOpenText, LayoutGrid, Settings2, Copy, Eye, FileUp, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
 import { PdfViewer } from '../components/PdfViewer';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
 import { addCatalogDoc, addProductPhotos, deleteCatalogDoc, listCatalogDocs, listProductPhotos, removeProductPhoto, renameCatalogDoc, setProductCover, addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, frameFor, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
@@ -14,19 +15,75 @@ import { act } from '../lib/act';
 const toBlob = (f: PickedFile) => new Blob([f.bytes as BlobPart], { type: mimeOf(f.name) });
 
 export default function Catalog() {
-  const [tab, setTab] = useState<'styles' | 'produits' | 'univers' | 'catalogues'>('styles');
+  const { key } = useParams();
+  const nav = useNavigate();
+  const [tab, setTab] = useState<'styles' | 'produits'>('produits');
   const [archived, setArchived] = useState(false);
-  const [universe, setUniverse] = useState('');
-  const universes = useAsync(() => listUniverses(true), [tab]);
+  const universes = useAsync(() => listUniverses(true), [key]);
+  const back = () => nav('/catalogue');
+  const archToggle = <Toggle checked={archived} onChange={setArchived} label="Afficher les archives" />;
+  if (!key) return <CatalogHome onOpen={(k) => nav(`/catalogue/${k}`)} />;
+  if (key === 'univers') return <><PageHeader title="Univers de séance" back={back} actions={archToggle} /><UniversesView archived={archived} /></>;
+  if (key === 'pdf') return <><PageHeader title="Catalogues PDF" back={back} /><CatalogDocsView /></>;
+  const u = universes.data?.find((x) => x.id === key);
+  const title = key === 'commun' ? 'Catalogue commun' : key === 'tout' ? 'Tout le catalogue' : u?.name ?? '…';
+  const subtitle = key === 'commun' ? 'Styles et produits proposés dans toutes les séances, quel que soit l’univers.'
+    : key === 'tout' ? 'Tous les styles et produits, tous univers confondus.' : `Styles et produits de l’univers ${u?.name ?? ''}, avec ceux du catalogue commun (badge « Commun »).`;
+  const universe = key === 'tout' ? '' : key;
   return (
     <>
-      <PageHeader title="Catalogue" subtitle="Univers de séance, styles de montages présentés en exemple et produits vendus. Rien n’est codé en dur."
-        actions={<>{tab !== 'univers' && tab !== 'catalogues' && <Select className="w-48" value={universe} onChange={(e) => setUniverse(e.target.value)} title="Commun + univers choisi"><option value="">Tous les univers</option>{universes.data?.filter((u) => !u.archived).map((u) => <option key={u.id} value={u.id}>{u.name} (+ commun)</option>)}</Select>}<Toggle checked={archived} onChange={setArchived} label="Afficher les archives" /></>} />
-      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'styles', label: 'Styles de montages' }, { id: 'produits', label: 'Produits & variantes' }, { id: 'univers', label: 'Univers de séance' }, { id: 'catalogues', label: 'Catalogues PDF' }]} />
+      <PageHeader title={title} subtitle={subtitle} back={back} actions={archToggle} />
+      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'produits', label: 'Produits & variantes' }, { id: 'styles', label: 'Styles de montages' }]} />
       {tab === 'styles' ? <StylesView archived={archived} universe={universe} universes={universes.data ?? []} />
-        : tab === 'produits' ? <ProductsView archived={archived} universe={universe} universes={universes.data ?? []} />
-        : tab === 'catalogues' ? <CatalogDocsView />
-        : <UniversesView archived={archived} />}
+        : <ProductsView archived={archived} universe={universe} universes={universes.data ?? []} />}
+    </>
+  );
+}
+
+/** First page: one big card per universe (plus the common catalogue), then the PDF catalogues and the universes settings. */
+function CatalogHome({ onOpen }: { onOpen: (key: string) => void }) {
+  const [archived, setArchived] = useState(false);
+  const [edit, setEdit] = useState<Partial<Universe> | null>(null);
+  const d = useAsync(async () => {
+    const [us, styles, products, docs] = await Promise.all([listUniverses(archived), listStyles(), listProducts(), listCatalogDocs()]);
+    return { us, styles, products, docs };
+  }, [archived]);
+  if (!d.data) return <Loading />;
+  const { us, styles, products, docs } = d.data;
+  const card = (k: string, name: string, desc: string | null, inU: (p: Product) => boolean, inS: (s: Style) => boolean, archivedU = false) => {
+    const ps = products.filter(inU), ss = styles.filter(inS);
+    const thumbs = [...ps.map((p) => p.thumb), ...ss.map((x) => x.cover_thumb)].filter((t): t is string => !!t).slice(0, 4);
+    return (
+      <button key={k} type="button" onClick={() => onOpen(k)} className={cx('group relative h-56 overflow-hidden rounded-2xl border border-ink-700 bg-ink-850 text-left transition hover:border-gold-500/60', archivedU && 'opacity-55')}>
+        {thumbs.length ? (
+          <div className={cx('absolute inset-0 grid gap-0.5', thumbs.length === 1 ? 'grid-cols-1' : 'grid-cols-2', thumbs.length > 2 && 'grid-rows-2')}>
+            {thumbs.map((t, i) => <img key={i} src={t} alt="" className={cx('size-full object-cover transition duration-500 group-hover:scale-[1.04]', thumbs.length === 3 && i === 0 && 'row-span-2')} />)}
+          </div>
+        ) : <div className="absolute inset-0 bg-gradient-to-br from-ink-750 via-ink-850 to-ink-900" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/5" />
+        <div className="absolute inset-x-0 bottom-0 p-5">
+          <div className="flex items-end justify-between gap-2"><div className="font-display text-[32px] leading-none font-semibold text-white">{name}</div>{archivedU && <Badge>Archivé</Badge>}</div>
+          {desc && <div className="mt-1.5 line-clamp-1 text-[12.5px] text-mist-200/80">{desc}</div>}
+          <div className="mt-2 text-[12px] text-gold-300">{ps.length} produit(s) · {ss.length} style(s)</div>
+        </div>
+      </button>
+    );
+  };
+  return (
+    <>
+      <PageHeader title="Catalogue" subtitle="Choisissez un catalogue. Chaque univers regroupe ses produits et ses styles ; le catalogue commun est proposé dans toutes les séances."
+        actions={<Toggle checked={archived} onChange={setArchived} label="Univers archivés" />} />
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
+        {us.map((u) => card(u.id, u.name, u.description, (p) => p.universe_ids.includes(u.id), (x) => x.universe_id === u.id, !!u.archived))}
+        {card('commun', 'Commun', 'Proposé dans toutes les séances', (p) => !p.universe_ids.length, (x) => !x.universe_id)}
+        <button type="button" onClick={() => setEdit({ name: '' })} className="flex h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouvel univers</button>
+      </div>
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <Card onClick={() => onOpen('pdf')} className="flex items-center gap-3 p-4"><BookOpenText className="size-6 text-gold-400" /><div><div className="font-medium">Catalogues PDF</div><div className="text-[12px] text-mist-400">{docs.length} catalogue(s) fournisseur</div></div></Card>
+        <Card onClick={() => onOpen('univers')} className="flex items-center gap-3 p-4"><Settings2 className="size-6 text-gold-400" /><div><div className="font-medium">Réglages des univers</div><div className="text-[12px] text-mist-400">Template par défaut, textes de brochure et d’e-mails</div></div></Card>
+        <Card onClick={() => onOpen('tout')} className="flex items-center gap-3 p-4"><LayoutGrid className="size-6 text-gold-400" /><div><div className="font-medium">Tout le catalogue</div><div className="text-[12px] text-mist-400">{products.length} produit(s) · {styles.length} style(s), tous univers</div></div></Card>
+      </div>
+      {edit && <UniverseEditor universe={edit} onClose={() => { setEdit(null); d.reload(); }} />}
     </>
   );
 }
@@ -102,7 +159,8 @@ function UniverseEditor({ universe, onClose }: { universe: Partial<Universe>; on
 }
 
 function StylesView({ archived, universe, universes }: { archived: boolean; universe: string; universes: Universe[] }) {
-  const s = useAsync(() => listStyles(archived, universe || null), [archived, universe]);
+  const common = universe === 'commun';
+  const s = useAsync(async () => { const l = await listStyles(archived, common ? null : universe || null); return common ? l.filter((x) => !x.universe_id) : l; }, [archived, universe]);
   const [edit, setEdit] = useState<Partial<Style> | null>(null);
   if (!s.data) return <Loading />;
   return (
@@ -118,7 +176,7 @@ function StylesView({ archived, universe, universes }: { archived: boolean; univ
             </div>
           </Card>
         ))}
-        <button onClick={() => setEdit({ name: '', min_iris: 1, max_iris: 1, active: 1, universe_id: universe || null })} className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouveau style</button>
+        <button onClick={() => setEdit({ name: '', min_iris: 1, max_iris: 1, active: 1, universe_id: (!common && universe) || null })} className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-ink-600 text-mist-400 transition hover:border-gold-500/60 hover:text-gold-300"><Plus className="mb-2 size-6" />Nouveau style</button>
       </div>
       {edit && <StyleEditor style={edit} universes={universes} onClose={() => { setEdit(null); s.reload(); }} />}
     </>
@@ -197,14 +255,15 @@ function StyleEditor({ style, universes, onClose }: { style: Partial<Style>; uni
 }
 
 function ProductsView({ archived, universe, universes }: { archived: boolean; universe: string; universes: Universe[] }) {
-  const d = useAsync(async () => ({ products: await listProducts(archived, universe || null), variants: await listVariants(archived) }), [archived, universe]);
+  const common = universe === 'commun';
+  const d = useAsync(async () => { const ps = await listProducts(archived, common ? null : universe || null); return { products: common ? ps.filter((p) => !p.universe_ids.length) : ps, variants: await listVariants(archived) }; }, [archived, universe]);
   const [edit, setEdit] = useState<Partial<Product> | null>(null);
   if (!d.data) return <Loading />;
   return (
     <>
       {(['numerique', 'impression', 'option'] as Category[]).map((cat) => (
         <div key={cat} className="mb-7">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1, universe_ids: universe ? [universe] : [] })}>Produit</Button></div>
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-[16px] font-semibold">{CATEGORY_LABEL[cat]}</h2><Button size="sm" variant="ghost" icon={<Plus className="size-3.5" />} onClick={() => setEdit({ category: cat, name: '', active: 1, needs_composition: cat === 'option' ? 0 : 1, universe_ids: universe && !common ? [universe] : [] })}>Produit</Button></div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
             {d.data!.products.filter((p) => p.category === cat).map((p) => (
               <Card key={p.id} onClick={() => setEdit(p)} className={cx('flex gap-3 p-3.5', (!p.active || p.archived) && 'opacity-55')}>
@@ -352,9 +411,10 @@ function ProductEditor({ product, universes, onClose, onDuplicated }: { product:
           </div>
           {p.category === 'option' && (
             <Field label="Cadre proposé automatiquement sous ces impressions" className="col-span-2"
-              hint="Dans le panier, « + Ajouter un cadre » apparaît sous un tirage de ces produits quand ce cadre a une variante du même nom (ex. « 20 × 20 cm »). Quantité liée au tirage.">
+              hint="Impressions du même univers que ce cadre (et du catalogue commun). Dans le panier, « + Ajouter un cadre » apparaît sous un tirage de ces produits quand ce cadre a une variante du même nom (ex. « 20 × 20 cm »). Quantité liée au tirage.">
               <div className="flex flex-wrap gap-1.5">
-                {(prints.data ?? []).map((x) => { const on = frameFor(p).includes(x.id); return (
+                {(prints.data ?? []).filter((x) => frameFor(p).includes(x.id) || !(p.universe_ids ?? []).length || !x.universe_ids.length || x.universe_ids.some((u) => (p.universe_ids ?? []).includes(u)))
+                  .map((x) => { const on = frameFor(p).includes(x.id); return (
                   <button key={x.id} type="button" onClick={() => setP({ ...p, frame_for: JSON.stringify(on ? frameFor(p).filter((id) => id !== x.id) : [...frameFor(p), x.id]) })}
                     className={cx('rounded-full border px-2.5 py-1 text-[12px] transition', on ? 'border-gold-500 bg-gold-500/15 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>{x.name}</button>
                 ); })}
