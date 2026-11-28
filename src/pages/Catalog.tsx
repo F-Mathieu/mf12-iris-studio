@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Copy, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
-import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
+import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
 import { listSupplierProducts } from '../services/suppliers';
 import { listUniverses, saveUniverse, type Universe } from '../services/universes';
 import { listTemplates } from '../services/pricing';
@@ -234,6 +234,9 @@ function ProductEditor({ product, universes, onClose, onDuplicated }: { product:
   return (
     <Modal open onClose={onClose} size="lg" title={p.id ? p.name : 'Nouveau produit'}
       footer={<>
+        {p.id && <Button variant="ghost" className="text-red-300 hover:text-red-200" icon={<Trash2 className="size-4" />}
+          onClick={async () => { if (!(await confirm({ title: `Supprimer « ${p.name} » ?`, danger: true, confirm: 'Supprimer', text: 'Le produit, ses variantes et ses prix dans les templates sont supprimés. S’il a déjà été vendu, il est seulement archivé (les commandes passées restent intactes). Les tarifs fournisseurs sont conservés.' }))) return;
+            const r = await act(() => removeProduct(p.id!), (x) => (x === 'deleted' ? 'Produit supprimé' : 'Produit déjà vendu : archivé')); if (r) onClose(); }}>Supprimer</Button>}
         {p.id && onDuplicated && <Button variant="subtle" className="mr-auto" icon={<Copy className="size-4" />} title="Copie avec la même description, les mêmes variantes et les mêmes coûts fournisseur (partagés)"
           onClick={async () => { if (!(await save())) return; const nid = await act(() => duplicateProduct(p.id!), 'Produit dupliqué — réglez l’univers, les photos à choisir et le nom'); if (nid) onDuplicated(nid); }}>Dupliquer</Button>}
         <Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="gold" disabled={!p.name?.trim()} onClick={async () => (await save()) && onClose()}>Enregistrer</Button></>}>

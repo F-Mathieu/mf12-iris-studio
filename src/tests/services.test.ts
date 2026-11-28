@@ -1221,3 +1221,21 @@ describe('catalogue : produit dupliqué, coût fournisseur partagé', () => {
     expect(c.get(v.id)!.cost).toBeGreaterThan(base);
   });
 });
+
+describe('catalogue : supprimer un produit', () => {
+  it('jamais vendu → supprimé (tarif fournisseur conservé, délié) ; vendu → archivé', async () => {
+    const { saveProduct, removeProduct } = await import('../services/catalog');
+    const { saveSupplier, saveSupplierProduct } = await import('../services/suppliers');
+    const pid = await saveProduct({ name: 'Boule test', category: 'impression' });
+    const [v] = (await listVariants(true)).filter((x) => x.product_id === pid);
+    const sp = await saveSupplierProduct({ supplier_id: await saveSupplier({ name: 'Labo' }), name: 'Boule', variant_id: v.id });
+    expect(await removeProduct(pid)).toBe('deleted');
+    expect((await listProducts(true)).some((p) => p.id === pid)).toBe(false);
+    expect((await one<{ variant_id: string | null }>('SELECT variant_id FROM supplier_products WHERE id=?', [sp]))!.variant_id).toBeNull();
+    const x = await setupSale();
+    const line = { key: uid(), variantId: x.acry40.id, productId: x.acry.id, category: 'impression', productName: 'Acrylique', variantName: '40 × 40 cm', compositionKey: null, qty: 1, unitPriceCents: 18900, unitCostCents: 0 };
+    await saveCart({ ...emptyCart(x.sid, x.reg.family_id, x.reg.id), compositions: [], items: [line] }, 'validee');
+    expect(await removeProduct(x.acry.id)).toBe('archived');
+    expect((await listProducts(true)).find((p) => p.id === x.acry.id)).toMatchObject({ archived: 1, active: 0 });
+  });
+});

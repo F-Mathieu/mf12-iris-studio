@@ -139,6 +139,25 @@ export async function saveVariant(v: Partial<Variant> & { product_id: string; na
   return id;
 }
 /** Hard delete only if never sold; otherwise archive (history preserved). */
+/** Deletes a product never sold (variants, prices, universes; supplier prices are unlinked, kept); a sold one is archived (history). */
+export async function removeProduct(id: string): Promise<'deleted' | 'archived'> {
+  const used = await one<{ n: number }>('SELECT count(*) n FROM order_items WHERE product_id=? OR variant_id IN (SELECT id FROM product_variants WHERE product_id=?)', [id, id]);
+  if (used && used.n > 0) {
+    await batch([{ sql: 'UPDATE products SET archived=1, active=0 WHERE id=?', params: [id] }, { sql: 'UPDATE product_variants SET archived=1, active=0 WHERE product_id=?', params: [id] }]);
+    return 'archived';
+  }
+  const vids = "(SELECT id FROM product_variants WHERE product_id=?)";
+  await batch([
+    { sql: `DELETE FROM price_list_items WHERE kind='variant' AND ref_id IN ${vids}`, params: [id] },
+    { sql: `DELETE FROM catalog_universes WHERE (kind='variant' AND ref_id IN ${vids}) OR (kind='product' AND ref_id=?)`, params: [id, id] },
+    { sql: `UPDATE product_variants SET preferred_supplier_product_id=NULL WHERE preferred_supplier_product_id IN (SELECT id FROM supplier_products WHERE variant_id IN ${vids})`, params: [id] },
+    { sql: `UPDATE supplier_products SET variant_id=NULL WHERE variant_id IN ${vids}`, params: [id] },
+    { sql: 'DELETE FROM product_variants WHERE product_id=?', params: [id] },
+    { sql: 'DELETE FROM products WHERE id=?', params: [id] },
+  ]);
+  return 'deleted';
+}
+
 export async function removeVariant(id: string) {
   const used = await one<{ n: number }>('SELECT count(*) n FROM order_items WHERE variant_id=?', [id]);
   if (used && used.n > 0) { await run('UPDATE product_variants SET archived=1, active=0 WHERE id=?', [id]); return 'archived'; }
