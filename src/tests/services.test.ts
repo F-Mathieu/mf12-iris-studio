@@ -1193,3 +1193,31 @@ describe('tableau de bord : actions requises', () => {
     expect((await A.requiredActions(today)).list).toHaveLength(2);
   });
 });
+
+describe('catalogue : produit dupliqué, coût fournisseur partagé', () => {
+  it('la copie garde description, variantes et le même tarif fournisseur ; une variante peut pointer un tarif lié ailleurs', async () => {
+    const { saveSupplier, saveSupplierProduct, addSupplierPrice, variantCosts } = await import('../services/suppliers');
+    const { saveProduct, saveVariant, duplicateProduct } = await import('../services/catalog');
+    const sup = await saveSupplier({ name: 'Labo test' });
+    const pid = await saveProduct({ name: 'Tirage iris', category: 'impression', description: 'Papier mat 250 g', photos_per_unit: null, needs_composition: 1 });
+    const [v] = (await listVariants(true)).filter((x) => x.product_id === pid);
+    const sp = await saveSupplierProduct({ supplier_id: sup, name: 'Tirage 30x45', format: '30x45', variant_id: v.id });
+    await addSupplierPrice(sp, { price_cents: 1000, price_is_ttc: true, vat_bp: 2000 }); // fictitious
+    const base = (await variantCosts()).get(v.id)!.cost;
+    expect(base).toBeGreaterThan(0);
+    const nid = await duplicateProduct(pid);
+    const copy = (await listProducts(true)).find((p) => p.id === nid)!;
+    expect(copy).toMatchObject({ name: 'Tirage iris (copie)', description: 'Papier mat 250 g', needs_composition: 1 });
+    const [cv] = (await listVariants(true)).filter((x) => x.product_id === nid);
+    expect(cv.preferred_supplier_product_id).toBe(sp);
+    expect((await variantCosts()).get(cv.id)!.cost).toBe(base);
+    // a brand-new variant pointing to that same supplier price gets its cost too
+    const nv = await saveVariant({ product_id: nid, name: 'Autre', preferred_supplier_product_id: sp });
+    expect((await variantCosts()).get(nv)!.cost).toBe(base);
+    // a new supplier price updates both
+    await addSupplierPrice(sp, { price_cents: 2000, price_is_ttc: true, vat_bp: 2000 });
+    const c = await variantCosts();
+    expect(c.get(cv.id)!.cost).toBe(c.get(v.id)!.cost);
+    expect(c.get(v.id)!.cost).toBeGreaterThan(base);
+  });
+});

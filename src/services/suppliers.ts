@@ -77,7 +77,8 @@ export async function variantCosts(): Promise<Map<string, { cost: number; suppli
   const out = new Map<string, { cost: number; supplierId: string; supplierName: string; spId: string }>();
   for (const v of variants) {
     const cands = sps.filter((s) => s.variant_id === v.id && s.equivalence === 'equivalent' && s.price_cents != null);
-    const pref = cands.find((c) => c.id === v.preferred_supplier_product_id);
+    // the chosen supplier price may belong to another variant (same Onelab print sold in two universes): its cost is shared
+    const pref = sps.find((c) => c.id === v.preferred_supplier_product_id && c.price_cents != null);
     const best = pref ?? cands.map((c) => ({ c, k: costOf(c, vatRec, v.extra_cost_cents)!.real_cost_cents })).sort((a, b) => a.k - b.k)[0]?.c;
     if (best) out.set(v.id, { cost: costOf(best, vatRec, v.extra_cost_cents)!.real_cost_cents, supplierId: best.supplier_id, supplierName: best.supplier_name, spId: best.id });
     else if (v.extra_cost_cents) out.set(v.id, { cost: v.extra_cost_cents, supplierId: '', supplierName: '', spId: '' });

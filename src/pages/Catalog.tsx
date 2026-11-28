@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
+import { Copy, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
-import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
+import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
 import { listSupplierProducts } from '../services/suppliers';
 import { listUniverses, saveUniverse, type Universe } from '../services/universes';
 import { listTemplates } from '../services/pricing';
@@ -217,12 +217,13 @@ function ProductsView({ archived, universe, universes }: { archived: boolean; un
           </div>
         </div>
       ))}
-      {edit && <ProductEditor product={edit} universes={universes} onClose={() => { setEdit(null); d.reload(); }} />}
+      {edit && <ProductEditor key={edit.id ?? 'new'} product={edit} universes={universes} onClose={() => { setEdit(null); d.reload(); }}
+        onDuplicated={async (id) => { const np = (await listProducts(true)).find((x) => x.id === id); d.reload(); if (np) setEdit(np); }} />}
     </>
   );
 }
 
-function ProductEditor({ product, universes, onClose }: { product: Partial<Product>; universes: Universe[]; onClose: () => void }) {
+function ProductEditor({ product, universes, onClose, onDuplicated }: { product: Partial<Product>; universes: Universe[]; onClose: () => void; onDuplicated?: (id: string) => void }) {
   const confirm = useConfirm();
   const [p, setP] = useState(product);
   const styles = useAsync(() => listStyles(), []);
@@ -232,7 +233,10 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
   const save = async () => { const id = await act(() => saveProduct(p as Product), 'Produit enregistré'); if (id) setP({ ...p, id }); return id; };
   return (
     <Modal open onClose={onClose} size="lg" title={p.id ? p.name : 'Nouveau produit'}
-      footer={<><Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="gold" disabled={!p.name?.trim()} onClick={async () => (await save()) && onClose()}>Enregistrer</Button></>}>
+      footer={<>
+        {p.id && onDuplicated && <Button variant="subtle" className="mr-auto" icon={<Copy className="size-4" />} title="Copie avec la même description, les mêmes variantes et les mêmes coûts fournisseur (partagés)"
+          onClick={async () => { if (!(await save())) return; const nid = await act(() => duplicateProduct(p.id!), 'Produit dupliqué — réglez l’univers, les photos à choisir et le nom'); if (nid) onDuplicated(nid); }}>Dupliquer</Button>}
+        <Button variant="ghost" onClick={onClose}>Fermer</Button><Button variant="gold" disabled={!p.name?.trim()} onClick={async () => (await save()) && onClose()}>Enregistrer</Button></>}>
       <div className="grid grid-cols-[120px_1fr] gap-5">
         <button onClick={async () => { const [f] = await pickFiles(IMAGE_FILTER); if (f) { const mid = await act(() => addMedia(toBlob(f))); if (mid) setP({ ...p, media_id: mid, thumb: null }); } }} className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-ink-600 text-mist-400 hover:border-gold-500/60">
           {p.thumb ? <img src={p.thumb} className="size-full object-cover" alt="" /> : p.media_id ? <Badge tone="green">Image ✓</Badge> : <ImagePlus className="size-6" />}
@@ -276,8 +280,11 @@ function ProductEditor({ product, universes, onClose }: { product: Partial<Produ
                 <Input placeholder="Finition" defaultValue={v.finish ?? ''} onBlur={(e) => act(() => saveVariant({ ...v, finish: e.target.value || null }))} />
                 <MoneyInput placeholder="0,00" value={v.extra_cost_cents} onChange={(c) => act(() => saveVariant({ ...v, extra_cost_cents: c ?? 0 }).then(vs.reload))} />
                 <Select value={v.preferred_supplier_product_id ?? ''} onChange={(e) => act(() => saveVariant({ ...v, preferred_supplier_product_id: e.target.value || null }).then(vs.reload))} title="Fournisseur préféré">
-                  <option value="">Fournisseur : le moins cher</option>
-                  {sps.data?.filter((s) => s.variant_id === v.id).map((s) => <option key={s.id} value={s.id}>{s.supplier_name} — {s.name}</option>)}
+                  <option value="">{sps.data?.some((s) => s.variant_id === v.id) ? 'Fournisseur : le moins cher' : 'Fournisseur : aucun (choisir un tarif)'}</option>
+                  {sps.data?.some((s) => s.variant_id === v.id) && <optgroup label="Liés à cette variante">{sps.data.filter((s) => s.variant_id === v.id).map((s) => <option key={s.id} value={s.id}>{s.supplier_name} — {s.name}</option>)}</optgroup>}
+                  {[...new Set((sps.data ?? []).filter((s) => s.variant_id !== v.id && !s.archived).map((s) => s.supplier_name))].map((sup) => (
+                    <optgroup key={sup} label={`${sup} — tous les tarifs`}>{sps.data!.filter((s) => s.supplier_name === sup && s.variant_id !== v.id && !s.archived).map((s) => <option key={s.id} value={s.id}>{s.name}{s.format ? ` · ${s.format}` : ''}{s.price_cents != null ? ` · ${(s.price_cents / 100).toFixed(2).replace('.', ',')} €` : ''}</option>)}</optgroup>
+                  ))}
                 </Select>
                 <Toggle checked={!!v.active} onChange={(x) => act(() => saveVariant({ ...v, active: x ? 1 : 0 }).then(vs.reload))} />
                 <IconButton title="Supprimer / archiver" onClick={async () => (await confirm({ title: `Retirer la variante « ${v.name} » ?`, text: 'Si elle a déjà été vendue, elle est archivée (historique conservé).' })) && act(() => removeVariant(v.id).then(vs.reload))}><Trash2 className="size-4" /></IconButton>

@@ -103,6 +103,31 @@ export async function saveProduct(p: Partial<Product> & { name: string; category
     insertStmt('product_variants', { id: uid(), product_id: id, name: p.category === 'numerique' ? 'Fichier HD' : 'Standard', sort: 0 })]);
   return id;
 }
+/**
+ * Copy of a product for another use (e.g. a Christmas print from an Iris one): same description, image and variants;
+ * each variant keeps the SAME supplier price as its source (shared, not copied: a new supplier price updates both).
+ */
+export async function duplicateProduct(id: string): Promise<string> {
+  const p = await one<Product & { created_at: string }>('SELECT * FROM products WHERE id=?', [id]);
+  if (!p) throw new Error('Produit introuvable');
+  const vars = await sel<Variant>('SELECT * FROM product_variants WHERE product_id=? AND archived=0 ORDER BY sort', [id]);
+  const costs = await (await import('./suppliers')).variantCosts();
+  const nid = uid(), now = nowIso();
+  const n = await one<{ n: number }>('SELECT COALESCE(max(sort),0)+1 n FROM products');
+  const links = async (kind: 'product' | 'variant', ref: string) => (await sel<{ u: string }>('SELECT universe_id u FROM catalog_universes WHERE kind=? AND ref_id=?', [kind, ref])).map((r) => r.u);
+  const uni = await links('product', id);
+  const stmts = [insertStmt('products', { id: nid, category: p.category, name: `${p.name} (copie)`, description: p.description, media_id: p.media_id, style_id: p.style_id,
+    needs_composition: p.needs_composition, photos_per_unit: p.photos_per_unit, active: p.active, archived: 0, sort: n?.n ?? 0, created_at: now }), ...setLinksStmts('product', nid, uni)];
+  for (const v of vars) {
+    const vid = uid();
+    stmts.push(insertStmt('product_variants', { id: vid, product_id: nid, name: v.name, format: v.format, finish: v.finish, extra_cost_cents: v.extra_cost_cents,
+      preferred_supplier_product_id: v.preferred_supplier_product_id || costs.get(v.id)?.spId || null, active: v.active, archived: 0, sort: v.sort }));
+    stmts.push(...setLinksStmts('variant', vid, await links('variant', v.id)));
+  }
+  await batch(stmts);
+  return nid;
+}
+
 export async function saveVariant(v: Partial<Variant> & { product_id: string; name: string }) {
   if (!v.name.trim()) throw new Error('Nom de la variante obligatoire.');
   const row = { name: v.name.trim(), format: v.format ?? null, finish: v.finish ?? null, extra_cost_cents: v.extra_cost_cents ?? 0,
