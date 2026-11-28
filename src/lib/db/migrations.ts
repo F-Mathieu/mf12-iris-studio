@@ -405,6 +405,18 @@ ALTER TABLE production_tasks ADD COLUMN deleted_at TEXT;
   /* 24 — cadre (produit « Options ») proposé automatiquement sous les tirages de ces produits, au même format : liste JSON d’ids de produits. */ `
 ALTER TABLE products ADD COLUMN frame_for TEXT;
 `,
+  /* 25 — photos supplémentaires d’un produit (défilé) et catalogues PDF fournisseurs (en base → sauvegardés) ; page du catalogue liée à un produit. */ `
+CREATE TABLE product_media (
+  id TEXT PRIMARY KEY, product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  media_id TEXT NOT NULL REFERENCES media(id) ON DELETE CASCADE, sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_pm_product ON product_media(product_id);
+CREATE TABLE catalog_docs (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, file_name TEXT, size INTEGER NOT NULL DEFAULT 0, data TEXT NOT NULL, created_at TEXT NOT NULL
+);
+ALTER TABLE products ADD COLUMN catalog_doc_id TEXT REFERENCES catalog_docs(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN catalog_page INTEGER;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

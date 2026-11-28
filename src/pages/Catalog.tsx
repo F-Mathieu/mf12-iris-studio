@@ -1,29 +1,31 @@
 import { useState } from 'react';
-import { Copy, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
+import { BookOpenText, Copy, Eye, FileUp, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
+import { PdfViewer } from '../components/PdfViewer';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
-import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, frameFor, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
+import { addCatalogDoc, addProductPhotos, deleteCatalogDoc, listCatalogDocs, listProductPhotos, removeProductPhoto, renameCatalogDoc, setProductCover, addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, frameFor, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
 import { listSupplierProducts } from '../services/suppliers';
 import { listUniverses, saveUniverse, type Universe } from '../services/universes';
 import { listTemplates } from '../services/pricing';
 import { DEFAULT_OFFERS_MAIL, DEFAULT_RECAP_MAIL } from '../lib/invoiceMail';
-import { IMAGE_FILTER, pickFiles, type PickedFile } from '../lib/files';
+import { IMAGE_FILTER, PDF_FILTER, pickFiles, type PickedFile } from '../lib/files';
 import { mimeOf } from '../lib/images';
 import { act } from '../lib/act';
 
 const toBlob = (f: PickedFile) => new Blob([f.bytes as BlobPart], { type: mimeOf(f.name) });
 
 export default function Catalog() {
-  const [tab, setTab] = useState<'styles' | 'produits' | 'univers'>('styles');
+  const [tab, setTab] = useState<'styles' | 'produits' | 'univers' | 'catalogues'>('styles');
   const [archived, setArchived] = useState(false);
   const [universe, setUniverse] = useState('');
   const universes = useAsync(() => listUniverses(true), [tab]);
   return (
     <>
       <PageHeader title="Catalogue" subtitle="Univers de séance, styles de montages présentés en exemple et produits vendus. Rien n’est codé en dur."
-        actions={<>{tab !== 'univers' && <Select className="w-48" value={universe} onChange={(e) => setUniverse(e.target.value)} title="Commun + univers choisi"><option value="">Tous les univers</option>{universes.data?.filter((u) => !u.archived).map((u) => <option key={u.id} value={u.id}>{u.name} (+ commun)</option>)}</Select>}<Toggle checked={archived} onChange={setArchived} label="Afficher les archives" /></>} />
-      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'styles', label: 'Styles de montages' }, { id: 'produits', label: 'Produits & variantes' }, { id: 'univers', label: 'Univers de séance' }]} />
+        actions={<>{tab !== 'univers' && tab !== 'catalogues' && <Select className="w-48" value={universe} onChange={(e) => setUniverse(e.target.value)} title="Commun + univers choisi"><option value="">Tous les univers</option>{universes.data?.filter((u) => !u.archived).map((u) => <option key={u.id} value={u.id}>{u.name} (+ commun)</option>)}</Select>}<Toggle checked={archived} onChange={setArchived} label="Afficher les archives" /></>} />
+      <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ id: 'styles', label: 'Styles de montages' }, { id: 'produits', label: 'Produits & variantes' }, { id: 'univers', label: 'Univers de séance' }, { id: 'catalogues', label: 'Catalogues PDF' }]} />
       {tab === 'styles' ? <StylesView archived={archived} universe={universe} universes={universes.data ?? []} />
         : tab === 'produits' ? <ProductsView archived={archived} universe={universe} universes={universes.data ?? []} />
+        : tab === 'catalogues' ? <CatalogDocsView />
         : <UniversesView archived={archived} />}
     </>
   );
@@ -223,6 +225,89 @@ function ProductsView({ archived, universe, universes }: { archived: boolean; un
   );
 }
 
+/** Supplier catalogues (PDF) stored in the base: a product can open « its » page in the sale screen. */
+function CatalogDocsView() {
+  const confirm = useConfirm();
+  const docs = useAsync(() => listCatalogDocs(), []);
+  const [view, setView] = useState<{ id: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    const files = await pickFiles(PDF_FILTER, true);
+    if (!files.length) return;
+    setBusy(true);
+    await act(async () => { for (const f of files) await addCatalogDoc(f.name.replace(/\.pdf$/i, ''), f.name, f.bytes); return files.length; }, (n) => `${n} catalogue(s) importé(s)`);
+    setBusy(false); docs.reload();
+  };
+  if (!docs.data) return <Loading />;
+  return (
+    <>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-[13px] text-mist-400">Catalogues de vos fournisseurs (PDF). Dans la fiche d’un produit, choisissez le catalogue et la page : un bouton l’ouvre directement pendant la vente. Stockés dans la base, donc inclus dans les sauvegardes.</div>
+        <Button variant="gold" icon={<FileUp className="size-4" />} loading={busy} onClick={add}>Importer un PDF</Button>
+      </div>
+      {!docs.data.length && <Card className="p-8 text-center text-[13px] text-mist-400">Aucun catalogue. Importez par exemple le catalogue PDF de Noël de votre laboratoire.</Card>}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
+        {docs.data.map((d) => (
+          <Card key={d.id} className="flex items-center gap-3 p-3.5">
+            <BookOpenText className="size-8 shrink-0 text-gold-400" />
+            <div className="min-w-0 flex-1">
+              <Input defaultValue={d.name} className="h-8" onBlur={(e) => e.target.value.trim() && e.target.value !== d.name && act(() => renameCatalogDoc(d.id, e.target.value).then(docs.reload))} />
+              <div className="mt-1 text-[11.5px] text-mist-400">{(d.size / 1048576).toFixed(1).replace('.', ',')} Mo · {d.products ?? 0} produit(s) lié(s)</div>
+            </div>
+            <IconButton title="Ouvrir" onClick={() => setView({ id: d.id, name: d.name })}><Eye className="size-4" /></IconButton>
+            <IconButton title="Supprimer" onClick={async () => (await confirm({ title: `Supprimer « ${d.name} » ?`, danger: true, confirm: 'Supprimer', text: d.products ? `${d.products} produit(s) perdront leur lien vers ce catalogue.` : undefined }))
+              && act(() => deleteCatalogDoc(d.id).then(docs.reload), 'Catalogue supprimé')}><Trash2 className="size-4" /></IconButton>
+          </Card>
+        ))}
+      </div>
+      {view && <PdfViewer docId={view.id} page={1} title={view.name} onClose={() => setView(null)} />}
+    </>
+  );
+}
+
+/** Extra photos of a product (slideshow in the sale screen) and its supplier catalogue page. */
+function ProductExtras({ p, setP }: { p: Partial<Product>; setP: (p: Partial<Product>) => void }) {
+  const photos = useAsync(() => (p.id ? listProductPhotos(p.id) : Promise.resolve([])), [p.id]);
+  const docs = useAsync(() => listCatalogDocs(), []);
+  const [view, setView] = useState(false);
+  // keep the editor's cover in sync (saving the product writes media_id)
+  const sync = async () => { const list = await listProductPhotos(p.id!); const c = list.find((x) => x.cover); setP({ ...p, media_id: c?.media_id ?? null, thumb: c?.thumb ?? null }); photos.reload(); };
+  if (!p.id) return <div className="mt-5 text-[12.5px] text-mist-400">Enregistrez le produit pour ajouter plusieurs photos et un lien vers un catalogue.</div>;
+  return (
+    <div className="mt-5 grid grid-cols-[1fr_300px] gap-5">
+      <div>
+        <div className="mb-2 flex items-center justify-between"><div className="text-[13px] font-semibold">Photos du produit <span className="font-normal text-mist-400">(défilé pendant la vente ; ★ = photo principale)</span></div>
+          <Button size="sm" variant="subtle" icon={<ImagePlus className="size-3.5" />} onClick={async () => { const fs = await pickFiles(IMAGE_FILTER, true); if (fs.length && await act(() => addProductPhotos(p.id!, fs.map(toBlob)), (n) => `${n} photo(s) ajoutée(s)`)) sync(); }}>Ajouter des photos</Button></div>
+        <div className="flex flex-wrap gap-2">
+          {(photos.data ?? []).map((x) => (
+            <div key={x.id} className="group relative size-20 overflow-hidden rounded-lg bg-ink-800">
+              <img src={x.thumb} className="size-full object-cover" alt="" />
+              <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/60 px-1 py-0.5 opacity-0 transition group-hover:opacity-100">
+                <button type="button" title={x.cover ? 'Photo principale' : 'Mettre en photo principale'} disabled={x.cover} onClick={() => act(() => setProductCover(p.id!, x.id)).then(sync)}><Star className={cx('size-3.5', x.cover ? 'fill-gold-400 text-gold-400' : 'text-mist-200')} /></button>
+                <button type="button" title="Retirer" onClick={() => act(() => removeProductPhoto(p.id!, x.id)).then(sync)}><Trash2 className="size-3.5 text-mist-200" /></button>
+              </div>
+              {x.cover && <Star className="absolute top-1 left-1 size-3.5 fill-gold-400 text-gold-400" />}
+            </div>
+          ))}
+          {!photos.data?.length && <div className="text-[12px] text-mist-400">Aucune photo.</div>}
+        </div>
+      </div>
+      <div>
+        <div className="mb-2 text-[13px] font-semibold">Catalogue fournisseur</div>
+        <div className="flex gap-2">
+          <Select value={p.catalog_doc_id ?? ''} onChange={(e) => setP({ ...p, catalog_doc_id: e.target.value || null, catalog_page: e.target.value ? p.catalog_page ?? 1 : null })}>
+            <option value="">— Aucun —</option>{docs.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </Select>
+          {p.catalog_doc_id && <Input type="number" min={1} className="w-20" title="Page" value={p.catalog_page ?? 1} onChange={(e) => setP({ ...p, catalog_page: Math.max(1, Number(e.target.value) || 1) })} />}
+        </div>
+        {p.catalog_doc_id ? <button type="button" className="mt-2 flex items-center gap-1.5 text-[12.5px] text-gold-300 hover:text-gold-200" onClick={() => setView(true)}><Eye className="size-3.5" />Voir la page {p.catalog_page ?? 1}</button>
+          : !docs.data?.length && <div className="mt-1 text-[11.5px] text-mist-400">Importez d’abord un PDF dans l’onglet « Catalogues PDF ».</div>}
+      </div>
+      {view && p.catalog_doc_id && <PdfViewer docId={p.catalog_doc_id} page={p.catalog_page ?? 1} title={`${p.name} — catalogue`} onClose={() => setView(false)} />}
+    </div>
+  );
+}
+
 function ProductEditor({ product, universes, onClose, onDuplicated }: { product: Partial<Product>; universes: Universe[]; onClose: () => void; onDuplicated?: (id: string) => void }) {
   const confirm = useConfirm();
   const [p, setP] = useState(product);
@@ -279,6 +364,7 @@ function ProductEditor({ product, universes, onClose, onDuplicated }: { product:
           )}
         </div>
       </div>
+      <ProductExtras p={p} setP={setP} />
       <div className="mt-6">
         <div className="mb-2 text-[13px] font-semibold">Variantes (formats, supports, finitions)</div>
         {!p.id && <div className="text-[12.5px] text-mist-400">Enregistrez le produit pour gérer ses variantes.</div>}

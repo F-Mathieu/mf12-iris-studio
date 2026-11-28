@@ -6,7 +6,7 @@ export interface Style { id: string; name: string; description: string | null; m
 export interface Example { id: string; style_id: string; media_id: string; iris_count: number | null; caption: string | null; sort: number; thumb: string }
 export type Category = 'numerique' | 'impression' | 'option';
 export const CATEGORY_LABEL: Record<Category | 'creation', string> = { numerique: 'Numérique', impression: 'Impressions', option: 'Options', creation: 'Créations' };
-export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; universe_ids: string[]; photos_per_unit: number | null; frame_for?: string | null; thumb?: string | null; style_name?: string | null }
+export interface Product { id: string; category: Category; name: string; description: string | null; media_id: string | null; style_id: string | null; needs_composition: number; active: number; archived: number; sort: number; universe_ids: string[]; photos_per_unit: number | null; frame_for?: string | null; catalog_doc_id?: string | null; catalog_page?: number | null; thumb?: string | null; style_name?: string | null }
 export interface Variant { id: string; product_id: string; name: string; format: string | null; finish: string | null; extra_cost_cents: number; preferred_supplier_product_id: string | null; active: number; archived: number; sort: number; universe_ids: string[] }
 
 /* ---------- media */
@@ -76,6 +76,69 @@ export async function deleteExample(id: string) {
 
 /* ---------- products */
 /** universeId: only common products + those of this universe. */
+/* ---------- product photos (slideshow) */
+export interface ProductPhoto { id: string; media_id: string; thumb: string; cover: boolean }
+/** Photos of a product: the cover (products.media_id) first, then the extra ones in order. */
+export async function listProductPhotos(productId: string): Promise<ProductPhoto[]> {
+  const p = await one<{ media_id: string | null; thumb: string | null }>('SELECT p.media_id, m.thumb FROM products p LEFT JOIN media m ON m.id=p.media_id WHERE p.id=?', [productId]);
+  const extra = await sel<{ id: string; media_id: string; thumb: string }>('SELECT pm.id, pm.media_id, m.thumb FROM product_media pm JOIN media m ON m.id=pm.media_id WHERE pm.product_id=? ORDER BY pm.sort, pm.id', [productId]);
+  return [...(p?.media_id && p.thumb ? [{ id: 'cover', media_id: p.media_id, thumb: p.thumb, cover: true }] : []), ...extra.map((x) => ({ ...x, cover: false }))];
+}
+/** Adds photos to a product (the first one becomes the cover if it has none). */
+export async function addProductPhotos(productId: string, blobs: Blob[]): Promise<number> {
+  const p = await one<{ media_id: string | null }>('SELECT media_id FROM products WHERE id=?', [productId]);
+  if (!p) throw new Error('Produit introuvable');
+  let cover = p.media_id;
+  const n = await one<{ n: number }>('SELECT COALESCE(max(sort),0) n FROM product_media WHERE product_id=?', [productId]);
+  let sort = n?.n ?? 0;
+  for (const b of blobs) {
+    const mid = await addMedia(b);
+    if (!cover) { await batch([updateStmt('products', productId, { media_id: mid })]); cover = mid; }
+    else await batch([insertStmt('product_media', { id: uid(), product_id: productId, media_id: mid, sort: ++sort })]);
+  }
+  return blobs.length;
+}
+/** Removes a photo; removing the cover promotes the next photo. */
+export async function removeProductPhoto(productId: string, photoId: string) {
+  if (photoId !== 'cover') { await run('DELETE FROM product_media WHERE id=? AND product_id=?', [photoId, productId]); return; }
+  const next = await one<{ id: string; media_id: string }>('SELECT id, media_id FROM product_media WHERE product_id=? ORDER BY sort, id LIMIT 1', [productId]);
+  await batch([updateStmt('products', productId, { media_id: next?.media_id ?? null }), ...(next ? [{ sql: 'DELETE FROM product_media WHERE id=?', params: [next.id] }] : [])]);
+}
+/** Makes an extra photo the cover (the former cover goes back among the extra photos). */
+export async function setProductCover(productId: string, photoId: string) {
+  const pm = await one<{ media_id: string }>('SELECT media_id FROM product_media WHERE id=? AND product_id=?', [photoId, productId]);
+  const p = await one<{ media_id: string | null }>('SELECT media_id FROM products WHERE id=?', [productId]);
+  if (!pm || !p) return;
+  await batch([updateStmt('products', productId, { media_id: pm.media_id }),
+    p.media_id ? updateStmt('product_media', photoId, { media_id: p.media_id }) : { sql: 'DELETE FROM product_media WHERE id=?', params: [photoId] }]);
+}
+/** Extra photos of every product (for the sale screen), productId → photos after the cover. */
+export async function productGalleries(): Promise<Map<string, { mediaId: string; thumb: string }[]>> {
+  const rows = await sel<{ product_id: string; media_id: string; thumb: string }>('SELECT pm.product_id, pm.media_id, m.thumb FROM product_media pm JOIN media m ON m.id=pm.media_id ORDER BY pm.product_id, pm.sort, pm.id');
+  const out = new Map<string, { mediaId: string; thumb: string }[]>();
+  for (const r of rows) out.set(r.product_id, [...(out.get(r.product_id) ?? []), { mediaId: r.media_id, thumb: r.thumb }]);
+  return out;
+}
+
+/* ---------- supplier catalogues (PDF) */
+export interface CatalogDoc { id: string; name: string; file_name: string | null; size: number; created_at: string; products?: number }
+export const MAX_CATALOG_BYTES = 80 * 1024 * 1024;
+export const listCatalogDocs = () => sel<CatalogDoc>('SELECT d.id, d.name, d.file_name, d.size, d.created_at, (SELECT count(*) FROM products p WHERE p.catalog_doc_id=d.id) products FROM catalog_docs d ORDER BY d.name');
+export async function addCatalogDoc(name: string, fileName: string, bytes: Uint8Array): Promise<string> {
+  if (!/\.pdf$/i.test(fileName)) throw new Error('Choisissez un fichier PDF.');
+  if (bytes.length > MAX_CATALOG_BYTES) throw new Error(`Catalogue trop lourd (${Math.round(bytes.length / 1048576)} Mo, maximum 80 Mo) : compressez-le (Aperçu → Exporter → Réduire la taille).`);
+  const { toBase64 } = await import('./attachments');
+  const id = uid();
+  await batch([insertStmt('catalog_docs', { id, name: name.trim() || fileName.replace(/\.pdf$/i, ''), file_name: fileName, size: bytes.length, data: toBase64(bytes), created_at: nowIso() })]);
+  return id;
+}
+export const renameCatalogDoc = (id: string, name: string) => batch([updateStmt('catalog_docs', id, { name: name.trim() })]);
+export const deleteCatalogDoc = (id: string) => batch([{ sql: 'UPDATE products SET catalog_doc_id=NULL, catalog_page=NULL WHERE catalog_doc_id=?', params: [id] }, { sql: 'DELETE FROM catalog_docs WHERE id=?', params: [id] }]);
+export async function catalogDocBytes(id: string): Promise<Uint8Array | null> {
+  const r = await one<{ data: string }>('SELECT data FROM catalog_docs WHERE id=?', [id]);
+  return r ? (await import('./attachments')).fromBase64(r.data) : null;
+}
+
 /** Print products under which this frame (« Options » product) is offered, same format. */
 export const frameFor = (p: Pick<Product, 'frame_for'>): string[] => { try { const v = p.frame_for ? JSON.parse(p.frame_for) : []; return Array.isArray(v) ? v : []; } catch { return []; } };
 
@@ -98,7 +161,8 @@ export async function saveProduct(p: Partial<Product> & { name: string; category
   const row = { category: p.category, name: p.name.trim(), description: p.description ?? null, media_id: p.media_id ?? null, style_id: p.style_id || null,
     needs_composition: p.needs_composition ?? (p.category === 'option' ? 0 : 1), active: p.active ?? 1, archived: p.archived ?? 0,
     photos_per_unit: p.photos_per_unit == null || (p.photos_per_unit as unknown) === '' ? null : Math.max(0, Math.round(Number(p.photos_per_unit))),
-    frame_for: p.category === 'option' && frameFor(p).length ? JSON.stringify(frameFor(p)) : null };
+    frame_for: p.category === 'option' && frameFor(p).length ? JSON.stringify(frameFor(p)) : null,
+    catalog_doc_id: p.catalog_doc_id || null, catalog_page: p.catalog_doc_id && p.catalog_page ? Math.max(1, Math.round(Number(p.catalog_page))) : null };
   const linkStmts = (id: string) => (p.universe_ids ? setLinksStmts('product', id, p.universe_ids) : []);
   if (p.id) { await batch([updateStmt('products', p.id, row), ...linkStmts(p.id)]); return p.id; }
   const id = uid();
@@ -121,13 +185,15 @@ export async function duplicateProduct(id: string): Promise<string> {
   const links = async (kind: 'product' | 'variant', ref: string) => (await sel<{ u: string }>('SELECT universe_id u FROM catalog_universes WHERE kind=? AND ref_id=?', [kind, ref])).map((r) => r.u);
   const uni = await links('product', id);
   const stmts = [insertStmt('products', { id: nid, category: p.category, name: `${p.name} (copie)`, description: p.description, media_id: p.media_id, style_id: p.style_id,
-    needs_composition: p.needs_composition, photos_per_unit: p.photos_per_unit, frame_for: p.frame_for ?? null, active: p.active, archived: 0, sort: n?.n ?? 0, created_at: now }), ...setLinksStmts('product', nid, uni)];
+    needs_composition: p.needs_composition, photos_per_unit: p.photos_per_unit, frame_for: p.frame_for ?? null, catalog_doc_id: p.catalog_doc_id ?? null, catalog_page: p.catalog_page ?? null, active: p.active, archived: 0, sort: n?.n ?? 0, created_at: now }), ...setLinksStmts('product', nid, uni)];
   for (const v of vars) {
     const vid = uid();
     stmts.push(insertStmt('product_variants', { id: vid, product_id: nid, name: v.name, format: v.format, finish: v.finish, extra_cost_cents: v.extra_cost_cents,
       preferred_supplier_product_id: v.preferred_supplier_product_id || costs.get(v.id)?.spId || null, active: v.active, archived: 0, sort: v.sort }));
     stmts.push(...setLinksStmts('variant', vid, await links('variant', v.id)));
   }
+  for (const m of await sel<{ media_id: string; sort: number }>('SELECT media_id, sort FROM product_media WHERE product_id=?', [id]))
+    stmts.push(insertStmt('product_media', { id: uid(), product_id: nid, media_id: m.media_id, sort: m.sort }));
   await batch(stmts);
   return nid;
 }

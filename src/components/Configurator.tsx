@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parsePrintFrame } from '../services/onelab';
-import { ArrowDown, ArrowUp, BadgePercent, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, BadgePercent, BookOpenText, Images, CalendarClock, Check, Eye, Gift, ImageOff, Minus, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge, Button, Field, IconButton, Input, Loading, Modal, MoneyInput, Select, Stepper, Textarea, useAsync, useConfirm, cx } from './ui';
 import { Lightbox, type LightItem } from './Lightbox';
+import { PdfViewer } from './PdfViewer';
 import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
 import { adviceFor, isSingleVisual, visualIris, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
 import { useApp } from '../store';
-import { frameFor, listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
+import { frameFor, listExamples, listProducts, listStyles, listVariants, productGalleries, type Example, type Product, type Style, type Variant } from '../services/catalog';
 import { getFamily } from '../services/families';
 import { getSession } from '../services/sessions';
 import { variantCosts } from '../services/suppliers';
@@ -41,8 +42,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
 }) {
   const confirm = useConfirm();
   const data = useAsync(async () => {
-    const [session, family, styles, examples, products, variants, ctx, costs] = await Promise.all([
-      getSession(sessionId), getFamily(familyId), listStyles(), listExamples(), listProducts(), listVariants(), pricingContext(sessionId), variantCosts(),
+    const [session, family, styles, examples, products, variants, ctx, costs, galleries] = await Promise.all([
+      getSession(sessionId), getFamily(familyId), listStyles(), listExamples(), listProducts(), listVariants(), pricingContext(sessionId), variantCosts(), productGalleries(),
     ]);
     const cart = orderId ? await loadCart(orderId) : emptyCart(sessionId, familyId, registrationId);
     const regId = cart.registrationId ?? registrationId;
@@ -52,7 +53,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
     const priced = new Set(ctx.rows.filter((r) => r.kind === 'variant').map((r) => r.ref_id));
     const u = session?.universe_id;
     const inUniverse = (p: Product) => !u || !p.universe_ids.length || p.universe_ids.includes(u) || variants.some((v) => v.product_id === p.id && priced.has(v.id));
-    return { session, family, singleIds: new Set(styles.filter((s) => s.single_visual).map((s) => s.id)), styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active && inUniverse(p)), variants: variants.filter((v) => v.active), ctx, costs, cart, photos, hasCreations };
+    return { galleries, session, family, singleIds: new Set(styles.filter((s) => s.single_visual).map((s) => s.id)), styles: styles.filter((s) => s.active), examples, products: products.filter((p) => p.active && inUniverse(p)), variants: variants.filter((v) => v.active), ctx, costs, cart, photos, hasCreations };
   }, [sessionId, familyId, orderId]);
   const [photoFor, setPhotoFor] = useState<string | null>(null);
   const [photosList, setPhotosList] = useState<Awaited<ReturnType<typeof listPhotos>>>([]);
@@ -64,7 +65,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   /** Montage chosen while editing a creation (null = unchanged). */
   const [editStyleId, setEditStyleId] = useState<string | null>(null);
   const setEditComp = (c: CartComp | null) => { setEditCompState(c); setEditStyleId(null); };
-  const [light, setLight] = useState<{ items: LightItem[]; i: number } | null>(null);
+  const [light, setLight] = useState<{ items: LightItem[]; i: number; note?: string | null } | null>(null);
+  const [catalogFor, setCatalogFor] = useState<{ id: string; page: number; title: string } | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   /** Free digital-files line being created ('new') or edited (item key). */
   const [filesFor, setFilesFor] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const d = data.data;
   const totals = useMemo(() => (cart && d ? totalsOf(cart, d.ctx.promotions) : null), [cart, d]);
   if (!d || !cart || !totals) return <Loading />;
-  const { styles, examples, products, variants, ctx, costs, family, singleIds } = d;
+  const { styles, examples, products, variants, ctx, costs, family, singleIds, galleries } = d;
   const participants = family?.participants ?? [];
   // Cancelled orders are read-only; in the client presentation a validated order is read-only too.
   const locked = cart.status === 'annulee' || (mode === 'client' && cart.status === 'validee');
@@ -291,10 +293,19 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
                 return (
                   <div key={p.id} className="rounded-2xl border border-ink-700 bg-ink-850 p-4">
                     <div className="flex gap-4">
-                      {p.thumb && <img src={p.thumb} className="size-20 rounded-xl object-cover" alt="" />}
+                      {p.thumb && (() => {
+                        const pics: LightItem[] = [...(p.media_id ? [{ mediaId: p.media_id, thumb: p.thumb, caption: p.name }] : []), ...(galleries.get(p.id) ?? []).map((g) => ({ ...g, caption: p.name }))];
+                        return (
+                          <button type="button" title={pics.length > 1 ? `Voir les ${pics.length} photos` : 'Agrandir'} onClick={() => setLight({ items: pics, i: 0, note: null })} className="relative shrink-0">
+                            <img src={p.thumb} className={cx('rounded-xl object-cover', big ? 'size-28' : 'size-20')} alt="" />
+                            {pics.length > 1 && <span className="absolute right-1 bottom-1 flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[10.5px] text-white"><Images className="size-3" />{pics.length}</span>}
+                          </button>
+                        );
+                      })()}
                       <div className="min-w-0 flex-1">
                         <div className={cx('font-semibold', big ? 'text-[18px]' : 'text-[15px]')}>{p.name}</div>
                         {p.description && <div className="mt-0.5 text-[12.5px] text-mist-400">{p.description}</div>}
+                        {p.catalog_doc_id && <button className="mt-1 mr-3 inline-flex items-center gap-1 text-[12.5px] text-gold-300 hover:text-gold-200" onClick={() => setCatalogFor({ id: p.catalog_doc_id!, page: p.catalog_page ?? 1, title: p.name })}><BookOpenText className="size-3.5" />Voir dans le catalogue (p. {p.catalog_page ?? 1})</button>}
                         {p.category === 'impression' && vs.some((v) => variantDims(v.name, v.format)) && (
                           <button className="mt-1 text-[12.5px] text-gold-300 hover:text-gold-200" onClick={() => {
                             const adv = adviceFor(fmtIris);
@@ -451,7 +462,8 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
       {styleOpen && <StyleDialog style={styleOpen} examples={exOf(styleOpen.id)} participants={participants} price={(n) => stylePrice(styleOpen, n)} big={big}
         onClose={() => setStyleOpen(null)} onZoom={(items, i) => setLight({ items, i })}
         onAdd={(c) => { addComposition(c); setStyleOpen(null); }} />}
-      <Lightbox items={light?.items ?? []} index={light?.i ?? null} onClose={() => setLight(null)} />
+      <Lightbox items={light?.items ?? []} index={light?.i ?? null} onClose={() => setLight(null)} {...(light && light.note !== undefined ? { note: light.note } : {})} />
+      {catalogFor && <PdfViewer docId={catalogFor.id} page={catalogFor.page} title={`${catalogFor.title} — catalogue`} onClose={() => setCatalogFor(null)} />}
       {filesFor && (() => {
         const line = filesFor === 'new' ? null : cart.items.find((x) => x.key === filesFor) ?? null;
         const suggestions = [...cart.compositions.map((c) => `${c.styleName}${c.participantNames ? ` (${c.participantNames})` : ''}`), ...participants.map((x) => `Iris ${x.first_name}`)];

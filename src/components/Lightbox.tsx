@@ -7,7 +7,7 @@ import { Spinner } from './ui';
 export interface LightItem { mediaId: string; thumb: string; caption?: string }
 
 /** Full-screen viewer; loads the full-size image lazily from SQLite. */
-export function Lightbox({ items, index, onClose }: { items: LightItem[]; index: number | null; onClose: () => void }) {
+export function Lightbox({ items, index, onClose, note = 'Exemple de réalisation — votre création sera réalisée à partir de vos propres iris.' }: { items: LightItem[]; index: number | null; onClose: () => void; note?: string | null }) {
   const [i, setI] = useState(index ?? 0);
   const [full, setFull] = useState<Record<string, string>>({});
   useEffect(() => { if (index != null) setI(index); }, [index]);
@@ -39,7 +39,7 @@ export function Lightbox({ items, index, onClose }: { items: LightItem[]; index:
       </div>
       <div className="pb-6 text-center text-[13px] text-white/60" onClick={(e) => e.stopPropagation()}>
         {cur.caption && <div className="mb-1 text-white/85">{cur.caption}</div>}
-        Exemple de réalisation — votre création sera réalisée à partir de vos propres iris.
+        {note}
       </div>
     </div>, document.body);
 }

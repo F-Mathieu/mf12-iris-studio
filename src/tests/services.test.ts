@@ -1252,3 +1252,31 @@ describe('catalogue : cadre proposé sous des impressions', () => {
     expect(frameFor(await get(await duplicateProduct(frame)))).toEqual([print]);
   });
 });
+
+describe('catalogue : photos de produit et catalogues PDF', () => {
+  it('photo principale + défilé ; retirer / promouvoir ; duplication ; catalogue PDF lié à une page', async () => {
+    const C = await import('../services/catalog');
+    const { batch } = await import('../services/base');
+    const now = new Date().toISOString();
+    await batch([{ sql: 'INSERT INTO media (id, thumb, full, created_at) VALUES (?,?,?,?),(?,?,?,?),(?,?,?,?)', params: ['m1', 't1', 'f', now, 'm2', 't2', 'f', now, 'm3', 't3', 'f', now] }]);
+    const pid = await C.saveProduct({ name: 'Boule', category: 'impression', media_id: 'm1' });
+    await batch([{ sql: 'INSERT INTO product_media (id, product_id, media_id, sort) VALUES (?,?,?,?),(?,?,?,?)', params: ['pm2', pid, 'm2', 1, 'pm3', pid, 'm3', 2] }]);
+    expect((await C.listProductPhotos(pid)).map((x) => x.media_id)).toEqual(['m1', 'm2', 'm3']);
+    expect((await C.productGalleries()).get(pid)!.map((g) => g.mediaId)).toEqual(['m2', 'm3']);
+    await C.setProductCover(pid, 'pm3');
+    expect((await C.listProductPhotos(pid)).map((x) => x.media_id)).toEqual(['m3', 'm2', 'm1']);
+    await C.removeProductPhoto(pid, 'cover');
+    expect((await C.listProductPhotos(pid)).map((x) => x.media_id)).toEqual(['m2', 'm1']);
+    const copy = await C.duplicateProduct(pid);
+    expect((await C.listProductPhotos(copy)).map((x) => x.media_id)).toEqual(['m2', 'm1']);
+    // supplier catalogue
+    await expect(C.addCatalogDoc('X', 'x.jpg', new Uint8Array([1]))).rejects.toThrow('PDF');
+    const doc = await C.addCatalogDoc('Catalogue Noël', 'noel.pdf', new TextEncoder().encode('%PDF-1.4 test'));
+    await C.saveProduct({ ...(await listProducts(true)).find((p) => p.id === pid)!, catalog_doc_id: doc, catalog_page: 4 });
+    expect((await listProducts(true)).find((p) => p.id === pid)).toMatchObject({ catalog_doc_id: doc, catalog_page: 4 });
+    expect(new TextDecoder().decode((await C.catalogDocBytes(doc))!)).toBe('%PDF-1.4 test');
+    expect((await C.listCatalogDocs())[0]).toMatchObject({ name: 'Catalogue Noël', products: 1 });
+    await C.deleteCatalogDoc(doc);
+    expect((await listProducts(true)).find((p) => p.id === pid)).toMatchObject({ catalog_doc_id: null, catalog_page: null });
+  });
+});

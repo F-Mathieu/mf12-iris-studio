@@ -20,6 +20,7 @@
     "jspdf-autotable": "^3.8.4",
     "lucide-react": "^1.70.0",
     "papaparse": "^5.7.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.30.6",
