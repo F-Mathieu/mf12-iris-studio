@@ -1,8 +1,8 @@
 # Tâches — MF12 Studio (branche main)
 
 ## État actuel (28/11/2026)
-- **Dernière version publiée : v2.6.3**. 94 tests vitest OK.
-- **Non publié (branche `claude/gracious-gates-xu2t2t`)** : grille de prix (template / séance) — bloc « Créations photographiques » masqué quand l’univers n’a aucun style.
+- **Dernière version publiée : v2.6.3**. 95 tests vitest OK.
+- **Non publié (branche `claude/gracious-gates-xu2t2t`)** : grille de prix (template / séance) — bloc « Créations photographiques » masqué quand l’univers n’a aucun style. Cadres : produit « Options » → « Cadre proposé automatiquement sous ces impressions » (migration 24 `products.frame_for`) ; panier : « + Ajouter un cadre » sous un tirage de même format (plusieurs cadres possibles ; réglage Flybox Onelab conservé).
 - **Tableau de bord — suite prévue** (liste validée 26/11) : 2) « Aujourd’hui / cette semaine » ; 3) seuils micro-entreprise + trésorerie 30/60/90 j ; 4) périodes rapides + clic sur les chiffres ; puis objectifs CA, transformation, délais de production, mariages par saison, sources clients, widgets personnalisables, recherche ⌘K, masquer les montants, raccourcis.
 - Toutes les étapes de la feuille de route sont faites. On travaille maintenant au fil des retours de l’utilisateur (il teste sur Mac et demande des améliorations).
 - Dernières versions : v2.6.3 menu Commerce / Administration repliable · v2.6.2 supprimer un produit du catalogue · v2.6.1 dupliquer un produit, tarif fournisseur partagé · v2.6.0 tableau de bord « Actions requises » · v2.5.5 double-clic tâche → commande · v2.5.4 postproduction : supprimer / restaurer des tâches (migration 23) · v2.5.3 ligne « Fichiers numériques » à prix libre (sans montage) · v2.5.2 BAT : choix du filigrane à l’ajout · v2.5.1 changer le montage d’une création (prénoms, disposition, souhaits gardés) + correctif libellés de lignes · v2.5.0 postproduction : urgence, ordre de traitement (glisser-déposer), tri (migration 22) · v2.4.9 disposition « En un seul iris (puzzle) » · v2.4.8 style « un seul visuel » (puzzle → format d’1 iris, migration 21) · v2.4.7 seuils de promo après remise commerciale · v2.4.6 statuts modifiables en un clic · v2.4.5 notes internes de commande · v2.4.4 BAT (joindre le RIB, suppression après envoi) · v2.4.3 agenda (RDV affichés, suppression) · v2.4.2 glisser-déposer Mac (✓ vérifié) · v2.4.1 BAT bande centrale · v2.4.0 stats par univers, relances & avis, BAT, filtre note exacte · v2.3.0 agenda, rappels « À faire », orientation tirages, copie Lightroom · v2.2.0 photos de séance, mariages · v2.1.x univers, compta, pièces jointes, registre des devis. Détail : PROJECT_STATUS.md.
@@ -14,7 +14,7 @@
   `curl -fL -o /tmp/mf12.zip https://github.com/F-Mathieu/mf12-iris-studio/releases/latest/download/MF12-Studio-macOS.zip && rm -rf "/Applications/MF12 Studio.app" && ditto -x -k /tmp/mf12.zip /Applications && rm /tmp/mf12.zip && xattr -dr com.apple.quarantine "/Applications/MF12 Studio.app" && open "/Applications/MF12 Studio.app"`
 - Données de l’app sur le Mac : `~/Library/Application Support/fr.mf12.studio/` (studio.db, apercus/, backups/, envois/).
 - Dépôt public : jamais de prix d’achat, données clients ni documents commerciaux. Changements d’interface : vérification Playwright sur `npm run dev` (vite port 5199) ; vitest + tsc systématiques.
-- Prochaine migration : **24** (dernière : 23 `production_tasks.deleted_at`).
+- Prochaine migration : **25** (dernière : 24 `products.frame_for`).
 
 ## Feuille de route (validée avec l’utilisateur)
 | Étape | Contenu | État |

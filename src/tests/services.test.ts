@@ -1239,3 +1239,16 @@ describe('catalogue : supprimer un produit', () => {
     expect((await listProducts(true)).find((p) => p.id === x.acry.id)).toMatchObject({ archived: 1, active: 0 });
   });
 });
+
+describe('catalogue : cadre proposé sous des impressions', () => {
+  it('frame_for enregistré sur un produit Options, ignoré pour les autres catégories, copié à la duplication', async () => {
+    const { saveProduct, frameFor, duplicateProduct } = await import('../services/catalog');
+    const print = await saveProduct({ name: 'Tirage Noël', category: 'impression' });
+    const frame = await saveProduct({ name: 'Cadre Flybox', category: 'option', frame_for: JSON.stringify([print]) });
+    const get = async (id: string) => (await listProducts(true)).find((p) => p.id === id)!;
+    expect(frameFor(await get(frame))).toEqual([print]);
+    const other = await saveProduct({ name: 'Boule', category: 'impression', frame_for: JSON.stringify([print]) });
+    expect(frameFor(await get(other))).toEqual([]);
+    expect(frameFor(await get(await duplicateProduct(frame)))).toEqual([print]);
+  });
+});

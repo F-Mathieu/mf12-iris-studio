@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Copy, ImageOff, ImagePlus, Plus, Star, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, Field, IconButton, Input, Loading, Modal, MoneyInput, PageHeader, Select, Tabs, Textarea, Toggle, useAsync, useConfirm, cx } from '../components/ui';
-import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
+import { addExamples, addMedia, CATEGORY_LABEL, deleteExample, duplicateProduct, frameFor, removeProduct, setCoverExample, listExamples, listProducts, listStyles, listVariants, removeVariant, saveProduct, saveStyle, saveVariant, updateExample, type Category, type Product, type Style } from '../services/catalog';
 import { listSupplierProducts } from '../services/suppliers';
 import { listUniverses, saveUniverse, type Universe } from '../services/universes';
 import { listTemplates } from '../services/pricing';
@@ -229,6 +229,7 @@ function ProductEditor({ product, universes, onClose, onDuplicated }: { product:
   const styles = useAsync(() => listStyles(), []);
   const vs = useAsync(() => (p.id ? listVariants(true).then((v) => v.filter((x) => x.product_id === p.id)) : Promise.resolve([])), [p.id]);
   const sps = useAsync(() => listSupplierProducts(), []);
+  const prints = useAsync(async () => (await listProducts()).filter((x) => x.category === 'impression'), []);
   const [nv, setNv] = useState('');
   const save = async () => { const id = await act(() => saveProduct(p as Product), 'Produit enregistré'); if (id) setP({ ...p, id }); return id; };
   return (
@@ -264,6 +265,18 @@ function ProductEditor({ product, universes, onClose, onDuplicated }: { product:
             <Toggle checked={!!p.active} onChange={(v) => setP({ ...p, active: v ? 1 : 0 })} label="Actif" />
             <Toggle checked={!!p.archived} onChange={(v) => setP({ ...p, archived: v ? 1 : 0, active: v ? 0 : p.active })} label="Archivé (reste visible dans l’historique)" />
           </div>
+          {p.category === 'option' && (
+            <Field label="Cadre proposé automatiquement sous ces impressions" className="col-span-2"
+              hint="Dans le panier, « + Ajouter un cadre » apparaît sous un tirage de ces produits quand ce cadre a une variante du même nom (ex. « 20 × 20 cm »). Quantité liée au tirage.">
+              <div className="flex flex-wrap gap-1.5">
+                {(prints.data ?? []).map((x) => { const on = frameFor(p).includes(x.id); return (
+                  <button key={x.id} type="button" onClick={() => setP({ ...p, frame_for: JSON.stringify(on ? frameFor(p).filter((id) => id !== x.id) : [...frameFor(p), x.id]) })}
+                    className={cx('rounded-full border px-2.5 py-1 text-[12px] transition', on ? 'border-gold-500 bg-gold-500/15 text-gold-200' : 'border-ink-600 text-mist-300 hover:border-ink-500')}>{x.name}</button>
+                ); })}
+                {!prints.data?.length && <span className="text-[12px] text-mist-400">Aucun produit dans « Impressions ».</span>}
+              </div>
+            </Field>
+          )}
         </div>
       </div>
       <div className="mt-6">

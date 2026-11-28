@@ -402,6 +402,9 @@ ALTER TABLE production_tasks ADD COLUMN rank REAL;
   /* 23 — tâche de postproduction retirée du suivi (non recréée si la commande est corrigée ; restaurable). */ `
 ALTER TABLE production_tasks ADD COLUMN deleted_at TEXT;
 `,
+  /* 24 — cadre (produit « Options ») proposé automatiquement sous les tirages de ces produits, au même format : liste JSON d’ids de produits. */ `
+ALTER TABLE products ADD COLUMN frame_for TEXT;
+`,
 ];
 
 export async function migrate(db: Db): Promise<number> {

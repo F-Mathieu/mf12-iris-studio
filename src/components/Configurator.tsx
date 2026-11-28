@@ -8,7 +8,7 @@ import { PinDialog } from './PinDialog';
 import { FormatGuideDialog, IrisSketch, SizeViewer, variantDims } from './IrisSketch';
 import { adviceFor, isSingleVisual, visualIris, dimsLabel, isPortrait, sameDims, ORIENTATIONS, ORIENTATION_LABEL, type Orientation } from '../lib/formatsGuide';
 import { useApp } from '../store';
-import { listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
+import { frameFor, listExamples, listProducts, listStyles, listVariants, type Example, type Product, type Style, type Variant } from '../services/catalog';
 import { getFamily } from '../services/families';
 import { getSession } from '../services/sessions';
 import { variantCosts } from '../services/suppliers';
@@ -115,32 +115,29 @@ export function Configurator({ mode, sessionId, familyId, registrationId, orderI
   const variantPrice = (v: Variant, iris = comp?.irisCount ?? 0) => findPrice(ctx.rows, 'variant', v.id, iris);
   const exOf = (styleId: string) => examples.filter((e) => e.style_id === styleId);
   const frameCfg = parsePrintFrame(settings.print_frame);
-  const frameProduct = frameCfg ? products.find((p) => p.id === frameCfg.frame) ?? null : null;
-  /** Frame offered under a print line (same format), with its sale price; null if none applies. */
-  const frameOffer = (i: Cart['items'][number]) => {
-    if (!frameCfg || !frameProduct || i.parentKey || !i.productId || !frameCfg.prints.includes(i.productId)) return null;
-    const v = variants.find((x) => x.product_id === frameProduct.id && x.name === i.variantName);
-    if (!v) return null;
+  /** Frames offered under a print line (same format), with their sale price: products « Options » set for these prints, and the Onelab Flybox setting. */
+  const frameOffers = (i: Cart['items'][number]) => {
+    if (i.parentKey || !i.productId) return [];
     const iris = cart.compositions.find((c) => c.key === i.compositionKey)?.irisCount ?? 0;
-    return { v, price: findPrice(ctx.rows, 'variant', v.id, iris) };
+    return products.filter((fp) => fp.category === 'option' && (frameFor(fp).includes(i.productId!) || (frameCfg?.frame === fp.id && frameCfg.prints.includes(i.productId!))))
+      .flatMap((fp) => { const v = variants.find((x) => x.product_id === fp.id && x.name === i.variantName); return v ? [{ fp, v, price: findPrice(ctx.rows, 'variant', v.id, iris) }] : []; });
   };
-  const addFrame = (i: Cart['items'][number]) => {
-    const f = frameOffer(i);
-    if (!f || f.price == null || !frameProduct) return;
-    update((x) => ({ ...x, items: [...x.items, { key: uid(), variantId: f.v.id, productId: frameProduct.id, category: frameProduct.category, productName: frameProduct.name, variantName: f.v.name,
+  const addFrame = (i: Cart['items'][number], f: ReturnType<typeof frameOffers>[number]) => {
+    if (f.price == null) return;
+    update((x) => ({ ...x, items: [...x.items, { key: uid(), variantId: f.v.id, productId: f.fp.id, category: f.fp.category, productName: f.fp.name, variantName: f.v.name,
       compositionKey: i.compositionKey ?? null, parentKey: i.key, qty: i.qty, unitPriceCents: f.price!, unitCostCents: costs.get(f.v.id)?.cost ?? 0 }] }));
   };
   const renderItems = (list: Cart['items']) => list.filter((i) => !i.parentKey || !list.some((p) => p.key === i.parentKey)).map((i) => {
     const kids = list.filter((k) => k.parentKey === i.key);
-    const offer = !locked && !kids.length ? frameOffer(i) : null;
+    const offers = !locked && !kids.length ? frameOffers(i) : [];
     return (
       <div key={i.key} className="space-y-1">
         <ItemLine i={i} locked={locked} update={update} onPhotos={i.photosPerUnit != null && !isValidated ? () => setPhotoFor(i.key) : undefined}
           onEdit={isFreeFiles(i) && mode === 'admin' && !locked ? () => setFilesFor(i.key) : undefined} />
         {kids.map((k) => <div key={k.key} className="ml-3 border-l border-gold-500/40 pl-2"><ItemLine i={k} locked={locked} update={update} child /></div>)}
-        {offer && (offer.price != null
-          ? <button className="ml-3 text-[12px] text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); addFrame(i); }}>+ Ajouter un cadre ({frameProduct!.name.replace(/^Cadre /, '')}) · {eur(offer.price)}</button>
-          : mode === 'admin' && <div className="ml-3 text-[11.5px] text-mist-500">Cadre {i.variantName} : prix de vente non défini dans la grille</div>)}
+        {offers.map((o) => (o.price != null
+          ? <button key={o.fp.id} className="ml-3 block text-[12px] text-gold-300/90 hover:text-gold-200" onClick={(e) => { e.stopPropagation(); addFrame(i, o); }}>+ Ajouter un cadre ({o.fp.name.replace(/^Cadre /, '')}) · {eur(o.price)}</button>
+          : mode === 'admin' && <div key={o.fp.id} className="ml-3 text-[11.5px] text-mist-500">{o.fp.name} {i.variantName} : prix de vente non défini dans la grille</div>))}
       </div>
     );
   });
