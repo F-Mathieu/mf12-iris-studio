@@ -41,7 +41,7 @@ export function PriceListEditor({ priceListId, universeId }: { priceListId: stri
 
   return (
     <div className="space-y-5">
-      <Card>
+      {styles.length > 0 && <Card>
         <CardHeader title="Créations photographiques" subtitle="Frais de création facturés une seule fois par création, quel que soit le nombre de produits. « Tous » s’applique si aucun prix spécifique au nombre d’iris n’est défini." />
         <div className="overflow-x-auto p-2">
           <table className="w-full text-[13px]">
@@ -59,7 +59,7 @@ export function PriceListEditor({ priceListId, universeId }: { priceListId: stri
             </tbody>
           </table>
         </div>
-      </Card>
+      </Card>}
 
       {(['numerique', 'impression', 'option'] as const).map((cat) => {
         const prods = products.filter((p) => p.category === cat && p.active);
